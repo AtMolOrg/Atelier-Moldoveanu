@@ -635,14 +635,25 @@
     parsed.version = 8;
     return parsed;
   }
+  function normalizeState(parsed){
+    // Firebase RTDB prunes empty arrays on save, so they can come back as undefined on load.
+    if(!Array.isArray(parsed.stations)) parsed.stations = [];
+    if(!Array.isArray(parsed.projects)) parsed.projects = [];
+    if(!Array.isArray(parsed.repairs)) parsed.repairs = [];
+    if(!Array.isArray(parsed.workers)) parsed.workers = [];
+    if(!Array.isArray(parsed.assignments)) parsed.assignments = [];
+    if(!Array.isArray(parsed.colorHistory)) parsed.colorHistory = [];
+    if(!Array.isArray(parsed.connections)) parsed.connections = [];
+    return parsed;
+  }
   function resolveVersioned(parsed){
     if(!parsed) return defaultState();
-    if(parsed.version === DATA_VERSION) return parsed;
-    if(parsed.version === 7) return migrateV7toV8(parsed);
-    if(parsed.version === 6) return migrateV7toV8(migrateV6toV7(parsed));
-    if(parsed.version === 5) return migrateV7toV8(migrateV6toV7(migrateV5toV6(parsed)));
-    if(parsed.version === 4) return migrateV7toV8(migrateV6toV7(migrateV5toV6(migrateV4toV5(parsed))));
-    if(parsed.version === 3) return migrateV7toV8(migrateV6toV7(migrateV5toV6(migrateV4toV5(migrateV3toV4(parsed)))));
+    if(parsed.version === DATA_VERSION) return normalizeState(parsed);
+    if(parsed.version === 7) return normalizeState(migrateV7toV8(parsed));
+    if(parsed.version === 6) return normalizeState(migrateV7toV8(migrateV6toV7(parsed)));
+    if(parsed.version === 5) return normalizeState(migrateV7toV8(migrateV6toV7(migrateV5toV6(parsed))));
+    if(parsed.version === 4) return normalizeState(migrateV7toV8(migrateV6toV7(migrateV5toV6(migrateV4toV5(parsed)))));
+    if(parsed.version === 3) return normalizeState(migrateV7toV8(migrateV6toV7(migrateV5toV6(migrateV4toV5(migrateV3toV4(parsed))))));
     return defaultState();
   }
   function parseOrDefault(raw){
