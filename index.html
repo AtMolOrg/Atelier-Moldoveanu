@@ -9,7 +9,7 @@
 <style>
   :root{
     --bg:#f1f1f1;
-    --bg-grid: rgba(0,0,0,0.045);
+    --bg-grid-dot: rgba(0,0,0,0.16);
     --panel:#ffffff;
     --panel-2:#e8e8e8;
     --panel-3:#d9d9d9;
@@ -35,9 +35,8 @@
   body{
     margin:0;
     background-color: var(--bg);
-    background-image:
-      repeating-linear-gradient(0deg, var(--bg-grid) 0 1px, transparent 1px 28px),
-      repeating-linear-gradient(90deg, var(--bg-grid) 0 1px, transparent 1px 28px);
+    background-image: radial-gradient(var(--bg-grid-dot) 1.8px, transparent 1.8px);
+    background-size: 24px 24px;
     color: var(--ink);
     font-family: 'Raleway', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -249,8 +248,7 @@
   .canvas-viewport{
     position:relative; overflow:hidden;
     height:70vh; min-height:460px;
-    border:1px solid var(--border); border-radius:var(--radius);
-    background: var(--bg);
+    background: transparent;
     cursor:grab;
     touch-action:none;
   }
