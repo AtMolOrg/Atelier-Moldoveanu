@@ -8,6 +8,7 @@
 - [ ] View-ul "Etape comune" din Hartă atelier (board-ul liber cu coloane trase manual) — scos din UI pe 2026-08-24, a rămas doar "Pe proiecte"
 
 ## Rezolvate
+- [x] 2026-08-24 — Hartă atelier: canvas infinit (pan/zoom) păstrat, dar containerul umple tot ecranul disponibil în loc de o cutie fixă de 70vh care tăia marginile proiectelor de sus/jos
 - [x] 2026-08-24 — Scos butonul "+ Proiect nou" din bara de sus când ești pe "Hartă atelier" (rămâne doar cel din toolbar-ul hărții, era duplicat)
 - [x] 2026-08-24 — Scoasă bara "Proiecte în execuție" de deasupra hărții atelierului
 - [x] 2026-08-24 — Fundalul din spatele coloanelor de pe "Hartă atelier" e acum caroiaj punctat subtil, nu un panou solid
