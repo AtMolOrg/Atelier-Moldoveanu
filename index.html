@@ -53,8 +53,7 @@
     position:relative; z-index:40;
     display:flex; align-items:center; gap:14px;
     padding:14px 20px;
-    background: linear-gradient(180deg, var(--panel), var(--panel) 92%, rgba(0,0,0,0.08));
-    border-bottom:1px solid var(--border);
+    background: transparent;
     flex-wrap:wrap;
   }
   .brand{ display:flex; flex-direction:column; margin-right:auto; }
@@ -99,6 +98,7 @@
 
   /* ---------- MAIN / BOARD ---------- */
   main{ flex:1; overflow:auto; padding:18px 20px; }
+  main.canvas-fullbleed{ padding:0; overflow:hidden; }
   .board{ display:flex; gap:14px; align-items:flex-start; height:100%; }
 
   .column{
@@ -120,7 +120,10 @@
   .column.dragging-col{ box-shadow: 0 16px 40px rgba(0,0,0,0.35); z-index:50; opacity:0.97; }
   .col-head{ display:flex; align-items:center; gap:8px; padding:11px 12px 9px 14px; border-bottom:1px solid var(--border); cursor:grab; user-select:none; }
   .col-head:active{ cursor:grabbing; }
-  .canvas-toolbar{ display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
+  .canvas-toolbar{
+    position:absolute; left:14px; top:14px; z-index:6;
+    display:flex; align-items:center; gap:12px;
+  }
 
   .proj-cluster{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden; box-shadow:var(--shadow); }
   .proj-cluster-head{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel-2); }
@@ -1025,7 +1028,7 @@
       zoomCanvasBy(factor, e.clientX - rect.left, e.clientY - rect.top);
     }, {passive:false});
 
-    var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip';
+    var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip, .canvas-toolbar';
     viewport.addEventListener('mousedown', function(e){
       if(e.target.closest(noPanSelector)) return;
       canvasDragging = true;
@@ -1171,10 +1174,9 @@
     var html = '';
 
     layoutStationsGrid(state.stations);
-    html += '<div class="canvas-toolbar"><button class="btn btn-sm btn-primary" id="canvas-add-project">+ Proiect nou</button>';
-    html += '<span class="field-hint" style="margin:0;">Fiecare proiect are rândul lui, cu toate etapele — nimic nu se amestecă între proiecte.</span>';
-    html += '</div>';
-    html += '<div class="canvas-viewport" id="canvas-viewport"><div class="canvas-content" id="canvas-content">';
+    html += '<div class="canvas-viewport" id="canvas-viewport">';
+    html += '<div class="canvas-toolbar"><button class="btn btn-sm btn-primary" id="canvas-add-project">+ Proiect nou</button></div>';
+    html += '<div class="canvas-content" id="canvas-content">';
     html += '<div class="harta-grid" id="harta-grid">';
     if(hartaViewMode === 'proiecte'){
       html += renderHartaPeProiecte();
@@ -2295,12 +2297,13 @@
       aside1.style.display = 'flex';
       aside2.style.display = 'flex';
       main.classList.add('sidebar-active');
-      // on mobile the sidebars are fullscreen overlays — only open on an explicit tap, not automatically
-      if(!isMobile()){ teamSidebarCtrl.show(); supplierSidebarCtrl.show(); }
+      main.classList.add('canvas-fullbleed');
+      // sidebars stay closed until the user hovers/taps the handle — never auto-open
     } else {
       aside1.style.display = 'none';
       aside2.style.display = 'none';
       main.classList.remove('sidebar-active');
+      main.classList.remove('canvas-fullbleed');
       teamSidebarCtrl.clearTimer();
       supplierSidebarCtrl.clearTimer();
     }
