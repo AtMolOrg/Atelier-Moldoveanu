@@ -2210,7 +2210,7 @@
       }).then(function(res){
         if(!res.ok) throw new Error('feedback send failed');
         close();
-        showToast('Mulțumim pentru feedback!');
+        showToast('✓');
       }).catch(function(){
         statusEl.textContent = 'Nu s-a putut trimite. Încearcă din nou.';
         sendBtn.disabled = false;
