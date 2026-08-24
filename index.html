@@ -501,6 +501,7 @@
       <div class="brand-title">ATELIER MOLDOVEANU <span>—</span> ORGANIZARE</div>
     </div>
     <input type="text" id="search" class="search-input" placeholder="Caută cod sau client…">
+    <button class="btn btn-ghost btn-icon" id="btn-feedback" title="Lasă un feedback">💬</button>
     <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
     <button class="btn btn-ghost btn-icon" id="btn-reset" title="Resetează tot panoul">⟲</button>
   </header>
@@ -610,6 +611,9 @@
   var hasCloudStorage = (typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function');
 
   function firebaseUrl(){ return FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '.json'; }
+  // feedback lives in its own Firebase node, separate from the board data — never overwritten,
+  // each submission is POSTed (Firebase generates a unique push key per entry)
+  function feedbackUrl(){ return FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '-feedback.json'; }
 
   function loadState(){
     if(hasFirebase){
@@ -2175,6 +2179,65 @@
     });
   }
 
+  /* ================= MODAL: feedback ================= */
+  function openFeedbackModal(){
+    var root = document.getElementById('modal-root');
+    var html = '<div class="modal-overlay" id="modal-overlay"><div class="modal">';
+    html += '<div class="modal-head"><h3>Feedback</h3><button class="modal-close" id="modal-close">✕</button></div>';
+    html += '<div class="modal-body">';
+    html += '<div class="field"><label>Mesajul tău</label><textarea id="fb-text" placeholder="Ce observi, ce ai vrea schimbat, ce nu merge…" style="min-height:110px;"></textarea></div>';
+    html += '<div class="field-hint" id="fb-status" style="margin:0;"></div>';
+    html += '</div><div class="modal-foot"><div class="left"><button class="btn btn-ghost btn-sm" id="fb-export">Exportă tot (.txt)</button></div>';
+    html += '<div><button class="btn btn-ghost" id="btn-cancel">Închide</button> <button class="btn btn-primary" id="fb-send">Trimite</button></div></div></div></div>';
+    root.innerHTML = html;
+
+    function close(){ root.innerHTML=''; }
+    document.getElementById('modal-close').addEventListener('click', close);
+    document.getElementById('btn-cancel').addEventListener('click', close);
+    document.getElementById('modal-overlay').addEventListener('click', function(e){ if(e.target.id==='modal-overlay') close(); });
+
+    document.getElementById('fb-send').addEventListener('click', function(){
+      var text = document.getElementById('fb-text').value.trim();
+      var statusEl = document.getElementById('fb-status');
+      if(!text) return;
+      if(!hasFirebase){ statusEl.textContent = 'Feedback indisponibil — nu e configurat Firebase.'; return; }
+      var sendBtn = document.getElementById('fb-send');
+      sendBtn.disabled = true;
+      fetch(feedbackUrl(), {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({text: text, ts: new Date().toISOString()})
+      }).then(function(res){
+        if(!res.ok) throw new Error('feedback send failed');
+        close();
+        showToast('Mulțumim pentru feedback!');
+      }).catch(function(){
+        statusEl.textContent = 'Nu s-a putut trimite. Încearcă din nou.';
+        sendBtn.disabled = false;
+      });
+    });
+
+    document.getElementById('fb-export').addEventListener('click', function(){
+      if(!hasFirebase){ alert('Feedback indisponibil — nu e configurat Firebase.'); return; }
+      fetch(feedbackUrl()).then(function(res){ return res.json(); }).then(function(raw){
+        var entries = [];
+        if(raw) Object.keys(raw).forEach(function(k){ entries.push(raw[k]); });
+        entries.sort(function(a,b){ return (a.ts||'') < (b.ts||'') ? -1 : 1; });
+        var lines = entries.length
+          ? entries.map(function(e){ return '[' + (e.ts||'?') + ']\n' + (e.text||'') + '\n'; })
+          : ['Niciun feedback trimis încă.'];
+        var blob = new Blob([lines.join('\n')], {type:'text/plain;charset=utf-8'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'feedback-atelier-' + isoToday() + '.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      }).catch(function(){ alert('Nu s-a putut încărca feedback-ul.'); });
+    });
+  }
+
   /* ================= MODAL: proiect ================= */
   function openProjectModal(projectId){
     var editing = !!projectId;
@@ -2353,6 +2416,7 @@
   }
 
   document.getElementById('search').addEventListener('input', function(e){ searchQuery = e.target.value; render(); });
+  document.getElementById('btn-feedback').addEventListener('click', function(){ openFeedbackModal(); });
 
   document.getElementById('btn-reset').addEventListener('click', function(){
     if(confirm('Ștergi tot panoul (proiecte, etape, reparații)? Nu se poate anula.')){

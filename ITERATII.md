@@ -10,6 +10,7 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 - **Hartă atelier → canvas infinit**: fundal cu caroiaj punctat (nu panou solid), containerul de pan/zoom umple tot ecranul disponibil (nu mai e cutie fixă de 70vh care tăia marginile).
 - **UI plutitor**: bara de sus (titlu, search, butoane) nu mai are fundal alb solid — totul plutește direct pe caroiaj. Butonul "+ Proiect nou" de pe hartă e simplu, plutitor, fără panoul alb cu text explicativ. Sidebar-urile Echipă/Furnizori nu se mai deschid automat la intrarea pe hartă — doar la hover/click pe eticheta laterală.
 - **Fix**: partițiile ("⊞" pe o etapă, ex. Atelier/Extern) erau stocate global pe etapă, deci adăugarea uneia pe un proiect apărea și la celelalte. Acum sunt per-proiect.
+- **Buton feedback**: iconița 💬 din bara de sus (unde erau tab-urile) deschide un mesaj scurt; se salvează într-un nod separat în Firebase (`workshop-board-feedback`, nu se amestecă cu datele panoului). Din același modal, "Exportă tot (.txt)" descarcă tot ce s-a strâns într-un fișier text.
 
 ## 2026-08-20
 
