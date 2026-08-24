@@ -1,13 +1,13 @@
 # TODO — Atelier Moldoveanu
 
 ## Adaptare mobil (telefon)
-- [ ] Sidebar Echipă/Furnizori: să devină overlay pe tot ecranul pe mobil, nu împărțit sus/jos — se simte "dubios" acum
-- [ ] Butoane și zone de atins mai mari sub ~640px (multe butoane sunt gândite pentru click de mouse, nu deget)
-- [ ] Text/fonturi prea mici pe ecran îngust în unele zone
-- [ ] Pe telefon, aplicația să pornească implicit pe tab-ul "Proiecte" (tabel) în loc de "Hartă atelier"
 - [ ] "Hartă atelier" (canvas pan/zoom, drag&drop coloane): greu de făcut touch-friendly — de reevaluat separat, posibil rămâne experiență doar-desktop
 
 ## Rezolvate
+- [x] 2026-08-24 — Sidebar Echipă/Furnizori devin overlay pe tot ecranul pe mobil (sub 640px), cu buton × de închidere și fundal întunecat; nu se mai deschid automat pe mobil la intrarea în "Hartă atelier"
+- [x] 2026-08-24 — Butoane, taburi, câmpuri de formular și zone de atins mărite sub 640px; font 16px pe input-uri ca să nu mai facă zoom automat Safari pe iOS
+- [x] 2026-08-24 — Pe telefon (sub 640px), aplicația pornește implicit pe tab-ul "Proiecte" în loc de "Hartă atelier"
+- [x] 2026-08-24 — Temă alb-negru/gri (fundal gri deschis, carduri albe, text negru), cu accentul portocaliu păstrat pe butoane și culorile de stare (întârziat/ok/finalizat) păstrate pentru claritate
 - [x] 2026-08-20 — Fix crash la încărcare cauzat de Firebase care șterge array-urile goale (workers/assignments/repairs/connections deveneau `undefined`) — bloca butoanele de adăugat proiect/membru echipă
 
 ## Idei / de discutat
