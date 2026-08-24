@@ -1170,12 +1170,13 @@
     html += '<div class="canvas-toolbar"><button class="btn btn-sm btn-primary" id="canvas-add-project">+ Proiect nou</button>';
     html += '<span class="field-hint" style="margin:0;">Fiecare proiect are rândul lui, cu toate etapele — nimic nu se amestecă între proiecte.</span>';
     html += '</div>';
+    if(hartaViewMode === 'proiecte'){
+      html += '<div class="harta-grid" id="harta-grid">';
+      html += renderHartaPeProiecte();
+      html += '</div>'; // .harta-grid
+    } else {
     html += '<div class="canvas-viewport" id="canvas-viewport"><div class="canvas-content" id="canvas-content">';
     html += '<div class="harta-grid" id="harta-grid">';
-
-    if(hartaViewMode === 'proiecte'){
-      html += renderHartaPeProiecte();
-    } else {
     state.stations.forEach(function(station, idx){
       var hasLanes = station.lanes && station.lanes.length > 0;
       var boxWidth = stationBoxWidth(station);
@@ -1238,7 +1239,6 @@
       }
       html += '</div>';
     });
-    }
     html += '</div>'; // .harta-grid
     html += '</div>'; // .canvas-content
     html += '<div class="canvas-zoom-controls">' +
@@ -1248,6 +1248,7 @@
       '<button id="zoom-fit" title="Potrivește totul pe ecran">⤢</button>' +
       '</div>';
     html += '</div>'; // .canvas-viewport
+    }
 
     board.innerHTML = html;
     renderTeamSidebar();
