@@ -6,6 +6,8 @@
 <title>Panou de Producție — Atelier</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <style>
   :root{
     --bg:#f1f1f1;
@@ -432,6 +434,15 @@
   /* ---------- LOADING ---------- */
   #loading{ display:flex; align-items:center; justify-content:center; height:100vh; color:var(--ink-dim); font-size:14px; gap:10px; }
   .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid var(--border); border-top-color: var(--accent); animation: spin 700ms linear infinite; }
+
+  /* ---------- LOGIN ---------- */
+  #login-screen{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:var(--bg); z-index:9999; }
+  .login-box{ display:flex; flex-direction:column; gap:12px; width:280px; padding:28px; background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.12); }
+  .login-title{ font-family:'Raleway', sans-serif; font-weight:800; font-size:15px; letter-spacing:0.03em; text-align:center; }
+  .login-sub{ font-size:12.5px; color:var(--ink-dim); text-align:center; margin:-6px 0 4px; }
+  .login-input{ width:100%; box-sizing:border-box; }
+  .login-btn{ width:100%; }
+  .login-error{ font-size:12px; color:#c0392b; min-height:14px; text-align:center; }
   @keyframes spin{ to{ transform: rotate(360deg); } }
 
   @media (max-width: 640px){
@@ -493,7 +504,17 @@
 </head>
 <body>
 
-<div id="loading"><div class="spinner"></div> Se încarcă panoul de producție…</div>
+<div id="login-screen">
+  <form id="login-form" class="login-box">
+    <div class="login-title">ATELIER MOLDOVEANU</div>
+    <div class="login-sub">Introdu parola echipei pentru a continua</div>
+    <input type="password" id="login-password" class="search-input login-input" placeholder="Parolă" autocomplete="current-password" required>
+    <button type="submit" class="btn btn-primary login-btn">Intră</button>
+    <div class="login-error" id="login-error"></div>
+  </form>
+</div>
+
+<div id="loading" style="display:none;"><div class="spinner"></div> Se încarcă panoul de producție…</div>
 
 <div class="app" id="app" style="display:none;">
   <header class="topbar">
@@ -607,17 +628,41 @@
   // Exemplu: 'https://atelier-productie-default-rtdb.europe-west1.firebasedatabase.app'
   // Lasa gol ('') daca vrei sa continui doar cu Claude.ai / stocare locala.
   var FIREBASE_DB_URL = 'https://atelier-m-cccb6-default-rtdb.europe-west1.firebasedatabase.app/';
+  var FIREBASE_PROJECT_ID = 'atelier-m-cccb6';
+  // Web API key — nu e secret, e sigur de expus în cod client (protecția reală vine din Security Rules).
+  // Ia-l din Firebase Console > Project Settings > General > Your apps > Web app > SDK setup.
+  var FIREBASE_API_KEY = 'REPLACE_WITH_YOUR_FIREBASE_WEB_API_KEY';
+  var SHARED_LOGIN_EMAIL = 'echipa@atelier-moldoveanu.local';
   var hasFirebase = !!FIREBASE_DB_URL;
   var hasCloudStorage = (typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function');
+  var hasAuth = hasFirebase && FIREBASE_API_KEY.indexOf('REPLACE_WITH') !== 0 && typeof firebase !== 'undefined';
 
-  function firebaseUrl(){ return FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '.json'; }
+  if(hasAuth){
+    firebase.initializeApp({
+      apiKey: FIREBASE_API_KEY,
+      authDomain: FIREBASE_PROJECT_ID + '.firebaseapp.com',
+      databaseURL: FIREBASE_DB_URL,
+      projectId: FIREBASE_PROJECT_ID
+    });
+  }
+
+  function currentIdToken(){
+    if(!hasAuth || !firebase.auth().currentUser) return Promise.resolve('');
+    return firebase.auth().currentUser.getIdToken();
+  }
+  function withAuth(base){
+    return currentIdToken().then(function(token){
+      return token ? base + '?auth=' + encodeURIComponent(token) : base;
+    });
+  }
+  function firebaseUrl(){ return withAuth(FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '.json'); }
   // feedback lives in its own Firebase node, separate from the board data — never overwritten,
   // each submission is POSTed (Firebase generates a unique push key per entry)
-  function feedbackUrl(){ return FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '-feedback.json'; }
+  function feedbackUrl(){ return withAuth(FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '-feedback.json'); }
 
   function loadState(){
     if(hasFirebase){
-      return fetch(firebaseUrl()).then(function(res){
+      return firebaseUrl().then(function(url){ return fetch(url); }).then(function(res){
         if(!res.ok) throw new Error('firebase read failed');
         return res.json();
       }).then(function(raw){
@@ -716,10 +761,12 @@
   }
   function saveState(){
     if(hasFirebase){
-      return fetch(firebaseUrl(), {
-        method: 'PUT',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(state)
+      return firebaseUrl().then(function(url){
+        return fetch(url, {
+          method: 'PUT',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(state)
+        });
       }).then(function(res){
         if(!res.ok) saveToLocal(true);
       }).catch(function(){ saveToLocal(true); });
@@ -2203,10 +2250,12 @@
       if(!hasFirebase){ statusEl.textContent = 'Feedback indisponibil — nu e configurat Firebase.'; return; }
       var sendBtn = document.getElementById('fb-send');
       sendBtn.disabled = true;
-      fetch(feedbackUrl(), {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({text: text, ts: new Date().toISOString()})
+      feedbackUrl().then(function(url){
+        return fetch(url, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({text: text, ts: new Date().toISOString()})
+        });
       }).then(function(res){
         if(!res.ok) throw new Error('feedback send failed');
         close();
@@ -2219,7 +2268,7 @@
 
     document.getElementById('fb-export').addEventListener('click', function(){
       if(!hasFirebase){ alert('Feedback indisponibil — nu e configurat Firebase.'); return; }
-      fetch(feedbackUrl()).then(function(res){ return res.json(); }).then(function(raw){
+      feedbackUrl().then(function(url){ return fetch(url); }).then(function(res){ return res.json(); }).then(function(raw){
         var entries = [];
         if(raw) Object.keys(raw).forEach(function(k){ entries.push(raw[k]); });
         entries.sort(function(a,b){ return (a.ts||'') < (b.ts||'') ? -1 : 1; });
@@ -2426,17 +2475,46 @@
     }
   });
 
-  loadState().then(function(s){
-    state = s;
-    if(!state.colorHistory) state.colorHistory = ['#f0b878','#a8c8dc','#a8d9b8','#f0dd9a','#d4b8dc','#a8dcc8','#f0b3bd','#b3d0e8'];
-    if(!state.connections) state.connections = [];
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    setAddButton();
-    updateSidebarForTab();
-    render();
-    if(!hasFirebase && !hasCloudStorage) showToast('Mod local — configurează Firebase (vezi comentariul din cod) sau deschide prin Claude.ai, ca șeful tău să vadă aceleași date.', true);
-  });
+  function startApp(){
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('loading').style.display = 'flex';
+    loadState().then(function(s){
+      state = s;
+      if(!state.colorHistory) state.colorHistory = ['#f0b878','#a8c8dc','#a8d9b8','#f0dd9a','#d4b8dc','#a8dcc8','#f0b3bd','#b3d0e8'];
+      if(!state.connections) state.connections = [];
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      setAddButton();
+      updateSidebarForTab();
+      render();
+      if(!hasFirebase && !hasCloudStorage) showToast('Mod local — configurează Firebase (vezi comentariul din cod) sau deschide prin Claude.ai, ca șeful tău să vadă aceleași date.', true);
+    });
+  }
+
+  if(hasAuth){
+    document.getElementById('login-form').addEventListener('submit', function(e){
+      e.preventDefault();
+      var btn = e.target.querySelector('button[type="submit"]');
+      var errEl = document.getElementById('login-error');
+      var pass = document.getElementById('login-password').value;
+      btn.disabled = true;
+      errEl.textContent = '';
+      firebase.auth().signInWithEmailAndPassword(SHARED_LOGIN_EMAIL, pass).catch(function(){
+        errEl.textContent = 'Parolă greșită. Încearcă din nou.';
+        btn.disabled = false;
+      });
+    });
+    firebase.auth().onAuthStateChanged(function(user){
+      if(user){
+        startApp();
+      } else {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('login-screen').style.display = 'flex';
+      }
+    });
+  } else {
+    startApp();
+  }
 })();
 </script>
 </body>
