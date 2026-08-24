@@ -52,7 +52,7 @@
 
   /* ---------- HEADER ---------- */
   .topbar{
-    position:relative; z-index:40;
+    position:fixed; top:0; left:0; right:0; z-index:40;
     display:flex; align-items:center; gap:14px;
     padding:14px 20px;
     background: transparent;
@@ -123,7 +123,7 @@
   .col-head{ display:flex; align-items:center; gap:8px; padding:11px 12px 9px 14px; border-bottom:1px solid var(--border); cursor:grab; user-select:none; }
   .col-head:active{ cursor:grabbing; }
   .canvas-toolbar{
-    position:absolute; left:14px; top:14px; z-index:6;
+    position:absolute; left:14px; top:76px; z-index:6;
     display:flex; align-items:center; gap:12px;
   }
 
@@ -316,7 +316,7 @@
   .team-sidebar .people-pool{ margin-bottom:16px; }
   .team-sidebar .people-row{ flex-direction:column; }
   .team-sidebar .worker-token{ width:100%; }
-  main.sidebar-active{ padding-left:46px; }
+  main.sidebar-active{ padding-left:0; }
   .team-sidebar-close{ display:none; }
   .sidebar-backdrop{ display:none; }
   .pin-btn.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
@@ -1031,15 +1031,17 @@
     var viewport = document.getElementById('canvas-viewport');
     var content = document.getElementById('canvas-content');
     if(!viewport || !content) return;
+    var topbarEl = document.querySelector('.topbar');
+    var topInset = (topbarEl ? topbarEl.offsetHeight : 0) + 12;
     var naturalW = content.scrollWidth || 1;
     var naturalH = content.scrollHeight || 1;
     var vw = viewport.clientWidth - 24;
-    var vh = viewport.clientHeight - 24;
+    var vh = viewport.clientHeight - topInset - 12;
     var scale = Math.min(vw / naturalW, vh / naturalH, 1);
     scale = Math.max(CANVAS_MIN_ZOOM, scale);
     canvasZoom = scale;
     canvasPanX = Math.max(12, (viewport.clientWidth - naturalW * scale) / 2);
-    canvasPanY = 12;
+    canvasPanY = topInset;
     applyCanvasTransform();
     updateZoomLabel();
   }
