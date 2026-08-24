@@ -501,9 +501,6 @@
       <div class="brand-title">ATELIER MOLDOVEANU <span>—</span> ORGANIZARE</div>
     </div>
     <input type="text" id="search" class="search-input" placeholder="Caută cod sau client…">
-    <div class="tabs" id="tabs">
-      <button data-tab="hala" class="active">Hartă atelier</button>
-    </div>
     <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
     <button class="btn btn-ghost btn-icon" id="btn-reset" title="Resetează tot panoul">⟲</button>
   </header>
@@ -2355,15 +2352,6 @@
     }
   }
 
-  document.getElementById('tabs').addEventListener('click', function(e){
-    var btn = e.target.closest('button[data-tab]');
-    if(!btn) return;
-    tab = btn.dataset.tab;
-    document.querySelectorAll('#tabs button').forEach(function(b){ b.classList.toggle('active', b===btn); });
-    setAddButton();
-    updateSidebarForTab();
-    render();
-  });
   document.getElementById('search').addEventListener('input', function(e){ searchQuery = e.target.value; render(); });
 
   document.getElementById('btn-reset').addEventListener('click', function(){
