@@ -1038,37 +1038,47 @@
     applyCanvasTransform();
     updateZoomLabel();
   }
+  function hartaContentBounds(){
+    var grid = document.getElementById('harta-grid');
+    var selector = hartaViewMode === 'proiecte' ? '.proj-wrap' : '.column';
+    var minX = 0, minY = 0, maxX = 300, maxY = 300;
+    if(grid){
+      grid.querySelectorAll(selector).forEach(function(el){
+        var l = el.offsetLeft, t = el.offsetTop;
+        var r = l + el.offsetWidth, b = t + el.offsetHeight;
+        if(l < minX) minX = l;
+        if(t < minY) minY = t;
+        if(r > maxX) maxX = r;
+        if(b > maxY) maxY = b;
+      });
+    }
+    return {minX:minX, minY:minY, maxX:maxX, maxY:maxY, width:maxX-minX, height:maxY-minY};
+  }
   function fitCanvasToViewport(){
     var viewport = document.getElementById('canvas-viewport');
     var content = document.getElementById('canvas-content');
     if(!viewport || !content) return;
     var topbarEl = document.querySelector('.topbar');
     var topInset = (topbarEl ? topbarEl.offsetHeight : 0) + 12;
-    var naturalW = content.scrollWidth || 1;
-    var naturalH = content.scrollHeight || 1;
+    var bounds = hartaContentBounds();
+    var naturalW = bounds.width || 1;
+    var naturalH = bounds.height || 1;
     var vw = viewport.clientWidth - 24;
     var vh = viewport.clientHeight - topInset - 12;
     var scale = Math.min(vw / naturalW, vh / naturalH, 1);
     scale = Math.max(CANVAS_MIN_ZOOM, scale);
     canvasZoom = scale;
-    canvasPanX = Math.max(12, (viewport.clientWidth - naturalW * scale) / 2);
-    canvasPanY = topInset;
+    canvasPanX = Math.max(12, (viewport.clientWidth - naturalW * scale) / 2) - bounds.minX * scale;
+    canvasPanY = topInset - bounds.minY * scale;
     applyCanvasTransform();
     updateZoomLabel();
   }
   function adjustCanvasExtent(){
     var grid = document.getElementById('harta-grid');
     if(!grid) return;
-    var selector = hartaViewMode === 'proiecte' ? '.proj-wrap' : '.column';
-    var maxRight = 300, maxBottom = 300;
-    grid.querySelectorAll(selector).forEach(function(el){
-      var right = el.offsetLeft + el.offsetWidth;
-      var bottom = el.offsetTop + el.offsetHeight;
-      if(right > maxRight) maxRight = right;
-      if(bottom > maxBottom) maxBottom = bottom;
-    });
-    grid.style.width = (maxRight + 20) + 'px';
-    grid.style.height = (maxBottom + 20) + 'px';
+    var bounds = hartaContentBounds();
+    grid.style.width = (bounds.maxX + 20) + 'px';
+    grid.style.height = (bounds.maxY + 20) + 'px';
   }
   function breakConnectionsFor(nodeId){
     if(!state.connections || !state.connections.length) return;
@@ -1248,8 +1258,8 @@
       xRefs.push(otherEl.offsetLeft, otherEl.offsetLeft + otherEl.offsetWidth - w);
       yRefs.push(otherEl.offsetTop, otherEl.offsetTop + otherEl.offsetHeight - h);
     });
-    var snappedX = Math.max(0, snapValue(rawX, xRefs));
-    var snappedY = Math.max(0, snapValue(rawY, yRefs));
+    var snappedX = snapValue(rawX, xRefs);
+    var snappedY = snapValue(rawY, yRefs);
     projDragProject.x = snappedX;
     projDragProject.y = snappedY;
     if(el){ el.style.position = 'absolute'; el.style.left = snappedX + 'px'; el.style.top = snappedY + 'px'; }
