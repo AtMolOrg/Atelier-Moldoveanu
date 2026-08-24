@@ -500,7 +500,6 @@
     <input type="text" id="search" class="search-input" placeholder="Caută cod sau client…">
     <div class="tabs" id="tabs">
       <button data-tab="hala" class="active">Hartă atelier</button>
-      <button data-tab="gantt">Cronologie</button>
       <button data-tab="proiecte">Proiecte</button>
       <button data-tab="reparatii">Reparații</button>
     </div>
@@ -1165,31 +1164,11 @@
       return;
     }
 
-    var execProjects = state.projects.filter(function(p){ return !p.finalizat && p.pieces && p.pieces.some(function(pc){ return pc.stationId; }); });
     var html = '';
-
-    if(execProjects.length){
-      html += '<div class="exec-summary"><div class="exec-summary-title">Proiecte în execuție</div><div class="exec-list">';
-      execProjects.forEach(function(p){
-        var bd = pieceBreakdown(p);
-        var parts = piesaStations().map(function(s){ return bd[s.id] ? (bd[s.id] + ' ' + s.name) : null; }).filter(Boolean);
-        var lp = lastPiesaIndex();
-        var lastStationId = lp > -1 ? state.stations[lp].id : null;
-        var allAtLast = p.pieces.length > 0 && p.pieces.every(function(pc){ return pc.stationId === lastStationId; });
-        html += '<div class="exec-chip"><span class="g-code">' + esc(p.cod) + '</span><span class="g-client">' + esc(p.client) + '</span>' +
-          '<span class="g-breakdown">' + esc(parts.join(' · ') || '—') + '</span>';
-        html += '<button class="btn btn-xs btn-ghost" data-demote="' + p.id + '" title="Scoate toate piesele din execuție, înapoi la proiectare">↺ Tot înapoi la proiectare</button>';
-        if(allAtLast) html += '<button class="btn btn-xs btn-primary" data-finalize="' + p.id + '">Trimite la montaj →</button>';
-        html += '</div>';
-      });
-      html += '</div></div>';
-    }
 
     layoutStationsGrid(state.stations);
     html += '<div class="canvas-toolbar"><button class="btn btn-sm btn-primary" id="canvas-add-project">+ Proiect nou</button>';
-    html += '<div class="view-toggle-mini"><button data-hmode="proiecte" class="' + (hartaViewMode==='proiecte'?'active':'') + '">Pe proiecte</button><button data-hmode="comun" class="' + (hartaViewMode==='comun'?'active':'') + '">Etape comune</button></div>';
-    if(hartaViewMode === 'comun') html += '<button class="btn btn-xs btn-ghost" id="btn-add-station" title="Adaugă o etapă nouă pe hartă">+ Etapă</button><span class="field-hint" style="margin:0;">Trage antetul unui bloc ca să-l muți — se aliniază automat de celelalte.</span>';
-    else html += '<span class="field-hint" style="margin:0;">Fiecare proiect are rândul lui, cu toate etapele — nimic nu se amestecă între proiecte.</span>';
+    html += '<span class="field-hint" style="margin:0;">Fiecare proiect are rândul lui, cu toate etapele — nimic nu se amestecă între proiecte.</span>';
     html += '</div>';
     html += '<div class="canvas-viewport" id="canvas-viewport"><div class="canvas-content" id="canvas-content">';
     html += '<div class="harta-grid" id="harta-grid">';
@@ -2245,6 +2224,8 @@
   /* ---------------- top-level wiring ---------------- */
   function setAddButton(){
     var btn = document.getElementById('btn-add');
+    // on "hala" the canvas toolbar already has its own "+ Proiect nou" — no need to duplicate it up top
+    btn.style.display = (tab === 'hala') ? 'none' : '';
     if(tab === 'reparatii'){ btn.textContent = '+ Reparație nouă'; btn.onclick = function(){ openRepairModal(null); }; }
     else { btn.textContent = '+ Proiect nou'; btn.onclick = function(){ openProjectModal(null); }; }
   }
