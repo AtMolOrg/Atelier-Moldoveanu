@@ -1091,7 +1091,7 @@
       zoomCanvasBy(factor, e.clientX - rect.left, e.clientY - rect.top);
     }, {passive:false});
 
-    var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip';
+    var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip, .proj-wrap';
     viewport.addEventListener('mousedown', function(e){
       if(e.target.closest(noPanSelector)) return;
       canvasDragging = true;
@@ -1382,7 +1382,7 @@
       return '<div class="empty-state" style="margin:30px auto;"><h2>Niciun proiect activ</h2><p>Adaugă un proiect ca să-i vezi propriile etape.</p></div>';
     }
     var out = '';
-    var clusterWidth = state.stations.length * 220;
+    var clusterWidth = state.stations.length * 220 + 6;
     list.forEach(function(p){
       var grad = urgencyGradient(p);
       var posStyle = 'width:' + clusterWidth + 'px;';
