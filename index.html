@@ -123,7 +123,7 @@
   .col-head{ display:flex; align-items:center; gap:8px; padding:11px 12px 9px 14px; border-bottom:1px solid var(--border); cursor:grab; user-select:none; }
   .col-head:active{ cursor:grabbing; }
 
-  .proj-wrap{ margin-bottom:16px; }
+  .proj-wrap{ width:max-content; margin-bottom:16px; }
   .proj-cluster-tab{
     display:inline-flex; align-items:center; position:relative; z-index:1;
     background:var(--panel-2); border:1px solid var(--border); border-bottom:none;
@@ -138,7 +138,7 @@
   .proj-cluster{ background:var(--panel); border:1px solid var(--border); border-radius:0 10px 10px 10px; overflow:hidden; box-shadow:var(--shadow); }
   .proj-cluster-head{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel-2); }
   .proj-cluster-client{ color:var(--ink-dim); font-size:12.5px; }
-  .proj-cluster-stages{ display:flex; overflow-x:auto; align-items:stretch; }
+  .proj-cluster-stages{ display:flex; align-items:stretch; }
   .proj-stage-box{ flex:0 0 220px; border-right:1px dashed var(--border); display:flex; flex-direction:column; }
   .proj-stage-box:last-child{ border-right:none; }
   .proj-stage-box.piesa{ background: rgba(0,0,0,0.02); }
@@ -1392,11 +1392,9 @@
       return '<div class="empty-state" style="margin:30px auto;"><h2>Niciun proiect activ</h2><p>Adaugă un proiect ca să-i vezi propriile etape.</p></div>';
     }
     var out = '';
-    var clusterWidth = state.stations.length * 220 + 6;
     list.forEach(function(p){
       var grad = urgencyGradient(p);
-      var posStyle = 'width:' + clusterWidth + 'px;';
-      if(typeof p.x === 'number' && typeof p.y === 'number') posStyle = 'position:absolute; left:' + p.x + 'px; top:' + p.y + 'px; ' + posStyle;
+      var posStyle = (typeof p.x === 'number' && typeof p.y === 'number') ? ('position:absolute; left:' + p.x + 'px; top:' + p.y + 'px;') : '';
       out += '<div class="proj-wrap" data-project="' + p.id + '" style="' + posStyle + '">';
       out += '<div class="proj-cluster-tab">' + esc(p.cod) + '</div>';
       out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
