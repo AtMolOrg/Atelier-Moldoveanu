@@ -122,10 +122,6 @@
   .column.dragging-col{ box-shadow: 0 16px 40px rgba(0,0,0,0.35); z-index:50; opacity:0.97; }
   .col-head{ display:flex; align-items:center; gap:8px; padding:11px 12px 9px 14px; border-bottom:1px solid var(--border); cursor:grab; user-select:none; }
   .col-head:active{ cursor:grabbing; }
-  .canvas-toolbar{
-    position:absolute; left:14px; top:76px; z-index:6;
-    display:flex; align-items:center; gap:12px;
-  }
 
   .proj-cluster{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden; box-shadow:var(--shadow); }
   .proj-cluster-head{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel-2); }
@@ -314,8 +310,8 @@
   }
   .supplier-sidebar .team-sidebar-body{ padding:26px 14px 16px; border-top:1px solid var(--border); }
   .team-sidebar .people-pool{ margin-bottom:16px; }
-  .team-sidebar .people-row{ flex-direction:column; }
-  .team-sidebar .worker-token{ width:100%; }
+  .team-sidebar .people-row{ flex-direction:row; flex-wrap:wrap; }
+  .team-sidebar .worker-token{ width:calc(50% - 5px); }
   main.sidebar-active{ padding-left:0; }
   .team-sidebar-close{ display:none; }
   .sidebar-backdrop{ display:none; }
@@ -1086,7 +1082,7 @@
       zoomCanvasBy(factor, e.clientX - rect.left, e.clientY - rect.top);
     }, {passive:false});
 
-    var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip, .canvas-toolbar';
+    var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip';
     viewport.addEventListener('mousedown', function(e){
       if(e.target.closest(noPanSelector)) return;
       canvasDragging = true;
@@ -1233,7 +1229,6 @@
 
     layoutStationsGrid(state.stations);
     html += '<div class="canvas-viewport" id="canvas-viewport">';
-    html += '<div class="canvas-toolbar"><button class="btn btn-sm btn-primary" id="canvas-add-project">+ Proiect nou</button></div>';
     html += '<div class="canvas-content" id="canvas-content">';
     html += '<div class="harta-grid" id="harta-grid">';
     if(hartaViewMode === 'proiecte'){
@@ -1590,8 +1585,6 @@
       state.stations.push({id: uid(), name: name.trim(), type: isPiesa ? 'piesa' : 'proiect'});
       saveState(); render();
     });
-    var addProjBtn = document.getElementById('canvas-add-project');
-    if(addProjBtn) addProjBtn.addEventListener('click', function(){ openProjectModal(null); });
     var addWk = document.getElementById('btn-add-worker');
     if(addWk) addWk.addEventListener('click', function(){
       var name = prompt('Numele persoanei:');
