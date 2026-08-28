@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
 <style>
   :root{
     --bg:#f1f1f1;
@@ -676,6 +677,10 @@
   var state = null;
   var tab = 'hala';
   var searchQuery = '';
+  var recentLocalSigs = [];     // stableStringify of states we recently pushed — to ignore our own echoes
+  var pendingRemote = null;     // a remote snapshot held back while the user is mid-edit
+  var liveSyncAttached = false;
+  function noteLocalWrite(sig){ recentLocalSigs.push(sig); if(recentLocalSigs.length > 10) recentLocalSigs.shift(); }
   var draggingData = null;
   var suppressWorkerClick = false;
   var canvasZoom = 1, canvasPanX = 0, canvasPanY = 0;
@@ -704,6 +709,14 @@
     });
   }
   function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+  // key-order-independent JSON, used only to compare local state vs. a remote snapshot
+  function stableStringify(v){
+    if(v === null || typeof v !== 'object') return JSON.stringify(v);
+    if(Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+    return '{' + Object.keys(v).sort().map(function(k){
+      return JSON.stringify(k) + ':' + stableStringify(v[k]);
+    }).join(',') + '}';
+  }
   function todayDate(){ var d = new Date(); d.setHours(0,0,0,0); return d; }
   function isoToday(){ var d = todayDate(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
   function parseDate(iso){ if(!iso) return null; var p = iso.split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); }
@@ -772,6 +785,10 @@
       projectId: FIREBASE_PROJECT_ID
     });
   }
+  // Realtime Database SDK path: keeps every open board in sync live (a listener),
+  // instead of the read-once REST fetch. REST stays as the fallback.
+  var hasRtdb = hasAuth && typeof firebase.database === 'function';
+  function dbRef(){ return firebase.database().ref(STORAGE_KEY); }
 
   function currentIdToken(){
     if(!hasAuth || !firebase.auth().currentUser) return Promise.resolve('');
@@ -788,6 +805,12 @@
   function feedbackUrl(){ return withAuth(FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '-feedback.json'); }
 
   function loadState(){
+    if(hasRtdb){
+      return dbRef().once('value').then(function(snap){
+        var raw = snap.val();
+        return raw ? resolveVersioned(raw) : defaultState();
+      }).catch(function(){ return loadFromLocal(); });
+    }
     if(hasFirebase){
       return firebaseUrl().then(function(url){ return fetch(url); }).then(function(res){
         if(!res.ok) throw new Error('firebase read failed');
@@ -899,6 +922,12 @@
     return defaultState();
   }
   function saveState(){
+    if(hasRtdb){
+      // our own write will echo back through the live listener — remember it so we don't re-render on it
+      noteLocalWrite(stableStringify(state));
+      pendingRemote = null;
+      return dbRef().set(state).catch(function(){ saveToLocal(true); });
+    }
     if(hasFirebase){
       return firebaseUrl().then(function(url){
         return fetch(url, {
@@ -3064,8 +3093,45 @@
       setAddButton();
       updateSidebarForTab();
       render();
+      attachLiveSync();
       if(!hasFirebase && !hasCloudStorage) showToast('Mod local — configurează Firebase (vezi comentariul din cod) sau deschide prin Claude.ai, ca șeful tău să vadă aceleași date.', true);
     });
+  }
+
+  // Live sync: apply changes other people save, as they happen. Held back only while
+  // this user is mid-edit (a field focused or a modal open), then applied on the next tick.
+  function userIsBusy(){
+    var mr = document.getElementById('modal-root');
+    if(mr && mr.children.length) return true;
+    if(nodeDragging || canvasDragging || colDragging || resizeDragging) return true;
+    var a = document.activeElement;
+    return !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'));
+  }
+  function applyRemote(incoming){
+    pendingRemote = null;
+    if(stableStringify(incoming) === stableStringify(state)) return;
+    state = incoming;
+    noteLocalWrite(stableStringify(state));
+    setAddButton();
+    render();
+    showToast('Tablou actualizat — modificări de la un coleg.');
+  }
+  function attachLiveSync(){
+    if(!hasRtdb || liveSyncAttached) return;
+    liveSyncAttached = true;
+    dbRef().on('value', function(snap){
+      var raw = snap.val();
+      if(!raw) return;
+      var incoming;
+      try { incoming = resolveVersioned(raw); } catch(e){ return; }
+      var sig = stableStringify(incoming);
+      if(recentLocalSigs.indexOf(sig) !== -1 || sig === stableStringify(state)) return; // our own echo / no change
+      if(userIsBusy()){ pendingRemote = incoming; return; }
+      applyRemote(incoming);
+    });
+    setInterval(function(){
+      if(pendingRemote && !userIsBusy()) applyRemote(pendingRemote);
+    }, 1500);
   }
 
   if(hasAuth){
