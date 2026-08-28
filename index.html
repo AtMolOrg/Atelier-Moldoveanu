@@ -678,7 +678,7 @@
   var tab = 'hala';
   var searchQuery = '';
   var recentLocalSigs = [];     // stableStringify of states we recently pushed — to ignore our own echoes
-  var pendingRemote = null;     // a remote snapshot held back while the user is mid-edit
+  var remoteDirty = false;      // a remote change arrived while the user was mid-edit — re-fetch & apply once idle
   var liveSyncAttached = false;
   function noteLocalWrite(sig){ recentLocalSigs.push(sig); if(recentLocalSigs.length > 10) recentLocalSigs.shift(); }
   var draggingData = null;
@@ -925,9 +925,10 @@
     if(hasRtdb){
       // our own write will echo back through the live listener — remember it so we don't re-render on it
       noteLocalWrite(stableStringify(state));
-      pendingRemote = null;
       return dbRef().set(state).then(function(){
         console.log('[sync] salvat în Firebase');
+        // if a remote change was waiting, our write raced it — re-pull the current truth
+        flushRemote();
       }).catch(function(err){
         console.warn('[sync] scriere RESPINSĂ:', err && err.code, err && err.message);
         saveToLocal(true);
@@ -3115,13 +3116,28 @@
     return !!(a.closest && a.closest('#board, .team-sidebar'));
   }
   function applyRemote(incoming){
-    pendingRemote = null;
     if(stableStringify(incoming) === stableStringify(state)) return;
     state = incoming;
     noteLocalWrite(stableStringify(state));
     setAddButton();
     render();
     showToast('Tablou actualizat — modificări de la un coleg.');
+  }
+  // A remote change came in while the user was mid-edit — re-fetch the current DB state
+  // (not a possibly-stale stashed copy) and apply it now that it's safe.
+  function flushRemote(){
+    if(!remoteDirty || !hasRtdb || userIsBusy()) return;
+    remoteDirty = false;
+    dbRef().once('value').then(function(snap){
+      var raw = snap.val();
+      if(!raw) return;
+      try {
+        var incoming = resolveVersioned(raw);
+        if(recentLocalSigs.indexOf(stableStringify(incoming)) !== -1) return;
+        console.log('[sync] aplic modificarea care aștepta');
+        applyRemote(incoming);
+      } catch(e){ /* ignore */ }
+    }).catch(function(){});
   }
   function attachLiveSync(){
     console.log('[sync] hasAuth=' + hasAuth + ' hasRtdb=' + hasRtdb + ' firebase.database=' + (typeof (window.firebase && firebase.database)));
@@ -3140,16 +3156,16 @@
       var incoming;
       try { incoming = resolveVersioned(raw); } catch(e){ console.warn('[sync] snapshot invalid', e); return; }
       var sig = stableStringify(incoming);
-      if(recentLocalSigs.indexOf(sig) !== -1 || sig === stableStringify(state)){ console.log('[sync] snapshot = ecoul propriu / fără schimbare'); return; }
-      if(userIsBusy()){ console.log('[sync] schimbare primită — ținută în așteptare (ești în editare)'); pendingRemote = incoming; return; }
+      if(recentLocalSigs.indexOf(sig) !== -1 || sig === stableStringify(state)){ return; } // our own echo / no change
+      if(userIsBusy()){ console.log('[sync] schimbare primită — o aplic după ce termini editarea'); remoteDirty = true; return; }
       console.log('[sync] schimbare primită de la un coleg — aplic');
       applyRemote(incoming);
     }, function(err){
       console.warn('[sync] listener respins:', err && err.code, err && err.message);
     });
-    setInterval(function(){
-      if(pendingRemote && !userIsBusy()) applyRemote(pendingRemote);
-    }, 1500);
+    setInterval(flushRemote, 1000);
+    document.addEventListener('focusout', function(){ setTimeout(flushRemote, 60); });
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) setTimeout(flushRemote, 60); });
   }
 
   if(hasAuth){
