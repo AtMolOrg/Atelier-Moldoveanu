@@ -2,6 +2,12 @@
 
 Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca istoric de decizii — separat de [TODO.md](TODO.md), care e lista de lucruri de făcut.
 
+## 2026-08-28
+
+- **Comenzi materiale per proiect**: fiecare proiect are acum `p.orders` — o listă de materiale de aprovizionat, cu text liber, cantitate, furnizor (dropdown din furnizorii existenți) și stare care ciclează De comandat → Comandat → Primit. Apare ca panou pliabil în „dosarul" proiectului din Hartă atelier → Pe proiecte, între capul dosarului și rândul de etape. Pe cardul de proiect e o linie compactă „📋 Materiale 3/7 · incomplet/complet".
+- **Fără bump `DATA_VERSION`** pentru asta: schimbarea e pur aditivă, iar backfill-ul se face în `normalizeState` (`p.orders = []` dacă lipsește). Motiv: `resolveVersioned` n-are ramură „mai nou decât știu", deci un bump ar face codul vechi să cadă pe `defaultState()` după o salvare pe versiunea nouă.
+- Starea deschis/închis a panoului e per-proiect, doar în memorie (nu se salvează, nu se sincronizează). Editarea unui câmp salvează pe `change`, fără re-render, ca să nu sară focusul.
+
 ## 2026-08-24
 
 - **Adaptare mobil**: butoane/taburi/câmpuri mai mari sub 640px (zone de atins), font 16px pe input-uri (evită zoom automat iOS Safari).

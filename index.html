@@ -147,6 +147,35 @@
   .proj-stage-head .col-actions:hover{ opacity:1; }
   .proj-stage-box .col-body{ padding:8px; gap:8px; min-height:76px; flex:1; }
 
+  /* ---------- PROJECT ORDERS PANEL (materiale de comandat, per proiect) ---------- */
+  .proj-orders{ border-bottom:1px solid var(--border); background:var(--panel-2); }
+  .proj-orders-toggle{
+    width:100%; text-align:left; background:transparent; border:none;
+    padding:8px 16px; font-family:'Raleway',sans-serif; font-weight:600; font-size:11.5px;
+    letter-spacing:0.02em; color:var(--ink-dim); display:flex; align-items:center; gap:6px;
+  }
+  .proj-orders-toggle:hover{ color:var(--ink); }
+  .proj-orders-toggle .caret{ font-size:10px; color:var(--ink-faint); }
+  .proj-orders-count{ margin-left:6px; background:var(--panel-3); border-radius:999px; padding:1px 8px; font-size:10.5px; color:var(--ink-faint); }
+  .proj-orders.open .proj-orders-count{ color:var(--ink-dim); }
+  .proj-orders-body{ padding:4px 16px 12px; display:flex; flex-direction:column; gap:6px; }
+  .order-row{ display:flex; align-items:center; gap:6px; }
+  .order-status{
+    flex:none; border:1px solid var(--border); border-radius:6px; padding:4px 8px;
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+    min-width:88px; text-align:center;
+  }
+  .order-status-de-comandat{ background: rgba(232,168,160,0.35); color:#a8483a; border-color: rgba(232,168,160,0.6); }
+  .order-status-comandat{ background: rgba(240,221,154,0.4); color:#8a7020; border-color: rgba(240,221,154,0.7); }
+  .order-status-primit{ background: rgba(168,217,184,0.4); color:#3d7a52; border-color: rgba(168,217,184,0.7); }
+  .order-text{ flex:1; min-width:120px; background:var(--panel); border:1px solid var(--border); color:var(--ink); padding:6px 9px; border-radius:6px; font-size:12px; }
+  .order-qty{ flex:0 0 66px; background:var(--panel); border:1px solid var(--border); color:var(--ink); padding:6px 8px; border-radius:6px; font-size:12px; }
+  .order-supplier{ flex:0 0 132px; background:var(--panel); border:1px solid var(--border); color:var(--ink); padding:6px 8px; border-radius:6px; font-size:12px; }
+  .order-del{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:26px; height:26px; font-size:13px; padding:0; }
+  .order-del:hover{ color:#a85248; border-color: rgba(200,110,95,0.45); }
+  .order-add{ align-self:flex-start; margin-top:2px; }
+  .card-orders-line{ display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--ink-dim); margin-bottom:8px; }
+
   .col-resize{
     position:absolute; right:0; bottom:0; width:18px; height:18px;
     cursor:nwse-resize; z-index:4;
@@ -481,6 +510,10 @@
     .btn-remove-piece{ width:40px; height:40px; }
     .color-swatch{ width:32px; height:32px; }
     .modal-foot{ flex-wrap:wrap; }
+    .order-row{ flex-wrap:wrap; }
+    .order-text{ flex:1 1 100%; order:-1; }
+    .order-supplier{ flex:1 1 auto; }
+    .order-status,.order-qty,.order-supplier{ font-size:12px; }
 
     /* sidebars become fullscreen overlays instead of split top/bottom slivers */
     .team-sidebar{
@@ -579,6 +612,9 @@
   var SNAP_THRESHOLD = 10, SNAP_GRID = 20;
   var projDragging = false, projDragProject = null;
   var projDragStartMouseX = 0, projDragStartMouseY = 0, projDragStartX = 0, projDragStartY = 0;
+  var ordersOpen = {}; // projectId -> true while its materials panel is expanded (UI-only, not persisted)
+  var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
+  var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
 
   /* ---------------- utils ---------------- */
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -751,6 +787,7 @@
     if(!Array.isArray(parsed.assignments)) parsed.assignments = [];
     if(!Array.isArray(parsed.colorHistory)) parsed.colorHistory = [];
     if(!Array.isArray(parsed.connections)) parsed.connections = [];
+    parsed.projects.forEach(function(p){ if(!Array.isArray(p.orders)) p.orders = []; });
     return parsed;
   }
   function resolveVersioned(parsed){
@@ -1012,6 +1049,52 @@
     if(w.taskNote) html += '<div class="worker-task">' + esc(w.taskNote) + '</div>';
     html += '</div>';
     return html;
+  }
+
+  /* ---------------- project orders (materiale de comandat) ---------------- */
+  function supplierOptionsHtml(selectedId){
+    var opts = '<option value="">— furnizor —</option>';
+    state.workers.filter(function(w){ return w.kind === 'furnizor'; }).forEach(function(w){
+      opts += '<option value="' + w.id + '"' + (w.id === selectedId ? ' selected' : '') + '>' + esc(w.name) + '</option>';
+    });
+    return opts;
+  }
+  function findOrderByKey(key){
+    var parts = String(key).split('::');
+    var p = projectById(parts[0]);
+    if(!p || !Array.isArray(p.orders)) return null;
+    var o = p.orders.find(function(x){ return x.id === parts[1]; });
+    return o ? { project: p, order: o } : null;
+  }
+  function renderProjectOrdersPanel(p){
+    var orders = Array.isArray(p.orders) ? p.orders : [];
+    var received = orders.filter(function(o){ return o.status === 'primit'; }).length;
+    var isOpen = !!ordersOpen[p.id];
+    var summary = orders.length ? (received + '/' + orders.length) : '—';
+    var h = '<div class="proj-orders' + (isOpen ? ' open' : '') + '">';
+    h += '<button type="button" class="proj-orders-toggle" data-orders-toggle="' + p.id + '">';
+    h += '<span class="caret">' + (isOpen ? '▾' : '▸') + '</span> 📋 Comenzi materiale <span class="proj-orders-count">' + summary + '</span></button>';
+    if(isOpen){
+      h += '<div class="proj-orders-body">';
+      if(!orders.length){
+        h += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Nicio comandă încă.</div>';
+      } else {
+        orders.forEach(function(o){
+          var key = p.id + '::' + o.id;
+          h += '<div class="order-row">';
+          h += '<button type="button" class="order-status order-status-' + o.status + '" data-order-status="' + key + '" title="Schimbă starea">' + ORDER_STATUS_LABEL[o.status] + '</button>';
+          h += '<input class="order-text" data-order-edit="' + key + '" data-field="text" value="' + esc(o.text || '') + '" placeholder="Ce se comandă (ex: profil 40x40, 12 m)">';
+          h += '<input class="order-qty" data-order-edit="' + key + '" data-field="qty" value="' + esc(o.qty || '') + '" placeholder="Cant.">';
+          h += '<select class="order-supplier" data-order-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(o.supplierId || '') + '</select>';
+          h += '<button type="button" class="order-del" data-order-del="' + key + '" title="Șterge rândul">×</button>';
+          h += '</div>';
+        });
+      }
+      h += '<button type="button" class="btn btn-xs btn-ghost order-add" data-order-add="' + p.id + '">+ Adaugă comandă</button>';
+      h += '</div>';
+    }
+    h += '</div>';
+    return h;
   }
 
   /* ---------------- canvas pan/zoom (Hartă tab) ---------------- */
@@ -1400,6 +1483,7 @@
       out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
       out += '<div class="proj-cluster-head"><span class="proj-cluster-client">' + esc(p.client) + '</span>';
       out += '<span class="badge badge-' + urgencyOf(p) + '" style="margin-left:auto;">' + esc(urgencyLabel(p)) + '</span></div>';
+      out += renderProjectOrdersPanel(p);
       out += '<div class="proj-cluster-stages">';
       state.stations.forEach(function(station){
         var projLanes = projectLanesFor(p, station);
@@ -1491,6 +1575,12 @@
     else if(grad) html += '<span class="badge" style="background:' + grad.tint + '; color:' + grad.border + ';">' + esc(urgencyLabel(p)) + '</span>';
     else html += '<span class="badge badge-none">' + esc(urgencyLabel(p)) + '</span>';
     html += '</div>';
+    if(p.orders && p.orders.length){
+      var recvCount = p.orders.filter(function(o){ return o.status === 'primit'; }).length;
+      var complete = recvCount >= p.orders.length;
+      html += '<div class="card-orders-line">📋 Materiale ' + recvCount + '/' + p.orders.length +
+        (complete ? ' <span style="color:#3d7a52;">· complet</span>' : ' <span style="color:#a8483a;">· incomplet</span>') + '</div>';
+    }
     if(p.notite) html += '<div class="card-notes">' + esc(p.notite) + '</div>';
     html += renderAssignedPeople(p.id);
     if(p.pieces && p.pieces.length){
@@ -1927,6 +2017,58 @@
         saveState(); render();
       });
     });
+
+    // project orders panel — materiale de comandat
+    document.querySelectorAll('[data-orders-toggle]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = btn.dataset.ordersToggle;
+        if(ordersOpen[id]) delete ordersOpen[id]; else ordersOpen[id] = true;
+        render();
+      });
+    });
+    document.querySelectorAll('[data-order-add]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var p = projectById(btn.dataset.orderAdd);
+        if(!p) return;
+        if(!Array.isArray(p.orders)) p.orders = [];
+        p.orders.push({ id: uid(), text: '', qty: '', supplierId: '', status: 'de-comandat' });
+        ordersOpen[p.id] = true;
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-order-status]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var found = findOrderByKey(btn.dataset.orderStatus);
+        if(!found) return;
+        var i = ORDER_STATUSES.indexOf(found.order.status);
+        found.order.status = ORDER_STATUSES[(i + 1) % ORDER_STATUSES.length];
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-order-del]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var found = findOrderByKey(btn.dataset.orderDel);
+        if(!found) return;
+        if(found.order.text && !confirm('Ștergi rândul „' + found.order.text + '”?')) return;
+        found.project.orders = found.project.orders.filter(function(x){ return x.id !== found.order.id; });
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-order-edit]').forEach(function(inp){
+      inp.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+      inp.addEventListener('change', function(){
+        var found = findOrderByKey(inp.dataset.orderEdit);
+        if(!found) return;
+        // trim free text, but leave the supplier <select> value untouched
+        found.order[inp.dataset.field] = inp.tagName === 'SELECT' ? inp.value : inp.value.trim();
+        saveState(); // no re-render: the summary badge only tracks count + status, not these fields
+      });
+    });
+
     // drop zones — station bodies (projects/pieces/workers) and the unassigned-people pool (workers only)
     document.querySelectorAll('.col-body').forEach(function(zone){
       zone.addEventListener('dragover', function(e){
@@ -2441,7 +2583,7 @@
         state.projects.push({
           id: uid(), cod:cod, client:client, termen:termen, tip:tip,
           stationId: stageSelNew ? stageSelNew.value : (firstProiect ? firstProiect.id : null),
-          finalizat:false, notite:notite, pieces:pieces, createdAt: isoToday()
+          finalizat:false, notite:notite, pieces:pieces, orders:[], createdAt: isoToday()
         });
       }
       saveState(); close(); render();
