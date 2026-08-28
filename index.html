@@ -692,7 +692,7 @@
   var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
   var ordersOpen = {}; // projectId -> true while its materials panel is expanded (UI-only, not persisted)
   var checklistDoneOpen = {}; // checklistId -> true while its "gata" section is expanded (UI-only, not persisted)
-  var montajOpen = {}; // projectId -> true while its "necesar montaj" side panel is open (transient; pin is in localStorage)
+  var montajOpen = {}; // projectId -> true while its "necesar montaj" side panel is open on hover (transient; the pin is p.montajPinned in shared state)
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
 
@@ -1265,19 +1265,16 @@
   }
 
   /* ---------------- "necesar montaj" — panou lateral per proiect ---------------- */
-  // One global pin (per device): when on, every project's montaj panel stays open.
-  function montajPinned(){
-    try { return localStorage.getItem('montaj-pin-all') === '1'; } catch(e){ return false; }
-  }
+  // Pin is per-project and lives in shared state (p.montajPinned) — pin it once, everyone sees it pinned.
   function renderMontajPanel(p){
     var notes = typeof p.montajNotes === 'string' ? p.montajNotes : '';
-    var pinned = montajPinned();
+    var pinned = !!p.montajPinned;
     var isOpen = pinned || !!montajOpen[p.id];
     var h = '<div class="montaj-panel' + (isOpen ? ' open' : '') + '" data-montaj-panel="' + p.id + '">';
     h += '<div class="montaj-handle" data-montaj-handle="' + p.id + '" title="Necesar pentru montaj">📦 necesar montaj' + (notes.trim() ? ' •' : '') + '</div>';
     h += '<div class="montaj-body">';
     h += '<div class="montaj-head"><span class="montaj-title">Necesar montaj</span>' +
-      '<button type="button" class="btn btn-xs montaj-pin' + (pinned ? ' pinned' : '') + '" data-montaj-pin="1" title="' + (pinned ? 'Anulează fixarea (toate proiectele)' : 'Fixează panourile deschise (toate proiectele)') + '">📌</button></div>';
+      '<button type="button" class="btn btn-xs montaj-pin' + (pinned ? ' pinned' : '') + '" data-montaj-pin="' + p.id + '" title="' + (pinned ? 'Anulează fixarea (pentru toți)' : 'Fixează deschis (pentru toți)') + '">📌</button></div>';
     h += '<textarea class="montaj-notes" data-montaj-notes="' + p.id + '" placeholder="Ce trebuie pregătit / dus la montaj…">' + esc(notes) + '</textarea>';
     h += '</div></div>';
     return h;
@@ -2401,13 +2398,14 @@
       });
     });
 
-    // per-project "necesar montaj" side panel — hover/click to open; one global pin (per device) keeps them all open
+    // per-project "necesar montaj" side panel — hover/click to open; pin (shared, per project) keeps it open for everyone
     document.querySelectorAll('[data-montaj-panel]').forEach(function(pnl){
       var id = pnl.dataset.montajPanel;
       var closeTimer = null;
       function open(){ clearTimeout(closeTimer); montajOpen[id] = true; pnl.classList.add('open'); }
       function scheduleClose(){
-        if(montajPinned()) return;
+        var pr = projectById(id);
+        if(pr && pr.montajPinned) return;
         clearTimeout(closeTimer);
         closeTimer = setTimeout(function(){ montajOpen[id] = false; pnl.classList.remove('open'); }, 900);
       }
@@ -2422,9 +2420,11 @@
     document.querySelectorAll('[data-montaj-pin]').forEach(function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
-        var now = !montajPinned();
-        try { localStorage.setItem('montaj-pin-all', now ? '1' : '0'); } catch(e2){ /* ignore */ }
-        render();
+        var pr = projectById(btn.dataset.montajPin);
+        if(!pr) return;
+        pr.montajPinned = !pr.montajPinned;
+        if(pr.montajPinned) montajOpen[pr.id] = true;
+        saveState(); render();
       });
     });
     document.querySelectorAll('[data-montaj-notes]').forEach(function(ta){
