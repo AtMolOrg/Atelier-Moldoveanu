@@ -132,9 +132,9 @@
     cursor:grab; user-select:none;
   }
   .proj-cluster-tab:active{ cursor:grabbing; }
-  .proj-wrap.dragging-proj .proj-cluster-tab{ cursor:grabbing; }
-  .proj-wrap.dragging-proj{ z-index:50; }
-  .proj-wrap.dragging-proj .proj-cluster{ box-shadow: 0 16px 40px rgba(0,0,0,0.35); opacity:0.97; }
+  .proj-wrap.node-dragging .proj-cluster-tab{ cursor:grabbing; }
+  .proj-wrap.node-dragging{ z-index:50; }
+  .proj-wrap.node-dragging .proj-cluster{ box-shadow: 0 16px 40px rgba(0,0,0,0.35); opacity:0.97; }
   .proj-cluster{ background:var(--panel); border:1px solid var(--border); border-radius:0 10px 10px 10px; overflow:hidden; box-shadow:var(--shadow); }
   .proj-cluster-head{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel-2); }
   .proj-cluster-client{ color:var(--ink-dim); font-size:12.5px; }
@@ -175,6 +175,55 @@
   .order-del:hover{ color:#a85248; border-color: rgba(200,110,95,0.45); }
   .order-add{ align-self:flex-start; margin-top:2px; }
   .card-orders-line{ display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--ink-dim); margin-bottom:8px; }
+
+  /* ---------- CHECKLIST CARD (listă permanentă de mărunțișuri, pe canvas) ---------- */
+  .note-wrap{ width:max-content; margin-bottom:16px; }
+  .note-tab{
+    display:inline-flex; align-items:center; position:relative; z-index:1; max-width:280px;
+    background:var(--panel-2); border:1px solid var(--border); border-bottom:none;
+    border-radius:8px 8px 0 0; padding:5px 16px; margin:0 0 -1px 16px;
+    font-family:'Raleway',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.03em; color:var(--accent);
+    cursor:grab; user-select:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .note-tab:active{ cursor:grabbing; }
+  .note-wrap.node-dragging{ z-index:50; }
+  .note-wrap.node-dragging .note-body{ box-shadow: 0 16px 40px rgba(0,0,0,0.35); opacity:0.97; }
+  .note-body{
+    background:var(--panel); border:1px solid var(--border); border-radius:0 10px 10px 10px;
+    box-shadow:var(--shadow); width:300px; padding:10px 12px 12px; display:flex; flex-direction:column; gap:8px;
+  }
+  .note-head{ display:flex; align-items:center; gap:8px; }
+  .note-count{ flex:1; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:10.5px; color:var(--ink-faint); }
+  .note-del{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:13px; padding:2px 6px; border-radius:6px; }
+  .note-del:hover{ color:#a85248; background:var(--panel-2); }
+  .note-items{ display:flex; flex-direction:column; gap:5px; }
+  .note-item{ display:flex; align-items:center; gap:6px; }
+  .note-item.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; border-radius:6px; }
+  .note-check{ flex:none; width:15px; height:15px; cursor:pointer; }
+  .note-item-text{ flex:1; min-width:0; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:6px 9px; border-radius:6px; font-size:12.5px; }
+  .note-assignee{ flex:none; display:flex; align-items:center; gap:2px; background:var(--panel-3); border:1px solid var(--border); border-radius:999px; padding:2px 4px 2px 2px; }
+  .note-assignee-clear{ background:transparent; border:none; color:var(--ink-faint); font-size:11px; line-height:1; padding:0 2px; }
+  .note-assignee-clear:hover{ color:#a85248; }
+  .note-item-del{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:24px; height:24px; font-size:12px; padding:0; }
+  .note-item-del:hover{ color:#a85248; border-color: rgba(200,110,95,0.45); }
+  .note-add-item{ align-self:flex-start; }
+  .note-done{ border-top:1px dashed var(--border); padding-top:6px; }
+  .note-done-toggle{ background:transparent; border:none; color:var(--ink-faint); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; display:flex; align-items:center; gap:5px; padding:2px 0; }
+  .note-done-toggle:hover{ color:var(--ink-dim); }
+  .note-done-toggle .caret{ font-size:9px; }
+  .note-done-list{ display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+  .note-done-row{ display:flex; align-items:center; gap:6px; }
+  .note-done-text{ flex:1; min-width:0; font-size:12px; color:var(--ink-faint); text-decoration:line-through; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .note-restore{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:22px; height:22px; font-size:11px; padding:0; }
+  .note-restore:hover{ color:var(--ink); }
+  .note-done-clear{ align-self:flex-start; margin-top:4px; }
+
+  .canvas-add-controls{
+    position:absolute; left:12px; bottom:12px; z-index:5;
+    display:flex; gap:6px;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:10px;
+    padding:4px; box-shadow:var(--shadow);
+  }
 
   .col-resize{
     position:absolute; right:0; bottom:0; width:18px; height:18px;
@@ -610,9 +659,10 @@
   var MIN_COL_WIDTH = 220;
   var colDragStartMouseX = 0, colDragStartMouseY = 0, colDragStartX = 0, colDragStartY = 0;
   var SNAP_THRESHOLD = 10, SNAP_GRID = 20;
-  var projDragging = false, projDragProject = null;
-  var projDragStartMouseX = 0, projDragStartMouseY = 0, projDragStartX = 0, projDragStartY = 0;
+  var nodeDragging = false, nodeDragObj = null, nodeDragEl = null, nodeDragMoved = false;
+  var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
   var ordersOpen = {}; // projectId -> true while its materials panel is expanded (UI-only, not persisted)
+  var checklistDoneOpen = {}; // checklistId -> true while its "gata" section is expanded (UI-only, not persisted)
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
 
@@ -665,7 +715,8 @@
       workers: [],
       assignments: [],
       colorHistory: ['#f0b878','#a8c8dc','#a8d9b8','#f0dd9a','#d4b8dc','#a8dcc8','#f0b3bd','#b3d0e8'],
-      connections: []
+      connections: [],
+      checklists: []
     };
   }
 
@@ -787,7 +838,9 @@
     if(!Array.isArray(parsed.assignments)) parsed.assignments = [];
     if(!Array.isArray(parsed.colorHistory)) parsed.colorHistory = [];
     if(!Array.isArray(parsed.connections)) parsed.connections = [];
+    if(!Array.isArray(parsed.checklists)) parsed.checklists = [];
     parsed.projects.forEach(function(p){ if(!Array.isArray(p.orders)) p.orders = []; });
+    parsed.checklists.forEach(function(c){ if(!Array.isArray(c.items)) c.items = []; });
     return parsed;
   }
   function resolveVersioned(parsed){
@@ -1097,6 +1150,73 @@
     return h;
   }
 
+  /* ---------------- checklists (liste permanente de mărunțișuri, noduri pe canvas) ---------------- */
+  function checklistById(id){
+    return (state.checklists || []).find(function(c){ return c.id === id; });
+  }
+  function addChecklist(){
+    var t = prompt('Titlul listei:', 'Listă nouă');
+    if(t === null) return;
+    if(!state.checklists) state.checklists = [];
+    var n = state.checklists.length;
+    state.checklists.push({ id: uid(), title: (t.trim() || 'Listă nouă'), x: 24 + n * 18, y: 24 + n * 18, items: [] });
+    saveState(); render();
+  }
+  function findChecklistItem(key){
+    var parts = String(key).split('::');
+    var cl = checklistById(parts[0]);
+    if(!cl || !Array.isArray(cl.items)) return null;
+    var it = cl.items.find(function(x){ return x.id === parts[1]; });
+    return it ? { list: cl, item: it } : null;
+  }
+  function renderChecklistRow(cl, it){
+    var key = cl.id + '::' + it.id;
+    var w = it.workerId ? state.workers.find(function(x){ return x.id === it.workerId; }) : null;
+    var h = '<div class="note-item" data-note-row="' + key + '">';
+    h += '<input type="checkbox" class="note-check" data-note-check="' + key + '">';
+    h += '<input class="note-item-text" data-note-text="' + key + '" value="' + esc(it.text || '') + '" placeholder="Ce e de făcut">';
+    if(w){
+      h += '<span class="note-assignee" title="' + esc(w.name) + '"><span class="mini-avatar" style="background:' + workerColor(w) + '">' + esc(initials(w.name)) + '</span>' +
+        '<button type="button" class="note-assignee-clear" data-note-unassign="' + key + '" title="Scoate responsabilul">×</button></span>';
+    }
+    h += '<button type="button" class="note-item-del" data-note-item-del="' + key + '" title="Șterge rândul">×</button>';
+    h += '</div>';
+    return h;
+  }
+  function renderChecklistCard(cl){
+    var items = Array.isArray(cl.items) ? cl.items : [];
+    var active = items.filter(function(it){ return !it.done; });
+    var done = items.filter(function(it){ return it.done; });
+    var doneOpen = !!checklistDoneOpen[cl.id];
+    var posStyle = (typeof cl.x === 'number' && typeof cl.y === 'number') ? ('position:absolute; left:' + cl.x + 'px; top:' + cl.y + 'px;') : '';
+    var h = '<div class="note-wrap" data-checklist="' + cl.id + '" style="' + posStyle + '">';
+    h += '<div class="note-tab" data-note-rename="' + cl.id + '" title="Trage ca să muți · dublu-click ca să redenumești">📋 ' + esc(cl.title || 'Listă') + '</div>';
+    h += '<div class="note-body">';
+    h += '<div class="note-head"><span class="note-count">' + active.length + ' de făcut</span>';
+    h += '<button type="button" class="note-del" data-note-del="' + cl.id + '" title="Șterge lista">✕</button></div>';
+    h += '<div class="note-items">';
+    if(!active.length) h += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Gata tot. 🎉</div>';
+    active.forEach(function(it){ h += renderChecklistRow(cl, it); });
+    h += '</div>';
+    h += '<button type="button" class="btn btn-xs btn-ghost note-add-item" data-note-add="' + cl.id + '">+ rând</button>';
+    if(done.length){
+      h += '<div class="note-done' + (doneOpen ? ' open' : '') + '">';
+      h += '<button type="button" class="note-done-toggle" data-note-done-toggle="' + cl.id + '"><span class="caret">' + (doneOpen ? '▾' : '▸') + '</span> gata (' + done.length + ')</button>';
+      if(doneOpen){
+        h += '<div class="note-done-list">';
+        done.forEach(function(it){
+          h += '<div class="note-done-row"><span class="note-done-text">' + esc(it.text || '(gol)') + '</span>' +
+            '<button type="button" class="note-restore" data-note-restore="' + cl.id + '::' + it.id + '" title="Înapoi în listă">↺</button></div>';
+        });
+        h += '<button type="button" class="btn btn-xs btn-danger-outline note-done-clear" data-note-done-clear="' + cl.id + '">Golește „gata"</button>';
+        h += '</div>';
+      }
+      h += '</div>';
+    }
+    h += '</div></div>';
+    return h;
+  }
+
   /* ---------------- canvas pan/zoom (Hartă tab) ---------------- */
   function applyCanvasTransform(){
     var el = document.getElementById('canvas-content');
@@ -1123,7 +1243,7 @@
   }
   function hartaContentBounds(){
     var grid = document.getElementById('harta-grid');
-    var selector = hartaViewMode === 'proiecte' ? '.proj-wrap' : '.column';
+    var selector = hartaViewMode === 'proiecte' ? '.proj-wrap, .note-wrap' : '.column';
     var minX = 0, minY = 0, maxX = 300, maxY = 300;
     if(grid){
       grid.querySelectorAll(selector).forEach(function(el){
@@ -1184,7 +1304,7 @@
       zoomCanvasBy(factor, e.clientX - rect.left, e.clientY - rect.top);
     }, {passive:false});
 
-    var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip, .proj-wrap';
+    var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip, .proj-wrap, .note-wrap';
     viewport.addEventListener('mousedown', function(e){
       if(e.target.closest(noPanSelector)) return;
       canvasDragging = true;
@@ -1308,53 +1428,66 @@
     adjustCanvasExtent();
   });
 
-  function attachProjectDragEvents(){
-    document.querySelectorAll('.proj-cluster-tab').forEach(function(tab){
+  // canvas nodes that can be dragged freely on the "Pe proiecte" map: project folders
+  // (.proj-wrap, backed by a project) and checklist cards (.note-wrap, backed by a checklist).
+  // Both are a positioned wrapper grabbed by a tab; one drag path serves them.
+  function canvasNodeObjFor(wrap){
+    if(!wrap) return null;
+    if(wrap.dataset.project) return projectById(wrap.dataset.project);
+    if(wrap.dataset.checklist) return checklistById(wrap.dataset.checklist);
+    return null;
+  }
+  function attachCanvasNodeDrag(){
+    document.querySelectorAll('.proj-cluster-tab, .note-tab').forEach(function(tab){
       tab.addEventListener('mousedown', function(e){
-        var wrap = tab.closest('.proj-wrap');
-        if(!wrap) return;
-        var proj = projectById(wrap.dataset.project);
-        if(!proj) return;
+        if(e.target.closest('button, input')) return;
+        var wrap = tab.closest('.proj-wrap, .note-wrap');
+        var obj = canvasNodeObjFor(wrap);
+        if(!obj) return;
         e.preventDefault();
         e.stopPropagation();
-        projDragging = true;
-        projDragProject = proj;
-        projDragStartMouseX = e.clientX; projDragStartMouseY = e.clientY;
-        projDragStartX = (typeof proj.x === 'number') ? proj.x : wrap.offsetLeft;
-        projDragStartY = (typeof proj.y === 'number') ? proj.y : wrap.offsetTop;
-        wrap.classList.add('dragging-proj');
+        nodeDragging = true;
+        nodeDragMoved = false;
+        nodeDragObj = obj;
+        nodeDragEl = wrap;
+        nodeDragStartMouseX = e.clientX; nodeDragStartMouseY = e.clientY;
+        nodeDragStartX = (typeof obj.x === 'number') ? obj.x : wrap.offsetLeft;
+        nodeDragStartY = (typeof obj.y === 'number') ? obj.y : wrap.offsetTop;
+        wrap.classList.add('node-dragging');
       });
     });
   }
   window.addEventListener('mousemove', function(e){
-    if(!projDragging || !projDragProject) return;
-    var dx = (e.clientX - projDragStartMouseX) / canvasZoom;
-    var dy = (e.clientY - projDragStartMouseY) / canvasZoom;
-    var rawX = projDragStartX + dx;
-    var rawY = projDragStartY + dy;
-    var el = document.querySelector('.proj-wrap[data-project="' + projDragProject.id + '"]');
-    var w = el ? el.offsetWidth : 0;
-    var h = el ? el.offsetHeight : 0;
+    if(!nodeDragging || !nodeDragObj || !nodeDragEl) return;
+    var dx = (e.clientX - nodeDragStartMouseX) / canvasZoom;
+    var dy = (e.clientY - nodeDragStartMouseY) / canvasZoom;
+    if(!nodeDragMoved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return; // ignore jitter so a plain click/dblclick isn't a "move"
+    nodeDragMoved = true;
+    var rawX = nodeDragStartX + dx;
+    var rawY = nodeDragStartY + dy;
+    var el = nodeDragEl;
+    var w = el.offsetWidth, h = el.offsetHeight;
     var xRefs = [], yRefs = [];
-    document.querySelectorAll('.proj-wrap').forEach(function(otherEl){
+    document.querySelectorAll('.proj-wrap, .note-wrap').forEach(function(otherEl){
       if(otherEl === el) return;
       xRefs.push(otherEl.offsetLeft, otherEl.offsetLeft + otherEl.offsetWidth - w);
       yRefs.push(otherEl.offsetTop, otherEl.offsetTop + otherEl.offsetHeight - h);
     });
     var snappedX = snapValue(rawX, xRefs);
     var snappedY = snapValue(rawY, yRefs);
-    projDragProject.x = snappedX;
-    projDragProject.y = snappedY;
-    if(el){ el.style.position = 'absolute'; el.style.left = snappedX + 'px'; el.style.top = snappedY + 'px'; }
+    nodeDragObj.x = snappedX;
+    nodeDragObj.y = snappedY;
+    el.style.position = 'absolute'; el.style.left = snappedX + 'px'; el.style.top = snappedY + 'px';
   });
   window.addEventListener('mouseup', function(){
-    if(!projDragging) return;
-    projDragging = false;
-    var el = document.querySelector('.proj-wrap.dragging-proj');
-    if(el) el.classList.remove('dragging-proj');
-    if(projDragProject) saveState();
-    projDragProject = null;
-    adjustCanvasExtent();
+    if(!nodeDragging) return;
+    nodeDragging = false;
+    if(nodeDragEl) nodeDragEl.classList.remove('node-dragging');
+    if(nodeDragObj && nodeDragMoved) saveState();
+    nodeDragObj = null;
+    nodeDragEl = null;
+    if(nodeDragMoved) adjustCanvasExtent();
+    nodeDragMoved = false;
   });
 
   function renderHala(){
@@ -1363,14 +1496,15 @@
     board.style.flexDirection = 'column';
     board.style.alignItems = 'stretch';
 
-    if(state.projects.length === 0 && state.workers.length === 0){
-      board.innerHTML = '<div class="empty-state" style="margin-top:60px;"><h2>Atelier gol</h2><p>Adaugă un proiect sau primul om din echipă, ca panoul să prindă contur.</p>' +
-        '<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;"><button class="btn btn-primary" id="empty-add">+ Proiect nou</button><button class="btn" id="empty-add-worker">+ Persoană nouă</button></div></div>';
+    if(state.projects.length === 0 && state.workers.length === 0 && (state.checklists || []).length === 0){
+      board.innerHTML = '<div class="empty-state" style="margin-top:60px;"><h2>Atelier gol</h2><p>Adaugă un proiect, primul om din echipă, sau o listă de mărunțișuri.</p>' +
+        '<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;"><button class="btn btn-primary" id="empty-add">+ Proiect nou</button><button class="btn" id="empty-add-worker">+ Persoană nouă</button><button class="btn" id="empty-add-list">+ Listă nouă</button></div></div>';
       document.getElementById('empty-add').onclick = function(){ openProjectModal(null); };
       document.getElementById('empty-add-worker').onclick = function(){
         var name = prompt('Numele persoanei:');
         if(name && name.trim()){ state.workers.push({id:uid(), name:name.trim(), kind:'intern', taskNote:''}); saveState(); render(); }
       };
+      document.getElementById('empty-add-list').onclick = addChecklist;
       renderTeamSidebar();
       attachHalaEvents();
       return;
@@ -1456,6 +1590,10 @@
       '<button id="zoom-in" title="Mărește">+</button>' +
       '<button id="zoom-fit" title="Potrivește totul pe ecran">⤢</button>' +
       '</div>';
+    html += '<div class="canvas-add-controls">' +
+      '<button class="btn btn-sm btn-primary" id="canvas-add-project">+ Proiect</button>' +
+      '<button class="btn btn-sm" id="canvas-add-list">+ Listă</button>' +
+      '</div>';
     html += '</div>'; // .canvas-viewport
 
     board.innerHTML = html;
@@ -1463,7 +1601,11 @@
     attachHalaEvents();
     attachCanvasEvents();
     attachColumnDragEvents();
-    attachProjectDragEvents();
+    attachCanvasNodeDrag();
+    var cap = document.getElementById('canvas-add-project');
+    if(cap) cap.addEventListener('click', function(){ openProjectModal(null); });
+    var cal = document.getElementById('canvas-add-list');
+    if(cal) cal.addEventListener('click', addChecklist);
     document.querySelectorAll('.view-toggle-mini button[data-hmode]').forEach(function(b){
       b.addEventListener('click', function(){ hartaViewMode = b.dataset.hmode; canvasInitialized = false; render(); });
     });
@@ -1471,8 +1613,9 @@
   function renderHartaPeProiecte(){
     var list = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod,p.client); })
       .sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
-    if(list.length === 0){
-      return '<div class="empty-state" style="margin:30px auto;"><h2>Niciun proiect activ</h2><p>Adaugă un proiect ca să-i vezi propriile etape.</p></div>';
+    var checklists = state.checklists || [];
+    if(list.length === 0 && checklists.length === 0){
+      return '<div class="empty-state" style="margin:30px auto;"><h2>Nimic pe hartă</h2><p>Adaugă un proiect sau o listă din colțul din stânga-jos.</p></div>';
     }
     var out = '';
     list.forEach(function(p){
@@ -1524,6 +1667,7 @@
       });
       out += '</div></div></div>';
     });
+    checklists.forEach(function(cl){ out += renderChecklistCard(cl); });
     return out;
   }
 
@@ -2066,6 +2210,120 @@
         // trim free text, but leave the supplier <select> value untouched
         found.order[inp.dataset.field] = inp.tagName === 'SELECT' ? inp.value : inp.value.trim();
         saveState(); // no re-render: the summary badge only tracks count + status, not these fields
+      });
+    });
+
+    // checklist cards — mărunțișuri
+    document.querySelectorAll('[data-note-rename]').forEach(function(tab){
+      tab.addEventListener('dblclick', function(e){
+        e.preventDefault(); e.stopPropagation();
+        var cl = checklistById(tab.dataset.noteRename);
+        if(!cl) return;
+        var t = prompt('Titlul listei:', cl.title || '');
+        if(t === null) return;
+        cl.title = t.trim() || cl.title;
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-note-del]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var cl = checklistById(btn.dataset.noteDel);
+        if(!cl) return;
+        if(!confirm('Ștergi lista „' + (cl.title || '') + '” cu tot cu rânduri?')) return;
+        state.checklists = state.checklists.filter(function(x){ return x.id !== cl.id; });
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-note-add]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var cl = checklistById(btn.dataset.noteAdd);
+        if(!cl) return;
+        if(!Array.isArray(cl.items)) cl.items = [];
+        cl.items.push({ id: uid(), text: '', done: false, workerId: '' });
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-note-check]').forEach(function(cb){
+      cb.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+      cb.addEventListener('change', function(){
+        var f = findChecklistItem(cb.dataset.noteCheck);
+        if(!f) return;
+        f.item.done = cb.checked;
+        if(cb.checked) f.item.doneTs = Date.now(); else delete f.item.doneTs;
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-note-text]').forEach(function(inp){
+      inp.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+      inp.addEventListener('change', function(){
+        var f = findChecklistItem(inp.dataset.noteText);
+        if(!f) return;
+        f.item.text = inp.value.trim();
+        saveState(); // no re-render: keeps focus; text isn't shown anywhere else live
+      });
+    });
+    document.querySelectorAll('[data-note-item-del]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var f = findChecklistItem(btn.dataset.noteItemDel);
+        if(!f) return;
+        if(f.item.text && !confirm('Ștergi rândul „' + f.item.text + '”?')) return;
+        f.list.items = f.list.items.filter(function(x){ return x.id !== f.item.id; });
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-note-unassign]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var f = findChecklistItem(btn.dataset.noteUnassign);
+        if(!f) return;
+        f.item.workerId = '';
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-note-done-toggle]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = btn.dataset.noteDoneToggle;
+        if(checklistDoneOpen[id]) delete checklistDoneOpen[id]; else checklistDoneOpen[id] = true;
+        render();
+      });
+    });
+    document.querySelectorAll('[data-note-restore]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var f = findChecklistItem(btn.dataset.noteRestore);
+        if(!f) return;
+        f.item.done = false; delete f.item.doneTs;
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-note-done-clear]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var cl = checklistById(btn.dataset.noteDoneClear);
+        if(!cl) return;
+        if(!confirm('Golești secțiunea „gata"? Rândurile bifate se șterg definitiv.')) return;
+        cl.items = cl.items.filter(function(x){ return !x.done; });
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('.note-item[data-note-row]').forEach(function(row){
+      row.addEventListener('dragover', function(e){
+        if((draggingData || '').indexOf('WRK::') === 0){ e.preventDefault(); e.stopPropagation(); row.classList.add('link-target'); }
+      });
+      row.addEventListener('dragleave', function(){ row.classList.remove('link-target'); });
+      row.addEventListener('drop', function(e){
+        var data = e.dataTransfer.getData('text/plain') || draggingData;
+        if(!data || data.indexOf('WRK::') !== 0) return;
+        e.preventDefault(); e.stopPropagation();
+        row.classList.remove('link-target');
+        var f = findChecklistItem(row.dataset.noteRow);
+        if(!f) return;
+        f.item.workerId = data.slice(5);
+        saveState(); render();
       });
     });
 
