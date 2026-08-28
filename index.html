@@ -189,7 +189,7 @@
   .montaj-handle:hover{ color:var(--ink); }
   .montaj-panel.open .montaj-handle{ display:none; }
   .montaj-body{
-    display:none; width:250px; max-height:70vh; overflow-y:auto;
+    display:none; width:266px; max-height:70vh; overflow-y:auto;
     background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--accent);
     border-radius:0 10px 10px 0; box-shadow: 12px 0 30px rgba(0,0,0,0.18); padding:12px;
   }
@@ -197,16 +197,21 @@
   .montaj-head{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
   .montaj-title{ flex:1; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-dim); }
   .montaj-pin.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-  .montaj-close{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:15px; line-height:1; padding:0 4px; }
-  .montaj-close:hover{ color:var(--ink); }
-  .montaj-items{ display:flex; flex-direction:column; gap:5px; margin-bottom:8px; }
-  .montaj-row{ display:flex; align-items:center; gap:5px; }
+  .montaj-items{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+  .montaj-row{
+    display:grid; align-items:center; gap:6px 5px;
+    grid-template-columns: 16px 56px 1fr 24px;
+    grid-template-areas: "check text text del" "qty qty supp supp";
+  }
+  .montaj-row + .montaj-row{ border-top:1px dashed var(--border); padding-top:8px; }
   .montaj-row.done .montaj-text{ text-decoration:line-through; color:var(--ink-faint); }
-  .montaj-check{ flex:none; width:14px; height:14px; cursor:pointer; }
-  .montaj-text{ flex:1; min-width:0; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 8px; border-radius:6px; font-size:12px; }
-  .montaj-qty{ flex:0 0 48px; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 6px; border-radius:6px; font-size:12px; }
-  .montaj-del{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:22px; height:22px; font-size:11px; padding:0; }
+  .montaj-row input, .montaj-row select{ min-width:0; }
+  .montaj-check{ grid-area:check; width:14px; height:14px; cursor:pointer; }
+  .montaj-text{ grid-area:text; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 8px; border-radius:6px; font-size:12px; }
+  .montaj-del{ grid-area:del; justify-self:end; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:22px; height:22px; font-size:11px; padding:0; }
   .montaj-del:hover{ color:#a85248; border-color:rgba(200,110,95,0.45); }
+  .montaj-qty{ grid-area:qty; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 6px; border-radius:6px; font-size:12px; }
+  .montaj-supplier{ grid-area:supp; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 6px; border-radius:6px; font-size:12px; }
   .montaj-add{ align-self:flex-start; }
 
   /* ---------- CHECKLIST CARD (listă permanentă de mărunțișuri, pe canvas) ---------- */
@@ -1265,8 +1270,9 @@
   }
 
   /* ---------------- "necesar montaj" — panou lateral per proiect ---------------- */
-  function montajPinned(id){
-    try { return localStorage.getItem('montaj-pin-' + id) === '1'; } catch(e){ return false; }
+  // One global pin (per device): when on, every project's montaj panel stays open.
+  function montajPinned(){
+    try { return localStorage.getItem('montaj-pin-all') === '1'; } catch(e){ return false; }
   }
   function findMontajNeed(key){
     var parts = String(key).split('::');
@@ -1278,14 +1284,13 @@
   function renderMontajPanel(p){
     var needs = Array.isArray(p.montajNeeds) ? p.montajNeeds : [];
     var have = needs.filter(function(n){ return n.done; }).length;
-    var pinned = montajPinned(p.id);
+    var pinned = montajPinned();
     var isOpen = pinned || !!montajOpen[p.id];
     var h = '<div class="montaj-panel' + (isOpen ? ' open' : '') + '" data-montaj-panel="' + p.id + '">';
     h += '<div class="montaj-handle" data-montaj-handle="' + p.id + '" title="Necesar pentru montaj">📦 necesar montaj' + (needs.length ? ' ' + have + '/' + needs.length : '') + '</div>';
     h += '<div class="montaj-body">';
     h += '<div class="montaj-head"><span class="montaj-title">Necesar montaj</span>' +
-      '<button type="button" class="btn btn-xs montaj-pin' + (pinned ? ' pinned' : '') + '" data-montaj-pin="' + p.id + '" title="' + (pinned ? 'Anulează fixarea' : 'Fixează, nu se mai ascunde') + '">📌</button>' +
-      '<button type="button" class="montaj-close" data-montaj-close="' + p.id + '" title="Închide">×</button></div>';
+      '<button type="button" class="btn btn-xs montaj-pin' + (pinned ? ' pinned' : '') + '" data-montaj-pin="1" title="' + (pinned ? 'Anulează fixarea (toate proiectele)' : 'Fixează panourile deschise (toate proiectele)') + '">📌</button></div>';
     h += '<div class="montaj-items">';
     if(!needs.length) h += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Nimic trecut încă.</div>';
     needs.forEach(function(n){
@@ -1293,8 +1298,9 @@
       h += '<div class="montaj-row' + (n.done ? ' done' : '') + '">';
       h += '<input type="checkbox" class="montaj-check" data-montaj-check="' + key + '"' + (n.done ? ' checked' : '') + '>';
       h += '<input class="montaj-text" data-montaj-edit="' + key + '" data-field="text" value="' + esc(n.text || '') + '" placeholder="Ce trebuie la montaj">';
-      h += '<input class="montaj-qty" data-montaj-edit="' + key + '" data-field="qty" value="' + esc(n.qty || '') + '" placeholder="Cant.">';
       h += '<button type="button" class="montaj-del" data-montaj-del="' + key + '" title="Șterge rândul">×</button>';
+      h += '<input class="montaj-qty" data-montaj-edit="' + key + '" data-field="qty" value="' + esc(n.qty || '') + '" placeholder="Cant.">';
+      h += '<select class="montaj-supplier" data-montaj-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(n.supplierId || '') + '</select>';
       h += '</div>';
     });
     h += '</div>';
@@ -2417,13 +2423,13 @@
       });
     });
 
-    // per-project "necesar montaj" side panel — hover/click to open, pin to keep, pin stored per device
+    // per-project "necesar montaj" side panel — hover/click to open; one global pin (per device) keeps them all open
     document.querySelectorAll('[data-montaj-panel]').forEach(function(pnl){
       var id = pnl.dataset.montajPanel;
       var closeTimer = null;
       function open(){ clearTimeout(closeTimer); montajOpen[id] = true; pnl.classList.add('open'); }
       function scheduleClose(){
-        if(montajPinned(id)) return;
+        if(montajPinned()) return;
         clearTimeout(closeTimer);
         closeTimer = setTimeout(function(){ montajOpen[id] = false; pnl.classList.remove('open'); }, 900);
       }
@@ -2438,19 +2444,8 @@
     document.querySelectorAll('[data-montaj-pin]').forEach(function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
-        var id = btn.dataset.montajPin;
-        var now = !montajPinned(id);
-        try { localStorage.setItem('montaj-pin-' + id, now ? '1' : '0'); } catch(e2){ /* ignore */ }
-        if(now) montajOpen[id] = true;
-        render();
-      });
-    });
-    document.querySelectorAll('[data-montaj-close]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var id = btn.dataset.montajClose;
-        montajOpen[id] = false;
-        try { localStorage.setItem('montaj-pin-' + id, '0'); } catch(e2){ /* ignore */ }
+        var now = !montajPinned();
+        try { localStorage.setItem('montaj-pin-all', now ? '1' : '0'); } catch(e2){ /* ignore */ }
         render();
       });
     });
@@ -2460,7 +2455,7 @@
         var p = projectById(btn.dataset.montajAdd);
         if(!p) return;
         if(!Array.isArray(p.montajNeeds)) p.montajNeeds = [];
-        p.montajNeeds.push({ id: uid(), text: '', qty: '', done: false });
+        p.montajNeeds.push({ id: uid(), text: '', qty: '', done: false, supplierId: '' });
         montajOpen[p.id] = true;
         saveState(); render();
       });
@@ -2480,7 +2475,7 @@
       inp.addEventListener('change', function(){
         var f = findMontajNeed(inp.dataset.montajEdit);
         if(!f) return;
-        f.need[inp.dataset.field] = inp.value.trim();
+        f.need[inp.dataset.field] = inp.tagName === 'SELECT' ? inp.value : inp.value.trim();
         saveState(); // no re-render: keeps focus; count in the handle is fine until next render
       });
     });
