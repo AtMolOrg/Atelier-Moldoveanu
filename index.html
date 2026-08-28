@@ -189,7 +189,7 @@
   .montaj-handle:hover{ color:var(--ink); }
   .montaj-panel.open .montaj-handle{ display:none; }
   .montaj-body{
-    display:none; width:266px; max-height:70vh; overflow-y:auto;
+    display:none; width:270px;
     background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--accent);
     border-radius:0 10px 10px 0; box-shadow: 12px 0 30px rgba(0,0,0,0.18); padding:12px;
   }
@@ -197,22 +197,11 @@
   .montaj-head{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
   .montaj-title{ flex:1; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-dim); }
   .montaj-pin.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-  .montaj-items{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
-  .montaj-row{
-    display:grid; align-items:center; gap:6px 5px;
-    grid-template-columns: 16px 56px 1fr 24px;
-    grid-template-areas: "check text text del" "qty qty supp supp";
+  .montaj-notes{
+    width:100%; min-height:180px; resize:vertical; display:block;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px; color:var(--ink);
+    padding:8px 10px; font-family:inherit; font-size:12.5px; line-height:1.5;
   }
-  .montaj-row + .montaj-row{ border-top:1px dashed var(--border); padding-top:8px; }
-  .montaj-row.done .montaj-text{ text-decoration:line-through; color:var(--ink-faint); }
-  .montaj-row input, .montaj-row select{ min-width:0; }
-  .montaj-check{ grid-area:check; width:14px; height:14px; cursor:pointer; }
-  .montaj-text{ grid-area:text; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 8px; border-radius:6px; font-size:12px; }
-  .montaj-del{ grid-area:del; justify-self:end; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:22px; height:22px; font-size:11px; padding:0; }
-  .montaj-del:hover{ color:#a85248; border-color:rgba(200,110,95,0.45); }
-  .montaj-qty{ grid-area:qty; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 6px; border-radius:6px; font-size:12px; }
-  .montaj-supplier{ grid-area:supp; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 6px; border-radius:6px; font-size:12px; }
-  .montaj-add{ align-self:flex-start; }
 
   /* ---------- CHECKLIST CARD (listă permanentă de mărunțișuri, pe canvas) ---------- */
   .note-wrap{ width:max-content; margin-bottom:16px; }
@@ -882,7 +871,13 @@
     if(!Array.isArray(parsed.checklists)) parsed.checklists = [];
     parsed.projects.forEach(function(p){
       if(!Array.isArray(p.orders)) p.orders = [];
-      if(!Array.isArray(p.montajNeeds)) p.montajNeeds = [];
+      if(typeof p.montajNotes !== 'string'){
+        // the short-lived structured "necesar montaj" list is now just a free-text note
+        p.montajNotes = (Array.isArray(p.montajNeeds) && p.montajNeeds.length)
+          ? p.montajNeeds.map(function(n){ return '- ' + (n.text || '') + (n.qty ? ' (' + n.qty + ')' : ''); }).join('\n')
+          : '';
+      }
+      delete p.montajNeeds;
     });
     parsed.checklists.forEach(function(c){ if(!Array.isArray(c.items)) c.items = []; });
     return parsed;
@@ -1274,37 +1269,16 @@
   function montajPinned(){
     try { return localStorage.getItem('montaj-pin-all') === '1'; } catch(e){ return false; }
   }
-  function findMontajNeed(key){
-    var parts = String(key).split('::');
-    var p = projectById(parts[0]);
-    if(!p || !Array.isArray(p.montajNeeds)) return null;
-    var n = p.montajNeeds.find(function(x){ return x.id === parts[1]; });
-    return n ? { project: p, need: n } : null;
-  }
   function renderMontajPanel(p){
-    var needs = Array.isArray(p.montajNeeds) ? p.montajNeeds : [];
-    var have = needs.filter(function(n){ return n.done; }).length;
+    var notes = typeof p.montajNotes === 'string' ? p.montajNotes : '';
     var pinned = montajPinned();
     var isOpen = pinned || !!montajOpen[p.id];
     var h = '<div class="montaj-panel' + (isOpen ? ' open' : '') + '" data-montaj-panel="' + p.id + '">';
-    h += '<div class="montaj-handle" data-montaj-handle="' + p.id + '" title="Necesar pentru montaj">📦 necesar montaj' + (needs.length ? ' ' + have + '/' + needs.length : '') + '</div>';
+    h += '<div class="montaj-handle" data-montaj-handle="' + p.id + '" title="Necesar pentru montaj">📦 necesar montaj' + (notes.trim() ? ' •' : '') + '</div>';
     h += '<div class="montaj-body">';
     h += '<div class="montaj-head"><span class="montaj-title">Necesar montaj</span>' +
       '<button type="button" class="btn btn-xs montaj-pin' + (pinned ? ' pinned' : '') + '" data-montaj-pin="1" title="' + (pinned ? 'Anulează fixarea (toate proiectele)' : 'Fixează panourile deschise (toate proiectele)') + '">📌</button></div>';
-    h += '<div class="montaj-items">';
-    if(!needs.length) h += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Nimic trecut încă.</div>';
-    needs.forEach(function(n){
-      var key = p.id + '::' + n.id;
-      h += '<div class="montaj-row' + (n.done ? ' done' : '') + '">';
-      h += '<input type="checkbox" class="montaj-check" data-montaj-check="' + key + '"' + (n.done ? ' checked' : '') + '>';
-      h += '<input class="montaj-text" data-montaj-edit="' + key + '" data-field="text" value="' + esc(n.text || '') + '" placeholder="Ce trebuie la montaj">';
-      h += '<button type="button" class="montaj-del" data-montaj-del="' + key + '" title="Șterge rândul">×</button>';
-      h += '<input class="montaj-qty" data-montaj-edit="' + key + '" data-field="qty" value="' + esc(n.qty || '') + '" placeholder="Cant.">';
-      h += '<select class="montaj-supplier" data-montaj-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(n.supplierId || '') + '</select>';
-      h += '</div>';
-    });
-    h += '</div>';
-    h += '<button type="button" class="btn btn-xs btn-ghost montaj-add" data-montaj-add="' + p.id + '">+ rând</button>';
+    h += '<textarea class="montaj-notes" data-montaj-notes="' + p.id + '" placeholder="Ce trebuie pregătit / dus la montaj…">' + esc(notes) + '</textarea>';
     h += '</div></div>';
     return h;
   }
@@ -1397,13 +1371,17 @@
     }, {passive:false});
 
     var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip, .proj-wrap, .note-wrap';
+    // pan only with the middle mouse button (press the wheel) + drag — never left-click
     viewport.addEventListener('mousedown', function(e){
-      if(e.target.closest(noPanSelector)) return;
+      if(e.button !== 1) return;
+      e.preventDefault();
       canvasDragging = true;
       canvasStartX = e.clientX; canvasStartY = e.clientY;
       canvasStartPanX = canvasPanX; canvasStartPanY = canvasPanY;
       viewport.classList.add('panning');
     });
+    // stop the browser's middle-click autoscroll bubble
+    viewport.addEventListener('auxclick', function(e){ if(e.button === 1) e.preventDefault(); });
     viewport.addEventListener('touchstart', function(e){
       if(e.touches.length !== 1) return;
       if(e.target.closest(noPanSelector)) return;
@@ -2449,45 +2427,13 @@
         render();
       });
     });
-    document.querySelectorAll('[data-montaj-add]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var p = projectById(btn.dataset.montajAdd);
+    document.querySelectorAll('[data-montaj-notes]').forEach(function(ta){
+      ta.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+      ta.addEventListener('change', function(){
+        var p = projectById(ta.dataset.montajNotes);
         if(!p) return;
-        if(!Array.isArray(p.montajNeeds)) p.montajNeeds = [];
-        p.montajNeeds.push({ id: uid(), text: '', qty: '', done: false, supplierId: '' });
-        montajOpen[p.id] = true;
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-montaj-check]').forEach(function(cb){
-      cb.addEventListener('mousedown', function(e){ e.stopPropagation(); });
-      cb.addEventListener('change', function(){
-        var f = findMontajNeed(cb.dataset.montajCheck);
-        if(!f) return;
-        f.need.done = cb.checked;
-        montajOpen[f.project.id] = true;
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-montaj-edit]').forEach(function(inp){
-      inp.addEventListener('mousedown', function(e){ e.stopPropagation(); });
-      inp.addEventListener('change', function(){
-        var f = findMontajNeed(inp.dataset.montajEdit);
-        if(!f) return;
-        f.need[inp.dataset.field] = inp.tagName === 'SELECT' ? inp.value : inp.value.trim();
-        saveState(); // no re-render: keeps focus; count in the handle is fine until next render
-      });
-    });
-    document.querySelectorAll('[data-montaj-del]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var f = findMontajNeed(btn.dataset.montajDel);
-        if(!f) return;
-        if(f.need.text && !confirm('Ștergi „' + f.need.text + '”?')) return;
-        f.project.montajNeeds = f.project.montajNeeds.filter(function(x){ return x.id !== f.need.id; });
-        montajOpen[f.project.id] = true;
-        saveState(); render();
+        p.montajNotes = ta.value;
+        saveState(); // on blur; no re-render so the caret stays put
       });
     });
 
@@ -3005,7 +2951,7 @@
         state.projects.push({
           id: uid(), cod:cod, client:client, termen:termen, tip:tip,
           stationId: stageSelNew ? stageSelNew.value : (firstProiect ? firstProiect.id : null),
-          finalizat:false, notite:notite, pieces:pieces, orders:[], montajNeeds:[], createdAt: isoToday()
+          finalizat:false, notite:notite, pieces:pieces, orders:[], montajNotes:'', createdAt: isoToday()
         });
       }
       saveState(); close(); render();
