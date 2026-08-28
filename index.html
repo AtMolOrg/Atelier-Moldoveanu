@@ -123,7 +123,7 @@
   .col-head{ display:flex; align-items:center; gap:8px; padding:11px 12px 9px 14px; border-bottom:1px solid var(--border); cursor:grab; user-select:none; }
   .col-head:active{ cursor:grabbing; }
 
-  .proj-wrap{ width:max-content; margin-bottom:16px; }
+  .proj-wrap{ width:max-content; margin-bottom:16px; position:relative; }
   .proj-cluster-tab{
     display:inline-flex; align-items:center; position:relative; z-index:1;
     background:var(--panel-2); border:1px solid var(--border); border-bottom:none;
@@ -176,6 +176,39 @@
   .order-add{ align-self:flex-start; margin-top:2px; }
   .card-orders-line{ display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--ink-dim); margin-bottom:8px; }
 
+  /* ---------- "NECESAR MONTAJ" — panou lateral care iese din dreapta fiecărui dosar ---------- */
+  .montaj-panel{ position:absolute; left:100%; top:28px; z-index:20; display:flex; align-items:flex-start; }
+  .montaj-handle{
+    flex:none; writing-mode:vertical-rl; text-orientation:mixed;
+    background:var(--panel-2); border:1px solid var(--border); border-left:none;
+    padding:12px 6px; border-radius:0 8px 8px 0;
+    font-family:'Raleway',sans-serif; font-weight:700; font-size:10px; letter-spacing:0.05em;
+    text-transform:uppercase; color:var(--ink-dim); cursor:pointer; white-space:nowrap;
+    box-shadow:var(--shadow);
+  }
+  .montaj-handle:hover{ color:var(--ink); }
+  .montaj-panel.open .montaj-handle{ display:none; }
+  .montaj-body{
+    display:none; width:250px; max-height:70vh; overflow-y:auto;
+    background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--accent);
+    border-radius:0 10px 10px 0; box-shadow: 12px 0 30px rgba(0,0,0,0.18); padding:12px;
+  }
+  .montaj-panel.open .montaj-body{ display:block; }
+  .montaj-head{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+  .montaj-title{ flex:1; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-dim); }
+  .montaj-pin.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .montaj-close{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:15px; line-height:1; padding:0 4px; }
+  .montaj-close:hover{ color:var(--ink); }
+  .montaj-items{ display:flex; flex-direction:column; gap:5px; margin-bottom:8px; }
+  .montaj-row{ display:flex; align-items:center; gap:5px; }
+  .montaj-row.done .montaj-text{ text-decoration:line-through; color:var(--ink-faint); }
+  .montaj-check{ flex:none; width:14px; height:14px; cursor:pointer; }
+  .montaj-text{ flex:1; min-width:0; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 8px; border-radius:6px; font-size:12px; }
+  .montaj-qty{ flex:0 0 48px; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 6px; border-radius:6px; font-size:12px; }
+  .montaj-del{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:22px; height:22px; font-size:11px; padding:0; }
+  .montaj-del:hover{ color:#a85248; border-color:rgba(200,110,95,0.45); }
+  .montaj-add{ align-self:flex-start; }
+
   /* ---------- CHECKLIST CARD (listă permanentă de mărunțișuri, pe canvas) ---------- */
   .note-wrap{ width:max-content; margin-bottom:16px; }
   .note-tab{
@@ -192,7 +225,9 @@
     background:var(--panel); border:1px solid var(--border); border-radius:0 10px 10px 10px;
     box-shadow:var(--shadow); width:300px; padding:10px 12px 12px; display:flex; flex-direction:column; gap:8px;
   }
-  .note-head{ display:flex; align-items:center; gap:8px; }
+  .note-head{ display:flex; align-items:center; gap:8px; cursor:grab; user-select:none; }
+  .note-head:active{ cursor:grabbing; }
+  .note-wrap.node-dragging .note-head{ cursor:grabbing; }
   .note-count{ flex:1; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:10.5px; color:var(--ink-faint); }
   .note-del{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:13px; padding:2px 6px; border-radius:6px; }
   .note-del:hover{ color:#a85248; background:var(--panel-2); }
@@ -663,6 +698,7 @@
   var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
   var ordersOpen = {}; // projectId -> true while its materials panel is expanded (UI-only, not persisted)
   var checklistDoneOpen = {}; // checklistId -> true while its "gata" section is expanded (UI-only, not persisted)
+  var montajOpen = {}; // projectId -> true while its "necesar montaj" side panel is open (transient; pin is in localStorage)
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
 
@@ -839,7 +875,10 @@
     if(!Array.isArray(parsed.colorHistory)) parsed.colorHistory = [];
     if(!Array.isArray(parsed.connections)) parsed.connections = [];
     if(!Array.isArray(parsed.checklists)) parsed.checklists = [];
-    parsed.projects.forEach(function(p){ if(!Array.isArray(p.orders)) p.orders = []; });
+    parsed.projects.forEach(function(p){
+      if(!Array.isArray(p.orders)) p.orders = [];
+      if(!Array.isArray(p.montajNeeds)) p.montajNeeds = [];
+    });
     parsed.checklists.forEach(function(c){ if(!Array.isArray(c.items)) c.items = []; });
     return parsed;
   }
@@ -1158,8 +1197,16 @@
     var t = prompt('Titlul listei:', 'Listă nouă');
     if(t === null) return;
     if(!state.checklists) state.checklists = [];
+    // drop it roughly where the user is looking (viewport centre in canvas coords),
+    // nudged per list so several don't stack exactly
+    var vp = document.getElementById('canvas-viewport');
     var n = state.checklists.length;
-    state.checklists.push({ id: uid(), title: (t.trim() || 'Listă nouă'), x: 24 + n * 18, y: 24 + n * 18, items: [] });
+    var cx = 40, cy = 40;
+    if(vp){
+      cx = Math.round((vp.clientWidth / 2 - canvasPanX) / canvasZoom) - 150;
+      cy = Math.round((vp.clientHeight / 2 - canvasPanY) / canvasZoom) - 40;
+    }
+    state.checklists.push({ id: uid(), title: (t.trim() || 'Listă nouă'), x: cx + n * 16, y: cy + n * 16, items: [] });
     saveState(); render();
   }
   function findChecklistItem(key){
@@ -1213,6 +1260,45 @@
       }
       h += '</div>';
     }
+    h += '</div></div>';
+    return h;
+  }
+
+  /* ---------------- "necesar montaj" — panou lateral per proiect ---------------- */
+  function montajPinned(id){
+    try { return localStorage.getItem('montaj-pin-' + id) === '1'; } catch(e){ return false; }
+  }
+  function findMontajNeed(key){
+    var parts = String(key).split('::');
+    var p = projectById(parts[0]);
+    if(!p || !Array.isArray(p.montajNeeds)) return null;
+    var n = p.montajNeeds.find(function(x){ return x.id === parts[1]; });
+    return n ? { project: p, need: n } : null;
+  }
+  function renderMontajPanel(p){
+    var needs = Array.isArray(p.montajNeeds) ? p.montajNeeds : [];
+    var have = needs.filter(function(n){ return n.done; }).length;
+    var pinned = montajPinned(p.id);
+    var isOpen = pinned || !!montajOpen[p.id];
+    var h = '<div class="montaj-panel' + (isOpen ? ' open' : '') + '" data-montaj-panel="' + p.id + '">';
+    h += '<div class="montaj-handle" data-montaj-handle="' + p.id + '" title="Necesar pentru montaj">📦 necesar montaj' + (needs.length ? ' ' + have + '/' + needs.length : '') + '</div>';
+    h += '<div class="montaj-body">';
+    h += '<div class="montaj-head"><span class="montaj-title">Necesar montaj</span>' +
+      '<button type="button" class="btn btn-xs montaj-pin' + (pinned ? ' pinned' : '') + '" data-montaj-pin="' + p.id + '" title="' + (pinned ? 'Anulează fixarea' : 'Fixează, nu se mai ascunde') + '">📌</button>' +
+      '<button type="button" class="montaj-close" data-montaj-close="' + p.id + '" title="Închide">×</button></div>';
+    h += '<div class="montaj-items">';
+    if(!needs.length) h += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Nimic trecut încă.</div>';
+    needs.forEach(function(n){
+      var key = p.id + '::' + n.id;
+      h += '<div class="montaj-row' + (n.done ? ' done' : '') + '">';
+      h += '<input type="checkbox" class="montaj-check" data-montaj-check="' + key + '"' + (n.done ? ' checked' : '') + '>';
+      h += '<input class="montaj-text" data-montaj-edit="' + key + '" data-field="text" value="' + esc(n.text || '') + '" placeholder="Ce trebuie la montaj">';
+      h += '<input class="montaj-qty" data-montaj-edit="' + key + '" data-field="qty" value="' + esc(n.qty || '') + '" placeholder="Cant.">';
+      h += '<button type="button" class="montaj-del" data-montaj-del="' + key + '" title="Șterge rândul">×</button>';
+      h += '</div>';
+    });
+    h += '</div>';
+    h += '<button type="button" class="btn btn-xs btn-ghost montaj-add" data-montaj-add="' + p.id + '">+ rând</button>';
     h += '</div></div>';
     return h;
   }
@@ -1438,7 +1524,9 @@
     return null;
   }
   function attachCanvasNodeDrag(){
-    document.querySelectorAll('.proj-cluster-tab, .note-tab').forEach(function(tab){
+    // grab handles: a project folder drags from its code tab; a checklist card drags from
+    // its tab OR its whole header strip (the tab alone is a small target)
+    document.querySelectorAll('.proj-cluster-tab, .note-tab, .note-head').forEach(function(tab){
       tab.addEventListener('mousedown', function(e){
         if(e.target.closest('button, input')) return;
         var wrap = tab.closest('.proj-wrap, .note-wrap');
@@ -1665,7 +1753,9 @@
         }
         out += '</div>';
       });
-      out += '</div></div></div>';
+      out += '</div></div>'; // close .proj-cluster-stages, .proj-cluster
+      out += renderMontajPanel(p);
+      out += '</div>'; // close .proj-wrap
     });
     checklists.forEach(function(cl){ out += renderChecklistCard(cl); });
     return out;
@@ -2327,6 +2417,85 @@
       });
     });
 
+    // per-project "necesar montaj" side panel — hover/click to open, pin to keep, pin stored per device
+    document.querySelectorAll('[data-montaj-panel]').forEach(function(pnl){
+      var id = pnl.dataset.montajPanel;
+      var closeTimer = null;
+      function open(){ clearTimeout(closeTimer); montajOpen[id] = true; pnl.classList.add('open'); }
+      function scheduleClose(){
+        if(montajPinned(id)) return;
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(function(){ montajOpen[id] = false; pnl.classList.remove('open'); }, 900);
+      }
+      var handle = pnl.querySelector('[data-montaj-handle]');
+      if(handle){
+        handle.addEventListener('mouseenter', open);
+        handle.addEventListener('click', function(e){ e.stopPropagation(); open(); });
+      }
+      pnl.addEventListener('mouseenter', function(){ clearTimeout(closeTimer); });
+      pnl.addEventListener('mouseleave', scheduleClose);
+    });
+    document.querySelectorAll('[data-montaj-pin]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = btn.dataset.montajPin;
+        var now = !montajPinned(id);
+        try { localStorage.setItem('montaj-pin-' + id, now ? '1' : '0'); } catch(e2){ /* ignore */ }
+        if(now) montajOpen[id] = true;
+        render();
+      });
+    });
+    document.querySelectorAll('[data-montaj-close]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = btn.dataset.montajClose;
+        montajOpen[id] = false;
+        try { localStorage.setItem('montaj-pin-' + id, '0'); } catch(e2){ /* ignore */ }
+        render();
+      });
+    });
+    document.querySelectorAll('[data-montaj-add]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var p = projectById(btn.dataset.montajAdd);
+        if(!p) return;
+        if(!Array.isArray(p.montajNeeds)) p.montajNeeds = [];
+        p.montajNeeds.push({ id: uid(), text: '', qty: '', done: false });
+        montajOpen[p.id] = true;
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-montaj-check]').forEach(function(cb){
+      cb.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+      cb.addEventListener('change', function(){
+        var f = findMontajNeed(cb.dataset.montajCheck);
+        if(!f) return;
+        f.need.done = cb.checked;
+        montajOpen[f.project.id] = true;
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-montaj-edit]').forEach(function(inp){
+      inp.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+      inp.addEventListener('change', function(){
+        var f = findMontajNeed(inp.dataset.montajEdit);
+        if(!f) return;
+        f.need[inp.dataset.field] = inp.value.trim();
+        saveState(); // no re-render: keeps focus; count in the handle is fine until next render
+      });
+    });
+    document.querySelectorAll('[data-montaj-del]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var f = findMontajNeed(btn.dataset.montajDel);
+        if(!f) return;
+        if(f.need.text && !confirm('Ștergi „' + f.need.text + '”?')) return;
+        f.project.montajNeeds = f.project.montajNeeds.filter(function(x){ return x.id !== f.need.id; });
+        montajOpen[f.project.id] = true;
+        saveState(); render();
+      });
+    });
+
     // drop zones — station bodies (projects/pieces/workers) and the unassigned-people pool (workers only)
     document.querySelectorAll('.col-body').forEach(function(zone){
       zone.addEventListener('dragover', function(e){
@@ -2841,7 +3010,7 @@
         state.projects.push({
           id: uid(), cod:cod, client:client, termen:termen, tip:tip,
           stationId: stageSelNew ? stageSelNew.value : (firstProiect ? firstProiect.id : null),
-          finalizat:false, notite:notite, pieces:pieces, orders:[], createdAt: isoToday()
+          finalizat:false, notite:notite, pieces:pieces, orders:[], montajNeeds:[], createdAt: isoToday()
         });
       }
       saveState(); close(); render();
