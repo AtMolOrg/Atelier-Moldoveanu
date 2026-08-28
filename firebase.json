@@ -7,7 +7,17 @@
       "**/.*",
       "**/node_modules/**",
       "ITERATII.md",
-      "TODO.md"
+      "TODO.md",
+      "PREDARE.md",
+      "skills-lock.json"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
+        ]
+      }
     ]
   },
   "database": {

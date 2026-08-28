@@ -3119,15 +3119,24 @@
   function attachLiveSync(){
     if(!hasRtdb || liveSyncAttached) return;
     liveSyncAttached = true;
+    try {
+      firebase.database().ref('.info/connected').on('value', function(s){
+        console.log('[sync] ' + (s.val() ? 'conectat la Firebase' : 'offline'));
+      });
+    } catch(e){ /* ignore */ }
+    console.log('[sync] listener live pornit');
     dbRef().on('value', function(snap){
       var raw = snap.val();
       if(!raw) return;
       var incoming;
-      try { incoming = resolveVersioned(raw); } catch(e){ return; }
+      try { incoming = resolveVersioned(raw); } catch(e){ console.warn('[sync] snapshot invalid', e); return; }
       var sig = stableStringify(incoming);
-      if(recentLocalSigs.indexOf(sig) !== -1 || sig === stableStringify(state)) return; // our own echo / no change
-      if(userIsBusy()){ pendingRemote = incoming; return; }
+      if(recentLocalSigs.indexOf(sig) !== -1 || sig === stableStringify(state)){ console.log('[sync] snapshot = ecoul propriu / fără schimbare'); return; }
+      if(userIsBusy()){ console.log('[sync] schimbare primită — ținută în așteptare (ești în editare)'); pendingRemote = incoming; return; }
+      console.log('[sync] schimbare primită de la un coleg — aplic');
       applyRemote(incoming);
+    }, function(err){
+      console.warn('[sync] listener respins:', err && err.code, err && err.message);
     });
     setInterval(function(){
       if(pendingRemote && !userIsBusy()) applyRemote(pendingRemote);
