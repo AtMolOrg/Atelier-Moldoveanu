@@ -926,7 +926,12 @@
       // our own write will echo back through the live listener — remember it so we don't re-render on it
       noteLocalWrite(stableStringify(state));
       pendingRemote = null;
-      return dbRef().set(state).catch(function(){ saveToLocal(true); });
+      return dbRef().set(state).then(function(){
+        console.log('[sync] salvat în Firebase');
+      }).catch(function(err){
+        console.warn('[sync] scriere RESPINSĂ:', err && err.code, err && err.message);
+        saveToLocal(true);
+      });
     }
     if(hasFirebase){
       return firebaseUrl().then(function(url){
@@ -3105,7 +3110,9 @@
     if(mr && mr.children.length) return true;
     if(nodeDragging || canvasDragging || colDragging || resizeDragging) return true;
     var a = document.activeElement;
-    return !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'));
+    if(!a || (a.tagName !== 'INPUT' && a.tagName !== 'TEXTAREA' && a.tagName !== 'SELECT')) return false;
+    // the top-bar search box is a filter, not data entry — it must not block live sync
+    return !!(a.closest && a.closest('#board, .team-sidebar'));
   }
   function applyRemote(incoming){
     pendingRemote = null;
@@ -3117,7 +3124,9 @@
     showToast('Tablou actualizat — modificări de la un coleg.');
   }
   function attachLiveSync(){
-    if(!hasRtdb || liveSyncAttached) return;
+    console.log('[sync] hasAuth=' + hasAuth + ' hasRtdb=' + hasRtdb + ' firebase.database=' + (typeof (window.firebase && firebase.database)));
+    if(liveSyncAttached) return;
+    if(!hasRtdb){ console.warn('[sync] RTDB SDK indisponibil — rămân pe REST (fără actualizări live)'); return; }
     liveSyncAttached = true;
     try {
       firebase.database().ref('.info/connected').on('value', function(s){
