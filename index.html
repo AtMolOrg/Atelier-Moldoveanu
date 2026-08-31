@@ -488,6 +488,10 @@
   .cmz-inp{ width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:6px 8px; border-radius:6px; font-size:12.5px; }
   .cmz-proj{ cursor:pointer; white-space:nowrap; }
   .cmz-proj:hover .t-code{ text-decoration:underline; }
+  .fin-detail td{ background:var(--panel-2); }
+  .fin-detail-box{ display:flex; flex-direction:column; gap:6px; font-size:12.5px; color:var(--ink-dim); padding:4px 0; }
+  .fin-sec b{ color:var(--ink); }
+  .fin-log-type{ display:inline-block; background:var(--panel-2); border:1px solid var(--border); border-radius:5px; padding:1px 7px; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; color:var(--ink-dim); }
   .t-code{ font-family:'Raleway', sans-serif; color:var(--accent); font-weight:600; }
   .t-badges span{ font-family:'Raleway', sans-serif; font-size:10.5px; color:var(--ink-dim); background:var(--panel-2); border-radius:5px; padding:2px 6px; margin-right:4px; display:inline-block; margin-bottom:3px; }
   .toolbar-row{ display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:12.5px; color:var(--ink-dim); flex-wrap:wrap; }
@@ -670,6 +674,7 @@
     <div class="tabs" id="tabs">
       <button data-tab="hala" class="active">Hartă atelier</button>
       <button data-tab="comenzi">Comenzi</button>
+      <button data-tab="finalizate">Finalizate</button>
     </div>
     <div class="topbar-actions">
       <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
@@ -756,6 +761,13 @@
   function daysBetween(a,b){ return Math.round((b-a)/86400000); }
   function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
   var MONTHS = ['Ian','Feb','Mar','Apr','Mai','Iun','Iul','Aug','Sep','Oct','Noi','Dec'];
+  function fmtDateTime(iso){
+    if(!iso) return '';
+    var d = new Date(iso);
+    if(isNaN(d)) return String(iso);
+    return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  var LOG_LABEL = { 'proiect-nou':'proiect nou', 'finalizat':'finalizat', 'redeschis':'redeschis', 'avansat':'avansat', 'piesa-montaj':'piesă la montaj' };
 
   function stationBoxWidth(s){
     if(typeof s.width === 'number') return s.width;
@@ -836,6 +848,15 @@
   // feedback lives in its own Firebase node, separate from the board data — never overwritten,
   // each submission is POSTed (Firebase generates a unique push key per entry)
   function feedbackUrl(){ return withAuth(FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '-feedback.json'); }
+  // activity log — same idea: its own node, append-only via POST, never part of `state`
+  function logUrl(){ return withAuth(FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '-log.json'); }
+  function logEvent(type, text){
+    if(!hasFirebase) return;
+    logUrl().then(function(url){
+      return fetch(url, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ts: new Date().toISOString(), type: type, text: text }) });
+    }).catch(function(){ /* best-effort */ });
+  }
 
   function loadState(){
     if(hasRtdb){
@@ -1164,6 +1185,7 @@
     board.style.height = '100%';
     if(tab === 'hala') renderHala();
     else if(tab === 'comenzi') renderComenzi();
+    else if(tab === 'finalizate') renderFinalizate();
     else if(tab === 'gantt') renderGantt();
     else if(tab === 'proiecte') renderProiecte();
     else if(tab === 'reparatii') renderReparatii();
@@ -2177,6 +2199,8 @@
         if(p){
           p.stationId = btn.dataset.target; p.lane = null;
           breakConnectionsFor(p.id);
+          var tSt = stationByIdFor(p, btn.dataset.target);
+          logEvent('avansat', p.cod + ' · ' + p.client + ' → ' + (tSt ? tSt.name : '?'));
           saveState(); render();
         }
       });
@@ -2187,7 +2211,7 @@
         if(!p) return;
         var target = firstProiectAfterLastPiesaFor(p);
         if(target){ p.stationId = target.id; p.lane = null; }
-        else p.finalizat = true; // no post-execution stage configured — nowhere else for it to go
+        else { p.finalizat = true; p.finalizatAt = new Date().toISOString(); logEvent('finalizat', p.cod + ' · ' + p.client); } // nowhere else for it to go
         breakConnectionsFor(p.id);
         saveState(); render();
       });
@@ -2206,13 +2230,13 @@
     document.querySelectorAll('[data-close-project]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var p = state.projects.find(function(x){ return x.id===btn.dataset.closeProject; });
-        if(p){ p.finalizat = true; saveState(); render(); }
+        if(p){ p.finalizat = true; p.finalizatAt = new Date().toISOString(); logEvent('finalizat', p.cod + ' · ' + p.client); saveState(); render(); }
       });
     });
     document.querySelectorAll('[data-reopen]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var p = state.projects.find(function(x){ return x.id===btn.dataset.reopen; });
-        if(p){ p.finalizat = false; saveState(); render(); }
+        if(p){ p.finalizat = false; logEvent('redeschis', p.cod + ' · ' + p.client); saveState(); render(); }
       });
     });
     document.querySelectorAll('.urgency-slider').forEach(function(sl){
@@ -2296,6 +2320,7 @@
         if(!pc) return;
         pc.stationId = PIECE_MONTAJ; pc.lane = null;
         breakConnectionsFor('pc:' + p.id + '::' + pc.id);
+        logEvent('piesa-montaj', p.cod + ' · ' + p.client + ' · ' + pc.name);
         saveState(); render();
       });
     });
@@ -2997,6 +3022,109 @@
     });
   }
 
+  /* ================= FINALIZATE + ISTORIC ================= */
+  function renderFinalizatDetail(p){
+    var h = '<div class="fin-detail-box">';
+    if((p.pieces||[]).length){
+      h += '<div class="fin-sec"><b>Piese:</b> ' + (p.pieces||[]).map(function(pc){
+        var loc = pc.stationId === PIECE_MONTAJ ? 'montaj' : ((stationByIdFor(p, pc.stationId) || {}).name || 'proiectare');
+        return esc(pc.name) + (pc.colorCode ? ' (' + esc(pc.colorCode) + ')' : '') + ' — ' + esc(loc);
+      }).join(' · ') + '</div>';
+    }
+    var team = assignmentsForTask(p.id, MONTAJ_TEAM).map(function(a){
+      var w = state.workers.find(function(x){ return x.id === a.workerId; }); return w ? w.name : null;
+    }).filter(Boolean);
+    if(team.length) h += '<div class="fin-sec"><b>Echipă montaj:</b> ' + esc(team.join(', ')) + '</div>';
+    if((p.orders||[]).length){
+      h += '<div class="fin-sec"><b>Comenzi:</b> ' + (p.orders||[]).map(function(o){
+        var s = state.workers.find(function(x){ return x.id === o.supplierId; });
+        return esc(o.text || '?') + (o.qty ? ' (' + esc(o.qty) + ')' : '') + (s ? ' — ' + esc(s.name) : '') + ' [' + esc(ORDER_STATUS_LABEL[o.status] || o.status || '') + ']';
+      }).join(' · ') + '</div>';
+    }
+    if((p.montajNotes||'').trim()) h += '<div class="fin-sec"><b>Necesar montaj:</b><br>' + esc(p.montajNotes).replace(/\n/g,'<br>') + '</div>';
+    if((p.notite||'').trim()) h += '<div class="fin-sec"><b>Notițe:</b> ' + esc(p.notite) + '</div>';
+    h += '<div class="field-hint">Creat: ' + esc(p.createdAt || '?') + (p.tip ? ' · ' + esc(p.tip) : '') + '</div>';
+    h += '</div>';
+    return h;
+  }
+  function loadFinLog(){
+    var box = document.getElementById('fin-log');
+    if(!box) return;
+    if(!hasFirebase){ box.innerHTML = '<div class="col-empty" style="padding:16px;">Istoric indisponibil (fără Firebase).</div>'; return; }
+    logUrl().then(function(u){ return fetch(u); }).then(function(r){ return r.json(); }).then(function(raw){
+      var entries = [];
+      if(raw) Object.keys(raw).forEach(function(k){ entries.push(raw[k]); });
+      entries.sort(function(a,b){ return (a.ts||'') < (b.ts||'') ? 1 : -1; });
+      if(!entries.length){ box.innerHTML = '<div class="col-empty" style="padding:16px;">Nimic în istoric încă.</div>'; return; }
+      box.innerHTML = '<table class="proj-table"><tbody>' + entries.slice(0, 400).map(function(e){
+        return '<tr><td style="white-space:nowrap; color:var(--ink-faint); font-size:11.5px;">' + esc(fmtDateTime(e.ts)) + '</td>' +
+          '<td style="white-space:nowrap;"><span class="fin-log-type">' + esc(LOG_LABEL[e.type] || e.type || '') + '</span></td>' +
+          '<td>' + esc(e.text || '') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    }).catch(function(){ box.innerHTML = '<div class="col-empty" style="padding:16px;">Nu s-a putut încărca istoricul.</div>'; });
+  }
+  function renderFinalizate(){
+    var board = document.getElementById('board');
+    board.className = ''; board.style.display = 'block'; board.style.height = '100%';
+    var list = state.projects.filter(function(p){ return p.finalizat; }).slice()
+      .sort(function(a, b){
+        var ka = a.finalizatAt || a.createdAt || '', kb = b.finalizatAt || b.createdAt || '';
+        return ka < kb ? 1 : (ka > kb ? -1 : 0);
+      });
+
+    var html = '<div class="toolbar-row"><strong>Proiecte finalizate</strong> — ' + list.length + '</div>';
+    if(!list.length){
+      html += '<div class="empty-state" style="margin-top:16px;"><h2>Niciun proiect finalizat</h2><p>Când apeși „Finalizează proiect ✓" pe un dosar, ajunge aici.</p></div>';
+    } else {
+      html += '<div class="table-wrap" style="max-height:50vh;"><table class="proj-table"><thead><tr><th>Cod</th><th>Client</th><th>Termen</th><th>Finalizat</th><th></th></tr></thead><tbody>';
+      list.forEach(function(p){
+        html += '<tr><td class="t-code">' + esc(p.cod) + '</td><td>' + esc(p.client) + '</td><td>' + esc(p.termen || '—') + '</td><td>' + (p.finalizatAt ? esc(fmtDateTime(p.finalizatAt)) : '—') + '</td>' +
+          '<td style="white-space:nowrap;"><button class="btn btn-xs" data-fin-view="' + p.id + '">Vezi</button> <button class="btn btn-xs btn-ghost" data-reopen-fin="' + p.id + '">Redeschide</button></td></tr>';
+        html += '<tr class="fin-detail" data-fin-detail="' + p.id + '" style="display:none;"><td colspan="5">' + renderFinalizatDetail(p) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    html += '<div class="toolbar-row" style="margin-top:20px;"><strong>Istoric</strong><button class="btn btn-xs btn-ghost" id="fin-log-export" style="margin-left:auto;">Exportă (.txt)</button></div>';
+    html += '<div class="table-wrap" id="fin-log" style="max-height:40vh;"><div class="col-empty" style="padding:16px;">Se încarcă…</div></div>';
+    board.innerHTML = html;
+
+    board.querySelectorAll('[data-fin-view]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var d = board.querySelector('.fin-detail[data-fin-detail="' + btn.dataset.finView + '"]');
+        if(d) d.style.display = (d.style.display === 'none') ? '' : 'none';
+      });
+    });
+    board.querySelectorAll('[data-reopen-fin]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var p = projectById(btn.dataset.reopenFin);
+        if(!p) return;
+        p.finalizat = false;
+        logEvent('redeschis', p.cod + ' · ' + p.client);
+        saveState(); render();
+      });
+    });
+    var exp = document.getElementById('fin-log-export');
+    if(exp) exp.addEventListener('click', function(){
+      if(!hasFirebase){ alert('Istoric indisponibil — fără Firebase.'); return; }
+      logUrl().then(function(u){ return fetch(u); }).then(function(r){ return r.json(); }).then(function(raw){
+        var entries = [];
+        if(raw) Object.keys(raw).forEach(function(k){ entries.push(raw[k]); });
+        entries.sort(function(a,b){ return (a.ts||'') < (b.ts||'') ? -1 : 1; });
+        var lines = entries.length
+          ? entries.map(function(e){ return fmtDateTime(e.ts) + '  [' + (LOG_LABEL[e.type] || e.type || '') + ']  ' + (e.text || ''); })
+          : ['Istoric gol.'];
+        var blob = new Blob([lines.join('\n')], {type:'text/plain;charset=utf-8'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'istoric-atelier-' + isoToday() + '.txt';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      }).catch(function(){ alert('Nu s-a putut încărca istoricul.'); });
+    });
+    loadFinLog();
+  }
+
   /* ================= REPARAȚII ================= */
   var REPAIR_STATUSES = [
     {id:'deschisa', name:'Deschisă'},
@@ -3263,6 +3391,7 @@
           stationId: stageSelNew ? stageSelNew.value : (firstProiect ? firstProiect.id : null),
           finalizat:false, notite:notite, pieces:pieces, orders:[], montajNotes:'', createdAt: isoToday()
         });
+        logEvent('proiect-nou', cod + ' · ' + client);
       }
       saveState(); close(); render();
     });

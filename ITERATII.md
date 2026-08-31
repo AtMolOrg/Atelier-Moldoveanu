@@ -4,6 +4,10 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-08-31
 
+- **Tab „Finalizate" + istoric**:
+  - Listă cu proiectele `p.finalizat`, cele mai recente sus (după `p.finalizatAt`, un ISO timestamp setat acum la „Finalizează proiect"). Coloane: cod · client · termen · finalizat · „Vezi" (extinde un rezumat read-only: piese + unde au ajuns, echipă montaj, comenzi, necesar montaj, notițe) · „Redeschide".
+  - **Log de evenimente** într-un nod Firebase separat (`workshop-board-log`), append-only prin POST, în afara lui `state` (ca feedback-ul). `logEvent(type, text)` apelat la: proiect nou, finalizat, redeschis, avansat (la o etapă de proiect), piesă trimisă la montaj. Nu se logează micro-editările (comenzi, atribuiri, lane-uri). Secțiunea „Istoric" din tab îl afișează cronologic + „Exportă (.txt)". Se încarcă separat la deschiderea tab-ului (nu se sincronizează live).
+  - Limitare asumată: log-ul crește la infinit (afișăm max 400 intrări); proiectele finalizate rămân în `state` — arhivare reală = altă dată.
 - **Tab-ul dosarului**: acum arată `cod + client` (ex. „0002 Gruia"), la font ~2.5× (cod 30px / client 28px, față de 12px). Clientul a fost scos din antetul dosarului (nu se mai dublează). Drag-ul dosarului merge în continuare de pe tab.
 - **Bara de tab-uri readăugată** (scoasă pe 2026-08-24): „Hartă atelier" | „Comenzi". `render()` dispecerizează `tab === 'comenzi'` → `renderComenzi()`.
 - **Tab „Comenzi"**: tabel cu toate rândurile `p.orders` din proiectele active, grupate pe furnizor (sortare alfabetică, „— fără furnizor —" ultimul). Coloane: Stare (buton care ciclează) · Ce · Cant. · Furnizor (select) · Proiect (cod+client, click → deschide proiectul) · ✕. Editabil inline (aceleași `data-order-*` ca panoul lateral, refolosind `findOrderByKey`/`ORDER_STATUSES`/`supplierOptionsHtml`, dar cu handler-e proprii). Toolbar: contor + checkbox „Arată și primite" (implicit ascunde `primit`).
