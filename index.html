@@ -149,12 +149,13 @@
   .proj-stage-head .col-actions:hover{ opacity:1; }
   .proj-stage-head .col-actions button{ padding:3px 4px; font-size:12px; }
   .proj-stage-box .col-body{ padding:8px; gap:8px; min-height:76px; flex:1; }
-  .proj-stage-add{ flex:0 0 130px; display:flex; flex-direction:column; gap:6px; padding:10px 8px; align-self:flex-start; }
-  .proj-stage-add button{
-    border:1.5px dashed var(--border); background:transparent; color:var(--ink-dim);
-    border-radius:8px; padding:8px 6px; font-size:11px; font-weight:600;
+  .head-add-stage{ display:flex; flex-wrap:wrap; gap:6px; }
+  .head-add-stage button{
+    border:1px dashed var(--border); background:transparent; color:var(--ink-dim);
+    border-radius:6px; padding:3px 10px; font-size:10.5px; font-weight:600;
+    text-transform:none; letter-spacing:0;
   }
-  .proj-stage-add button:hover{ border-color:var(--accent); color:var(--accent); }
+  .head-add-stage button:hover{ border-color:var(--accent); color:var(--accent); }
 
   /* ---------- SIDE PANELS — panouri laterale care ies din marginile fiecărui dosar
      (dreapta: „necesar montaj"; stânga: „comenzi materiale"). Aceleași funcții: mâner, hover,
@@ -1807,6 +1808,10 @@
       out += '<div class="proj-cluster-tab">' + esc(p.cod) + '</div>';
       out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
       out += '<div class="proj-cluster-head"><span class="proj-cluster-client">' + esc(p.client) + '</span>';
+      out += '<div class="head-add-stage">' +
+        '<button type="button" data-add-stage="' + p.id + '" data-type="proiect">+ etapă proiectare (anteproiect)</button>' +
+        '<button type="button" data-add-stage="' + p.id + '" data-type="piesa">+ etapă execuție</button>' +
+        '</div>';
       out += '<span class="badge badge-' + urgencyOf(p) + '" style="margin-left:auto;">' + esc(urgencyLabel(p)) + '</span></div>';
       out += '<div class="proj-cluster-stages">';
       var pStations = stationsFor(p);
@@ -1852,10 +1857,6 @@
         }
         out += '</div>';
       });
-      out += '<div class="proj-stage-add">' +
-        '<button type="button" data-add-stage="' + p.id + '" data-type="proiect">+ etapă proiect</button>' +
-        '<button type="button" data-add-stage="' + p.id + '" data-type="piesa">+ etapă piesă</button>' +
-        '</div>';
       out += '</div></div>'; // close .proj-cluster-stages, .proj-cluster
       out += renderOrdersPanel(p);   // left edge
       out += renderMontajPanel(p);   // right edge
@@ -2108,7 +2109,7 @@
         var p = projectById(btn.dataset.addStage);
         if(!p) return;
         var type = btn.dataset.type;
-        var name = prompt('Denumire etapă nouă (nivel ' + (type==='piesa'?'piesă':'proiect') + '):');
+        var name = prompt('Denumire etapă nouă (' + (type==='piesa'?'execuție, urmărită piesă cu piesă':'proiectare / anteproiect, la nivel de proiect') + '):');
         if(!name || !name.trim()) return;
         var arr = forkProjectStations(p);
         var st = { id: uid(), name: name.trim(), type: type };
