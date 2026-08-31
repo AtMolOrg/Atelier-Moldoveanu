@@ -680,6 +680,8 @@
       <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
       <button class="btn" id="btn-add-list">+ Listă</button>
       <input type="text" id="search" class="search-input" placeholder="Caută cod sau client…">
+      <button class="btn btn-ghost btn-icon" id="btn-undo" title="Anulează (Ctrl+Z)" disabled>↶</button>
+      <button class="btn btn-ghost btn-icon" id="btn-redo" title="Refă (Ctrl+Shift+Z)" disabled>↷</button>
       <button class="btn btn-ghost btn-icon" id="btn-feedback" title="Lasă un feedback">💬</button>
       <button class="btn btn-ghost btn-icon" id="btn-reset" title="Resetează tot panoul">⟲</button>
     </div>
@@ -979,7 +981,43 @@
     } catch(e){ /* corrupted data — start fresh */ }
     return defaultState();
   }
+  var undoStack = [], redoStack = [], prevStateJson = null, suppressUndoPush = false;
+  var UNDO_MAX = 40;
+  function noteUndoPoint(){
+    if(suppressUndoPush || prevStateJson == null) return;
+    undoStack.push(prevStateJson);
+    if(undoStack.length > UNDO_MAX) undoStack.shift();
+    redoStack.length = 0;
+  }
+  function resetUndoHistory(){ undoStack.length = 0; redoStack.length = 0; prevStateJson = state ? JSON.stringify(state) : null; updateUndoButtons(); }
+  function updateUndoButtons(){
+    var u = document.getElementById('btn-undo'), r = document.getElementById('btn-redo');
+    if(u) u.disabled = !undoStack.length;
+    if(r) r.disabled = !redoStack.length;
+  }
+  function applySnapshot(json, msg){
+    suppressUndoPush = true;
+    try { state = resolveVersioned(JSON.parse(json)); } catch(e){ suppressUndoPush = false; return; }
+    prevStateJson = JSON.stringify(state);
+    saveState();
+    suppressUndoPush = false;
+    setAddButton(); render();
+    showToast(msg);
+  }
+  function doUndo(){
+    if(!undoStack.length) return;
+    redoStack.push(JSON.stringify(state));
+    applySnapshot(undoStack.pop(), 'Anulat');
+  }
+  function doRedo(){
+    if(!redoStack.length) return;
+    undoStack.push(JSON.stringify(state));
+    applySnapshot(redoStack.pop(), 'Refăcut');
+  }
+
   function saveState(){
+    noteUndoPoint();
+    prevStateJson = JSON.stringify(state);
     if(hasRtdb){
       // our own write will echo back through the live listener — remember it so we don't re-render on it
       noteLocalWrite(stableStringify(state));
@@ -1189,6 +1227,7 @@
     else if(tab === 'gantt') renderGantt();
     else if(tab === 'proiecte') renderProiecte();
     else if(tab === 'reparatii') renderReparatii();
+    updateUndoButtons();
   }
 
   /* ================= HARTĂ ATELIER ================= */
@@ -3487,6 +3526,17 @@
 
   document.getElementById('search').addEventListener('input', function(e){ searchQuery = e.target.value; render(); });
   document.getElementById('btn-feedback').addEventListener('click', function(){ openFeedbackModal(); });
+  document.getElementById('btn-undo').addEventListener('click', doUndo);
+  document.getElementById('btn-redo').addEventListener('click', doRedo);
+  document.addEventListener('keydown', function(e){
+    if(!(e.ctrlKey || e.metaKey)) return;
+    var k = (e.key || '').toLowerCase();
+    if(k !== 'z' && k !== 'y') return;
+    var a = document.activeElement;
+    if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return; // let the field's native text undo win
+    e.preventDefault();
+    if(k === 'y' || e.shiftKey) doRedo(); else doUndo();
+  });
   document.getElementById('btn-add-list').addEventListener('click', addChecklist);
   document.querySelectorAll('#tabs button').forEach(function(b){
     b.addEventListener('click', function(){
@@ -3516,6 +3566,7 @@
       if(!state.connections) state.connections = [];
       document.getElementById('loading').style.display = 'none';
       document.getElementById('app').style.display = 'flex';
+      resetUndoHistory();
       setAddButton();
       updateSidebarForTab();
       render();
@@ -3539,6 +3590,7 @@
     if(stableStringify(incoming) === stableStringify(state)) return;
     state = incoming;
     noteLocalWrite(stableStringify(state));
+    resetUndoHistory(); // a colleague's change invalidates our local undo stack
     setAddButton();
     render();
     showToast('Tablou actualizat — modificări de la un coleg.');

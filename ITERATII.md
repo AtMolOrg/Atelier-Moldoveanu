@@ -4,6 +4,7 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-08-31
 
+- **Undo / Redo** (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y, plus butoanele ↶ ↷ din bara de sus). `saveState` reține un snapshot JSON al stării de dinaintea fiecărei modificări (`prevStateJson`) și îl împinge pe `undoStack` (max 40); redo pe stiva cealaltă, golită la orice acțiune nouă. `applySnapshot` restaurează + salvează cu `suppressUndoPush` ca să nu genereze intrări noi. Ctrl+Z e ignorat când focus-ul e într-un `input`/`textarea` (câștigă undo-ul nativ pe text). O modificare venită de la un coleg (`applyRemote`) golește istoricul de undo — restaurează starea întreagă, ar suprascrie și munca lui.
 - **Tab „Finalizate" + istoric**:
   - Listă cu proiectele `p.finalizat`, cele mai recente sus (după `p.finalizatAt`, un ISO timestamp setat acum la „Finalizează proiect"). Coloane: cod · client · termen · finalizat · „Vezi" (extinde un rezumat read-only: piese + unde au ajuns, echipă montaj, comenzi, necesar montaj, notițe) · „Redeschide".
   - **Log de evenimente** într-un nod Firebase separat (`workshop-board-log`), append-only prin POST, în afara lui `state` (ca feedback-ul). `logEvent(type, text)` apelat la: proiect nou, finalizat, redeschis, avansat (la o etapă de proiect), piesă trimisă la montaj. Nu se logează micro-editările (comenzi, atribuiri, lane-uri). Secțiunea „Istoric" din tab îl afișează cronologic + „Exportă (.txt)". Se încarcă separat la deschiderea tab-ului (nu se sincronizează live).
