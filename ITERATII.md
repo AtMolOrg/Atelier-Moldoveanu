@@ -4,6 +4,8 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-08-31
 
+- **„Comenzi materiale" = panou lateral**, ca „necesar montaj". Iese acum din marginea **stângă** a dosarului (montaj rămâne pe dreapta), cu mâner vertical, hover/click ca să deschizi, auto-hide după ~1s, și pin sincronizat per proiect (`p.ordersPinned`). Nu mai e o fâșie în interiorul dosarului. Rândurile (stare + text + cantitate + furnizor + șterge) sunt acum pe grilă pe 3 linii ca să încapă în panoul îngust. Cele două panouri împart o carcasă comună `renderSidePanel({ side:'left'|'right', pinField, … })`; `montajOpen` → `sideOpen['<id>|<kind>']`, handler-ele `[data-montaj-*]` → `[data-side-*]`.
+
 - **Fără butoane de restrângere** la „Comenzi materiale" (panoul din dosarul de proiect) și la secțiunea „gata (N)" din listele de mărunțișuri. Ambele erau pliabile cu un ▸/▾ — acum sunt mereu deschise: panoul de comenzi arată tot timpul lista + „+ Adaugă comandă", iar rândurile bifate se văd mereu, tăiate, sub linie. Scos `ordersOpen` / `checklistDoneOpen` și handler-ele lor.
 
 ## 2026-08-28

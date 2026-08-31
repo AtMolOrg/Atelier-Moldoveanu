@@ -148,57 +148,66 @@
   .proj-stage-head .col-actions:hover{ opacity:1; }
   .proj-stage-box .col-body{ padding:8px; gap:8px; min-height:76px; flex:1; }
 
-  /* ---------- PROJECT ORDERS PANEL (materiale de comandat, per proiect) ---------- */
-  .proj-orders{ border-bottom:1px solid var(--border); background:var(--panel-2); }
-  .proj-orders-head{
-    padding:8px 16px 4px; font-family:'Raleway',sans-serif; font-weight:600; font-size:11.5px;
-    letter-spacing:0.02em; color:var(--ink-dim); display:flex; align-items:center; gap:6px;
-  }
-  .proj-orders-count{ margin-left:6px; background:var(--panel-3); border-radius:999px; padding:1px 8px; font-size:10.5px; color:var(--ink-dim); }
-  .proj-orders-body{ padding:4px 16px 12px; display:flex; flex-direction:column; gap:6px; }
-  .order-row{ display:flex; align-items:center; gap:6px; }
-  .order-status{
-    flex:none; border:1px solid var(--border); border-radius:6px; padding:4px 8px;
-    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
-    min-width:88px; text-align:center;
-  }
-  .order-status-de-comandat{ background: rgba(232,168,160,0.35); color:#a8483a; border-color: rgba(232,168,160,0.6); }
-  .order-status-comandat{ background: rgba(240,221,154,0.4); color:#8a7020; border-color: rgba(240,221,154,0.7); }
-  .order-status-primit{ background: rgba(168,217,184,0.4); color:#3d7a52; border-color: rgba(168,217,184,0.7); }
-  .order-text{ flex:1; min-width:120px; background:var(--panel); border:1px solid var(--border); color:var(--ink); padding:6px 9px; border-radius:6px; font-size:12px; }
-  .order-qty{ flex:0 0 66px; background:var(--panel); border:1px solid var(--border); color:var(--ink); padding:6px 8px; border-radius:6px; font-size:12px; }
-  .order-supplier{ flex:0 0 132px; background:var(--panel); border:1px solid var(--border); color:var(--ink); padding:6px 8px; border-radius:6px; font-size:12px; }
-  .order-del{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:26px; height:26px; font-size:13px; padding:0; }
-  .order-del:hover{ color:#a85248; border-color: rgba(200,110,95,0.45); }
-  .order-add{ align-self:flex-start; margin-top:2px; }
-  .card-orders-line{ display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--ink-dim); margin-bottom:8px; }
-
-  /* ---------- "NECESAR MONTAJ" — panou lateral care iese din dreapta fiecărui dosar ---------- */
-  .montaj-panel{ position:absolute; left:100%; top:28px; z-index:20; display:flex; align-items:flex-start; }
-  .montaj-handle{
+  /* ---------- SIDE PANELS — panouri laterale care ies din marginile fiecărui dosar
+     (dreapta: „necesar montaj"; stânga: „comenzi materiale"). Aceleași funcții: mâner, hover,
+     auto-hide, pin sincronizat per proiect. ---------- */
+  .side-panel{ position:absolute; top:28px; z-index:20; display:flex; align-items:flex-start; }
+  .side-panel.side-right{ left:100%; }
+  .side-panel.side-left{ right:100%; flex-direction:row-reverse; }
+  .side-handle{
     flex:none; writing-mode:vertical-rl; text-orientation:mixed;
-    background:var(--panel-2); border:1px solid var(--border); border-left:none;
-    padding:12px 6px; border-radius:0 8px 8px 0;
+    background:var(--panel-2); border:1px solid var(--border);
+    padding:12px 6px;
     font-family:'Raleway',sans-serif; font-weight:700; font-size:10px; letter-spacing:0.05em;
     text-transform:uppercase; color:var(--ink-dim); cursor:pointer; white-space:nowrap;
     box-shadow:var(--shadow);
   }
-  .montaj-handle:hover{ color:var(--ink); }
-  .montaj-panel.open .montaj-handle{ display:none; }
-  .montaj-body{
+  .side-right .side-handle{ border-left:none; border-radius:0 8px 8px 0; }
+  .side-left .side-handle{ border-right:none; border-radius:8px 0 0 8px; }
+  .side-handle:hover{ color:var(--ink); }
+  .side-panel.open .side-handle{ display:none; }
+  .side-body{
     display:none; width:270px;
-    background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--accent);
-    border-radius:0 10px 10px 0; box-shadow: 12px 0 30px rgba(0,0,0,0.18); padding:12px;
+    background:var(--panel); border:1px solid var(--border);
+    padding:12px;
   }
-  .montaj-panel.open .montaj-body{ display:block; }
-  .montaj-head{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
-  .montaj-title{ flex:1; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-dim); }
-  .montaj-pin.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .side-right .side-body{ border-left:3px solid var(--accent); border-radius:0 10px 10px 0; box-shadow: 12px 0 30px rgba(0,0,0,0.18); }
+  .side-left .side-body{ border-right:3px solid var(--accent); border-radius:10px 0 0 10px; box-shadow: -12px 0 30px rgba(0,0,0,0.18); }
+  .side-panel.open .side-body{ display:block; }
+  .side-head{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+  .side-title{ flex:1; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-dim); }
+  .side-pin.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .side-count{ background:var(--panel-3); border-radius:999px; padding:1px 7px; font-size:9px; color:var(--ink-dim); }
+
   .montaj-notes{
     width:100%; min-height:180px; resize:vertical; display:block;
     background:var(--panel-2); border:1px solid var(--border); border-radius:8px; color:var(--ink);
     padding:8px 10px; font-family:inherit; font-size:12.5px; line-height:1.5;
   }
+
+  /* comenzi materiale — rânduri într-un panou îngust: stare+text+șterge sus, cantitate+furnizor jos */
+  .side-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+  .order-row{
+    display:grid; align-items:center; gap:6px 5px;
+    grid-template-columns: 56px minmax(0,1fr) 24px;
+    grid-template-areas: "status status del" "text text text" "qty supp supp";
+  }
+  .order-row + .order-row{ border-top:1px dashed var(--border); padding-top:8px; }
+  .order-row input, .order-row select{ min-width:0; }
+  .order-status{
+    grid-area:status; justify-self:start; border:1px solid var(--border); border-radius:6px; padding:4px 8px;
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; min-width:88px; text-align:center;
+  }
+  .order-status-de-comandat{ background: rgba(232,168,160,0.35); color:#a8483a; border-color: rgba(232,168,160,0.6); }
+  .order-status-comandat{ background: rgba(240,221,154,0.4); color:#8a7020; border-color: rgba(240,221,154,0.7); }
+  .order-status-primit{ background: rgba(168,217,184,0.4); color:#3d7a52; border-color: rgba(168,217,184,0.7); }
+  .order-text{ grid-area:text; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 8px; border-radius:6px; font-size:12px; }
+  .order-qty{ grid-area:qty; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 6px; border-radius:6px; font-size:12px; }
+  .order-supplier{ grid-area:supp; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:5px 6px; border-radius:6px; font-size:12px; }
+  .order-del{ grid-area:del; justify-self:end; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:24px; height:24px; font-size:12px; padding:0; }
+  .order-del:hover{ color:#a85248; border-color: rgba(200,110,95,0.45); }
+  .order-add{ align-self:flex-start; }
+  .card-orders-line{ display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--ink-dim); margin-bottom:8px; }
 
   /* ---------- CHECKLIST CARD (listă permanentă de mărunțișuri, pe canvas) ---------- */
   .note-wrap{ width:max-content; margin-bottom:16px; }
@@ -689,7 +698,7 @@
   var SNAP_THRESHOLD = 10, SNAP_GRID = 20;
   var nodeDragging = false, nodeDragObj = null, nodeDragEl = null, nodeDragMoved = false;
   var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
-  var montajOpen = {}; // projectId -> true while its "necesar montaj" side panel is open on hover (transient; the pin is p.montajPinned in shared state)
+  var sideOpen = {}; // "<projectId>|<kind>" -> true while that folder side panel is open on hover (transient; the pin lives in shared state)
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
 
@@ -1185,31 +1194,46 @@
     var o = p.orders.find(function(x){ return x.id === parts[1]; });
     return o ? { project: p, order: o } : null;
   }
-  function renderProjectOrdersPanel(p){
+  // Generic side-panel shell: a handle that juts out of a folder edge, hover/click to open,
+  // auto-hide unless pinned (pin is shared, per-project, in state[pinField]).
+  function renderSidePanel(opts){
+    // opts: { projectId, kind, side, label, count, pinned, bodyHtml, pinField }
+    var isOpen = opts.pinned || !!sideOpen[opts.projectId + '|' + opts.kind];
+    var h = '<div class="side-panel side-' + opts.side + (isOpen ? ' open' : '') + '" data-side-panel="' + opts.projectId + '" data-side-kind="' + opts.kind + '" data-side-pinfield="' + opts.pinField + '">';
+    h += '<div class="side-handle" data-side-handle="1">' + esc(opts.label) + (opts.count ? ' <span class="side-count">' + esc(opts.count) + '</span>' : '') + '</div>';
+    h += '<div class="side-body">';
+    h += '<div class="side-head"><span class="side-title">' + esc(opts.title || opts.label) + '</span>' +
+      '<button type="button" class="btn btn-xs side-pin' + (opts.pinned ? ' pinned' : '') + '" data-side-pin="' + opts.projectId + '" data-pinfield="' + opts.pinField + '" title="' + (opts.pinned ? 'Anulează fixarea (pentru toți)' : 'Fixează deschis (pentru toți)') + '">📌</button></div>';
+    h += opts.bodyHtml;
+    h += '</div></div>';
+    return h;
+  }
+  function renderOrdersPanel(p){
     var orders = Array.isArray(p.orders) ? p.orders : [];
     var received = orders.filter(function(o){ return o.status === 'primit'; }).length;
-    var summary = orders.length ? (received + '/' + orders.length) : '—';
-    var h = '<div class="proj-orders open">';
-    h += '<div class="proj-orders-head">📋 Comenzi materiale <span class="proj-orders-count">' + summary + '</span></div>';
-    h += '<div class="proj-orders-body">';
+    var b = '<div class="side-list">';
     if(!orders.length){
-      h += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Nicio comandă încă.</div>';
+      b += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Nicio comandă încă.</div>';
     } else {
       orders.forEach(function(o){
         var key = p.id + '::' + o.id;
-        h += '<div class="order-row">';
-        h += '<button type="button" class="order-status order-status-' + o.status + '" data-order-status="' + key + '" title="Schimbă starea">' + ORDER_STATUS_LABEL[o.status] + '</button>';
-        h += '<input class="order-text" data-order-edit="' + key + '" data-field="text" value="' + esc(o.text || '') + '" placeholder="Ce se comandă (ex: profil 40x40, 12 m)">';
-        h += '<input class="order-qty" data-order-edit="' + key + '" data-field="qty" value="' + esc(o.qty || '') + '" placeholder="Cant.">';
-        h += '<select class="order-supplier" data-order-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(o.supplierId || '') + '</select>';
-        h += '<button type="button" class="order-del" data-order-del="' + key + '" title="Șterge rândul">×</button>';
-        h += '</div>';
+        b += '<div class="order-row">';
+        b += '<button type="button" class="order-status order-status-' + o.status + '" data-order-status="' + key + '" title="Schimbă starea">' + ORDER_STATUS_LABEL[o.status] + '</button>';
+        b += '<input class="order-text" data-order-edit="' + key + '" data-field="text" value="' + esc(o.text || '') + '" placeholder="Ce se comandă">';
+        b += '<input class="order-qty" data-order-edit="' + key + '" data-field="qty" value="' + esc(o.qty || '') + '" placeholder="Cant.">';
+        b += '<select class="order-supplier" data-order-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(o.supplierId || '') + '</select>';
+        b += '<button type="button" class="order-del" data-order-del="' + key + '" title="Șterge rândul">×</button>';
+        b += '</div>';
       });
     }
-    h += '<button type="button" class="btn btn-xs btn-ghost order-add" data-order-add="' + p.id + '">+ Adaugă comandă</button>';
-    h += '</div>';
-    h += '</div>';
-    return h;
+    b += '</div>';
+    b += '<button type="button" class="btn btn-xs btn-ghost order-add" data-order-add="' + p.id + '">+ Adaugă comandă</button>';
+    return renderSidePanel({
+      projectId: p.id, kind: 'orders', side: 'left', pinField: 'ordersPinned',
+      label: '📋 comenzi materiale', title: 'Comenzi materiale',
+      count: orders.length ? (received + '/' + orders.length) : '',
+      pinned: !!p.ordersPinned, bodyHtml: b
+    });
   }
 
   /* ---------------- checklists (liste permanente de mărunțișuri, noduri pe canvas) ---------------- */
@@ -1288,16 +1312,12 @@
   // Pin is per-project and lives in shared state (p.montajPinned) — pin it once, everyone sees it pinned.
   function renderMontajPanel(p){
     var notes = typeof p.montajNotes === 'string' ? p.montajNotes : '';
-    var pinned = !!p.montajPinned;
-    var isOpen = pinned || !!montajOpen[p.id];
-    var h = '<div class="montaj-panel' + (isOpen ? ' open' : '') + '" data-montaj-panel="' + p.id + '">';
-    h += '<div class="montaj-handle" data-montaj-handle="' + p.id + '" title="Necesar pentru montaj">📦 necesar montaj' + (notes.trim() ? ' •' : '') + '</div>';
-    h += '<div class="montaj-body">';
-    h += '<div class="montaj-head"><span class="montaj-title">Necesar montaj</span>' +
-      '<button type="button" class="btn btn-xs montaj-pin' + (pinned ? ' pinned' : '') + '" data-montaj-pin="' + p.id + '" title="' + (pinned ? 'Anulează fixarea (pentru toți)' : 'Fixează deschis (pentru toți)') + '">📌</button></div>';
-    h += '<textarea class="montaj-notes" data-montaj-notes="' + p.id + '" placeholder="Ce trebuie pregătit / dus la montaj…">' + esc(notes) + '</textarea>';
-    h += '</div></div>';
-    return h;
+    var b = '<textarea class="montaj-notes" data-montaj-notes="' + p.id + '" placeholder="Ce trebuie pregătit / dus la montaj…">' + esc(notes) + '</textarea>';
+    return renderSidePanel({
+      projectId: p.id, kind: 'montaj', side: 'right', pinField: 'montajPinned',
+      label: '📦 necesar montaj' + (notes.trim() ? ' •' : ''), title: 'Necesar montaj', count: '',
+      pinned: !!p.montajPinned, bodyHtml: b
+    });
   }
 
   /* ---------------- canvas pan/zoom (Hartă tab) ---------------- */
@@ -1715,7 +1735,6 @@
       out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
       out += '<div class="proj-cluster-head"><span class="proj-cluster-client">' + esc(p.client) + '</span>';
       out += '<span class="badge badge-' + urgencyOf(p) + '" style="margin-left:auto;">' + esc(urgencyLabel(p)) + '</span></div>';
-      out += renderProjectOrdersPanel(p);
       out += '<div class="proj-cluster-stages">';
       state.stations.forEach(function(station){
         var projLanes = projectLanesFor(p, station);
@@ -1755,7 +1774,8 @@
         out += '</div>';
       });
       out += '</div></div>'; // close .proj-cluster-stages, .proj-cluster
-      out += renderMontajPanel(p);
+      out += renderOrdersPanel(p);   // left edge
+      out += renderMontajPanel(p);   // right edge
       out += '</div>'; // close .proj-wrap
     });
     checklists.forEach(function(cl){ out += renderChecklistCard(cl); });
@@ -2401,18 +2421,20 @@
       });
     });
 
-    // per-project "necesar montaj" side panel — hover/click to open; pin (shared, per project) keeps it open for everyone
-    document.querySelectorAll('[data-montaj-panel]').forEach(function(pnl){
-      var id = pnl.dataset.montajPanel;
+    // folder side panels (comenzi materiale — stânga; necesar montaj — dreapta):
+    // hover/click the handle to open; auto-hide unless pinned; pin is shared per project
+    document.querySelectorAll('[data-side-panel]').forEach(function(pnl){
+      var id = pnl.dataset.sidePanel, kind = pnl.dataset.sideKind, pinField = pnl.dataset.sidePinfield;
+      var okey = id + '|' + kind;
       var closeTimer = null;
-      function open(){ clearTimeout(closeTimer); montajOpen[id] = true; pnl.classList.add('open'); }
+      function open(){ clearTimeout(closeTimer); sideOpen[okey] = true; pnl.classList.add('open'); }
       function scheduleClose(){
         var pr = projectById(id);
-        if(pr && pr.montajPinned) return;
+        if(pr && pr[pinField]) return;
         clearTimeout(closeTimer);
-        closeTimer = setTimeout(function(){ montajOpen[id] = false; pnl.classList.remove('open'); }, 900);
+        closeTimer = setTimeout(function(){ sideOpen[okey] = false; pnl.classList.remove('open'); }, 900);
       }
-      var handle = pnl.querySelector('[data-montaj-handle]');
+      var handle = pnl.querySelector('[data-side-handle]');
       if(handle){
         handle.addEventListener('mouseenter', open);
         handle.addEventListener('click', function(e){ e.stopPropagation(); open(); });
@@ -2420,13 +2442,12 @@
       pnl.addEventListener('mouseenter', function(){ clearTimeout(closeTimer); });
       pnl.addEventListener('mouseleave', scheduleClose);
     });
-    document.querySelectorAll('[data-montaj-pin]').forEach(function(btn){
+    document.querySelectorAll('[data-side-pin]').forEach(function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
-        var pr = projectById(btn.dataset.montajPin);
-        if(!pr) return;
-        pr.montajPinned = !pr.montajPinned;
-        if(pr.montajPinned) montajOpen[pr.id] = true;
+        var pr = projectById(btn.dataset.sidePin), field = btn.dataset.pinfield;
+        if(!pr || !field) return;
+        pr[field] = !pr[field];
         saveState(); render();
       });
     });
