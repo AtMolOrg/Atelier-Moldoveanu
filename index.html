@@ -486,31 +486,6 @@
   main.sidebar-active{ padding-left:0; }
   .team-sidebar-close{ display:none; }
   .sidebar-backdrop{ display:none; }
-
-  /* ---------- checklist sidebar: same mechanics as team/supplier, mirrored on the right ---------- */
-  .checklist-sidebar{ left:auto; right:0; top:0; bottom:0; transform:translateX(100%); }
-  .checklist-sidebar .team-sidebar-handle{ left:auto; right:100%; border-left:1px solid var(--border); border-right:none; border-radius:10px 0 0 10px; }
-  .checklist-sidebar .team-sidebar-body{ border-right:none; border-left:1px solid var(--border); box-shadow:-10px 0 28px rgba(0,0,0,0.2); }
-  #checklist-sidebar-body .note-wrap{ width:100%; margin-bottom:14px; }
-  #checklist-sidebar-body .note-tab{ max-width:100%; cursor:default; }
-  #checklist-sidebar-body .note-head{ cursor:default; }
-  #checklist-sidebar-body .note-body{ width:100%; box-sizing:border-box; }
-
-  /* ---------- Hartă atelier → Pe proiecte: grouped scrolling list ---------- */
-  .phase-group{ margin:0 0 30px; }
-  .phase-group-title{
-    display:flex; align-items:center; gap:8px; margin:0 0 12px 2px;
-    font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.05em;
-    font-size:12.5px; color:var(--ink-faint);
-  }
-  .phase-group-title .cnt{ background:var(--panel-2); border-radius:999px; padding:1px 8px; font-size:11px; }
-  .proj-collapse-btn{
-    background:transparent; border:none; color:inherit; font-size:11px; padding:2px 5px 2px 2px;
-    transform:rotate(0deg); transition:transform 150ms ease; line-height:1;
-  }
-  .proj-wrap.collapsed .proj-collapse-btn{ transform:rotate(-90deg); }
-  .proj-wrap.collapsed .proj-cluster-stages, .proj-wrap.collapsed .head-add-stage{ display:none; }
-  .proj-wrap.reorder-dragging{ opacity:0.5; }
   .pin-btn.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
   .team-sidebar.pinned .team-sidebar-body{ box-shadow: 10px 0 28px rgba(0,0,0,0.2), inset 3px 0 0 var(--accent); }
 
@@ -705,7 +680,6 @@
       right:14px; bottom:14px;
     }
     .supplier-sidebar .team-sidebar-handle{ bottom:72px; top:auto; }
-    .checklist-sidebar .team-sidebar-handle{ left:14px; right:auto; bottom:14px; }
     .sidebar-backdrop{
       display:none; position:fixed; inset:0; background:rgba(20,15,8,0.45);
       z-index:190;
@@ -764,11 +738,6 @@
     <button class="team-sidebar-close" id="supplier-close" aria-label="Închide">×</button>
     <div class="team-sidebar-body" id="supplier-sidebar-body"></div>
   </aside>
-  <aside class="team-sidebar checklist-sidebar" id="checklist-sidebar">
-    <div class="team-sidebar-handle" id="checklist-handle">Liste</div>
-    <button class="team-sidebar-close" id="checklist-close" aria-label="Închide">×</button>
-    <div class="team-sidebar-body" id="checklist-sidebar-body"></div>
-  </aside>
   <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 </div>
 
@@ -804,7 +773,6 @@
   var nodeDragging = false, nodeDragObj = null, nodeDragEl = null, nodeDragMoved = false;
   var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
   var sideOpen = {}; // "<projectId>|<kind>" -> true while that folder side panel is open on hover (transient; the pin lives in shared state)
-  var collapsedProjects = {}; // projectId -> true while a folder is collapsed to just its head (transient, per-device, not synced)
   var PIECE_MONTAJ = '__montaj__'; // pc.stationId sentinel: piece is done on the floor, sent to montaj
   var MONTAJ_TEAM = 'MONTAJ_TEAM'; // assignment.pieceId sentinel: worker is on this project's install crew
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
@@ -1338,7 +1306,6 @@
     board.style.flexDirection = '';
     board.style.alignItems = '';
     board.style.height = '100%';
-    board.style.zoom = ''; // only the "Pe proiecte" list scales itself to fit; every other tab resets
     if(tab === 'hala') renderHala();
     else if(tab === 'comenzi') renderComenzi();
     else if(tab === 'finalizate') renderFinalizate();
@@ -1514,22 +1481,17 @@
     var t = prompt('Titlul listei:', 'Listă nouă');
     if(t === null) return;
     if(!state.checklists) state.checklists = [];
-    state.checklists.push({ id: uid(), title: (t.trim() || 'Listă nouă'), items: [] });
+    // drop it roughly where the user is looking (viewport centre in canvas coords),
+    // nudged per list so several don't stack exactly
+    var vp = document.getElementById('canvas-viewport');
+    var n = state.checklists.length;
+    var cx = 40, cy = 40;
+    if(vp){
+      cx = Math.round((vp.clientWidth / 2 - canvasPanX) / canvasZoom) - 150;
+      cy = Math.round((vp.clientHeight / 2 - canvasPanY) / canvasZoom) - 40;
+    }
+    state.checklists.push({ id: uid(), title: (t.trim() || 'Listă nouă'), x: cx + n * 16, y: cy + n * 16, items: [] });
     saveState(); render();
-    checklistSidebarCtrl.show();
-  }
-  function renderChecklistSidebar(){
-    var body = document.getElementById('checklist-sidebar-body');
-    if(!body) return;
-    var lists = state.checklists || [];
-    var h = '<div class="people-pool-head" style="justify-content:flex-end;">' +
-      '<button class="btn btn-xs pin-btn' + (checklistSidebarCtrl.isPinned()?' pinned':'') + '" id="checklist-pin-btn" title="' + (checklistSidebarCtrl.isPinned()?'Anulează fixarea':'Fixează, nu se mai ascunde') + '">📌</button>' +
-      '<button class="btn btn-xs" id="btn-add-checklist" title="Listă nouă">+</button></div>';
-    if(!lists.length) h += '<div class="col-empty" style="padding:2px 0;">Nicio listă încă.</div>';
-    else lists.forEach(function(cl){ h += renderChecklistCard(cl); });
-    body.innerHTML = h;
-    document.getElementById('checklist-pin-btn').addEventListener('click', function(){ checklistSidebarCtrl.setPinned(!checklistSidebarCtrl.isPinned()); renderChecklistSidebar(); });
-    document.getElementById('btn-add-checklist').addEventListener('click', addChecklist);
   }
   function findChecklistItem(key){
     var parts = String(key).split('::');
@@ -1556,8 +1518,9 @@
     var items = Array.isArray(cl.items) ? cl.items : [];
     var active = items.filter(function(it){ return !it.done; });
     var done = items.filter(function(it){ return it.done; });
-    var h = '<div class="note-wrap" data-checklist="' + cl.id + '">';
-    h += '<div class="note-tab" data-note-rename="' + cl.id + '" title="Dublu-click ca să redenumești">📋 ' + esc(cl.title || 'Listă') + '</div>';
+    var posStyle = (typeof cl.x === 'number' && typeof cl.y === 'number') ? ('position:absolute; left:' + cl.x + 'px; top:' + cl.y + 'px;') : '';
+    var h = '<div class="note-wrap" data-checklist="' + cl.id + '" style="' + posStyle + '">';
+    h += '<div class="note-tab" data-note-rename="' + cl.id + '" title="Trage ca să muți · dublu-click ca să redenumești">📋 ' + esc(cl.title || 'Listă') + '</div>';
     h += '<div class="note-body">';
     h += '<div class="note-head"><span class="note-count">' + active.length + ' de făcut</span>';
     h += '<button type="button" class="note-del" data-note-del="' + cl.id + '" title="Șterge lista">✕</button></div>';
@@ -1809,31 +1772,23 @@
     adjustCanvasExtent();
   });
 
-  // "Pe proiecte" is a plain scrolling list — scale (CSS zoom, not transform, so scroll
-  // height stays correct) the whole board down just enough that the widest folder always
-  // fits the window width, so its side panels (comenzi materiale / necesar montaj) are
-  // never cropped and nobody has to zoom the browser manually to see them.
-  function fitProiecteScale(){
-    if(tab !== 'hala' || hartaViewMode !== 'proiecte') return;
-    var board = document.getElementById('board');
-    if(!board) return;
-    board.style.zoom = 1;
-    var widest = 0;
-    board.querySelectorAll('.proj-wrap').forEach(function(w){ if(w.offsetWidth > widest) widest = w.offsetWidth; });
-    if(!widest) return;
-    var available = board.clientWidth - 32;
-    board.style.zoom = Math.max(0.4, Math.min(1, available / widest));
+  // canvas nodes that can be dragged freely on the "Pe proiecte" map: project folders
+  // (.proj-wrap, backed by a project) and checklist cards (.note-wrap, backed by a checklist).
+  // Both are a positioned wrapper grabbed by a tab; one drag path serves them.
+  function canvasNodeObjFor(wrap){
+    if(!wrap) return null;
+    if(wrap.dataset.project) return projectById(wrap.dataset.project);
+    if(wrap.dataset.checklist) return checklistById(wrap.dataset.checklist);
+    return null;
   }
-  window.addEventListener('resize', function(){ fitProiecteScale(); });
-
-  // Project folders reorder within their phase group (drag from the code tab) — phase
-  // itself is derived, never draggable, so a folder can only ever move among its own siblings.
-  function attachProjectReorderDrag(){
-    document.querySelectorAll('.proj-cluster-tab').forEach(function(tab){
+  function attachCanvasNodeDrag(){
+    // grab handles: a project folder drags from its code tab; a checklist card drags from
+    // its tab OR its whole header strip (the tab alone is a small target)
+    document.querySelectorAll('.proj-cluster-tab, .note-tab, .note-head').forEach(function(tab){
       tab.addEventListener('mousedown', function(e){
         if(e.target.closest('button, input')) return;
-        var wrap = tab.closest('.proj-wrap');
-        var obj = wrap && projectById(wrap.dataset.project);
+        var wrap = tab.closest('.proj-wrap, .note-wrap');
+        var obj = canvasNodeObjFor(wrap);
         if(!obj) return;
         e.preventDefault();
         e.stopPropagation();
@@ -1841,47 +1796,45 @@
         nodeDragMoved = false;
         nodeDragObj = obj;
         nodeDragEl = wrap;
-        nodeDragStartMouseY = e.clientY;
-        wrap.classList.add('reorder-dragging');
+        nodeDragStartMouseX = e.clientX; nodeDragStartMouseY = e.clientY;
+        nodeDragStartX = (typeof obj.x === 'number') ? obj.x : wrap.offsetLeft;
+        nodeDragStartY = (typeof obj.y === 'number') ? obj.y : wrap.offsetTop;
+        wrap.classList.add('node-dragging');
       });
     });
   }
   window.addEventListener('mousemove', function(e){
     if(!nodeDragging || !nodeDragObj || !nodeDragEl) return;
-    if(!nodeDragMoved && Math.abs(e.clientY - nodeDragStartMouseY) < 4) return; // ignore jitter so a plain click isn't a "move"
+    var dx = (e.clientX - nodeDragStartMouseX) / canvasZoom;
+    var dy = (e.clientY - nodeDragStartMouseY) / canvasZoom;
+    if(!nodeDragMoved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return; // ignore jitter so a plain click/dblclick isn't a "move"
     nodeDragMoved = true;
+    var rawX = nodeDragStartX + dx;
+    var rawY = nodeDragStartY + dy;
     var el = nodeDragEl;
-    var group = el.parentElement; // .phase-group — reordering never crosses into another group
-    if(!group) return;
-    var siblings = Array.from(group.children).filter(function(x){ return x !== el && x.classList.contains('proj-wrap'); });
-    var before = null;
-    for(var i=0;i<siblings.length;i++){
-      var r = siblings[i].getBoundingClientRect();
-      if(e.clientY < r.top + r.height / 2){ before = siblings[i]; break; }
-    }
-    if(before) group.insertBefore(el, before);
-    else group.appendChild(el);
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var xRefs = [], yRefs = [];
+    document.querySelectorAll('.proj-wrap, .note-wrap').forEach(function(otherEl){
+      if(otherEl === el) return;
+      xRefs.push(otherEl.offsetLeft, otherEl.offsetLeft + otherEl.offsetWidth - w);
+      yRefs.push(otherEl.offsetTop, otherEl.offsetTop + otherEl.offsetHeight - h);
+    });
+    var snappedX = snapValue(rawX, xRefs);
+    var snappedY = snapValue(rawY, yRefs);
+    nodeDragObj.x = snappedX;
+    nodeDragObj.y = snappedY;
+    el.style.position = 'absolute'; el.style.left = snappedX + 'px'; el.style.top = snappedY + 'px';
   });
   window.addEventListener('mouseup', function(){
     if(!nodeDragging) return;
     nodeDragging = false;
-    if(nodeDragEl) nodeDragEl.classList.remove('reorder-dragging');
-    if(nodeDragMoved) commitProjectOrderFromDom();
+    if(nodeDragEl) nodeDragEl.classList.remove('node-dragging');
+    if(nodeDragObj && nodeDragMoved) saveState();
     nodeDragObj = null;
     nodeDragEl = null;
+    if(nodeDragMoved) adjustCanvasExtent();
     nodeDragMoved = false;
   });
-  // the live DOM order (after any drag) becomes the new persisted order of state.projects —
-  // projects not currently rendered (finalized, or filtered out by search) keep their place
-  function commitProjectOrderFromDom(){
-    var domIds = Array.from(document.querySelectorAll('.proj-wrap[data-project]')).map(function(w){ return w.dataset.project; });
-    var idSet = {};
-    domIds.forEach(function(id){ idSet[id] = true; });
-    var rest = state.projects.filter(function(p){ return !idSet[p.id]; });
-    var reordered = domIds.map(projectById).filter(Boolean);
-    state.projects = rest.concat(reordered);
-    saveState();
-  }
 
   function renderHala(){
     var board = document.getElementById('board');
@@ -1899,21 +1852,7 @@
       };
       document.getElementById('empty-add-list').onclick = addChecklist;
       renderTeamSidebar();
-      renderChecklistSidebar();
       attachHalaEvents();
-      return;
-    }
-
-    // "Pe proiecte" is the only reachable Hartă atelier view — a plain grouped scrolling
-    // list, not the pan/zoom canvas (that machinery below stays only for the old free-grid
-    // station mode, unreachable from the UI, kept in case it's ever revived).
-    if(hartaViewMode === 'proiecte'){
-      board.innerHTML = renderHartaPeProiecte();
-      renderTeamSidebar();
-      renderChecklistSidebar();
-      attachHalaEvents();
-      attachProjectReorderDrag();
-      fitProiecteScale();
       return;
     }
 
@@ -1923,6 +1862,9 @@
     html += '<div class="canvas-viewport" id="canvas-viewport">';
     html += '<div class="canvas-content" id="canvas-content">';
     html += '<div class="harta-grid" id="harta-grid">';
+    if(hartaViewMode === 'proiecte'){
+      html += renderHartaPeProiecte();
+    } else {
     state.stations.forEach(function(station, idx){
       var hasLanes = station.lanes && station.lanes.length > 0;
       var boxWidth = stationBoxWidth(station);
@@ -1985,6 +1927,7 @@
       }
       html += '</div>';
     });
+    }
     html += '</div>'; // .harta-grid
     html += '</div>'; // .canvas-content
     html += '<div class="canvas-zoom-controls">' +
@@ -1997,110 +1940,90 @@
 
     board.innerHTML = html;
     renderTeamSidebar();
-    renderChecklistSidebar();
     attachHalaEvents();
     attachCanvasEvents();
     attachColumnDragEvents();
+    attachCanvasNodeDrag();
     document.querySelectorAll('.view-toggle-mini button[data-hmode]').forEach(function(b){
       b.addEventListener('click', function(){ hartaViewMode = b.dataset.hmode; canvasInitialized = false; render(); });
     });
   }
-  var PHASE_GROUPS = [
-    {cls:'phase-proiect', label:'Proiectare'},
-    {cls:'phase-piesa', label:'Execuție'},
-    {cls:'phase-montaj', label:'Montaj'}
-  ];
   function renderHartaPeProiecte(){
-    var active = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod,p.client); });
-    if(active.length === 0){
-      return '<div class="empty-state" style="margin:30px auto;"><h2>Niciun proiect activ</h2><p>Adaugă un proiect din bara de sus.</p></div>';
+    var list = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod,p.client); })
+      .sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
+    var checklists = state.checklists || [];
+    if(list.length === 0 && checklists.length === 0){
+      return '<div class="empty-state" style="margin:30px auto;"><h2>Nimic pe hartă</h2><p>Adaugă un proiect sau o listă din colțul din stânga-jos.</p></div>';
     }
-    // grouped by derived phase, in state.projects' own relative order within each group —
-    // that array order IS the persisted manual sort (see reorderProjectsFromDom)
-    var groups = {};
-    PHASE_GROUPS.forEach(function(ph){ groups[ph.cls] = []; });
-    active.forEach(function(p){
-      var stg = currentStageInfo(p);
-      var cls = (stg && groups[stg.cls]) ? stg.cls : 'phase-proiect';
-      groups[cls].push(p);
-    });
     var out = '';
-    PHASE_GROUPS.forEach(function(ph){
-      var list = groups[ph.cls];
-      if(!list.length) return;
-      out += '<div class="phase-group" data-phase="' + ph.cls + '">';
-      out += '<div class="phase-group-title">' + ph.label + ' <span class="cnt">' + list.length + '</span></div>';
-      list.forEach(function(p){ out += renderProjectFolder(p); });
-      out += '</div>';
-    });
-    return out;
-  }
-  function renderProjectFolder(p){
-    var grad = urgencyGradient(p);
-    var warns = projectWarnings(p);
-    var stg = currentStageInfo(p);
-    var collapsed = !!collapsedProjects[p.id];
-    var out = '<div class="proj-wrap' + (stg ? ' ' + stg.cls : '') + (warns.length ? ' has-warn' : '') + (collapsed ? ' collapsed' : '') + '" data-project="' + p.id + '">';
-    out += '<div class="proj-cluster-tab"><button type="button" class="proj-collapse-btn" data-collapse-toggle="' + p.id + '" title="' + (collapsed ? 'Desfășoară' : 'Restrânge') + '">▾</button><span class="pct-code">' + esc(p.cod) + '</span> <span class="pct-client">' + esc(p.client) + '</span>' +
-      (stg ? '<span class="pct-stage ' + stg.cls + '" title="Etapa curentă: ' + esc(stg.name) + '">⚠ ' + esc(stg.name) + '</span>' : '') + '</div>';
-    out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
-    out += '<div class="proj-cluster-head">';
-    out += '<div class="head-add-stage">' +
-      '<button type="button" data-add-stage="' + p.id + '" data-type="proiect">+ etapă proiectare (anteproiect)</button>' +
-      '<button type="button" data-add-stage="' + p.id + '" data-type="piesa">+ etapă execuție</button>' +
-      '</div>';
-    out += '<span class="badge badge-' + urgencyOf(p) + '" style="margin-left:auto;">' + esc(urgencyLabel(p)) + '</span></div>';
-    if(warns.length){
-      out += '<div class="proj-warn-bar">⚠ ' + warns.map(esc).join(' <span class="pwb-sep">·</span> ') + '</div>';
-    }
-    out += '<div class="proj-cluster-stages">';
-    var pStations = stationsFor(p);
-    pStations.forEach(function(station, sIdx){
-      var projLanes = projectLanesFor(p, station);
-      var hasLanes = projLanes.length > 0;
-      out += '<div class="proj-stage-box ' + station.type + '">';
-      out += '<div class="proj-stage-head"><span>' + esc(station.name) + '</span><div class="col-actions">';
-      if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la stânga">‹</button>';
-      if(sIdx < pStations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la dreapta">›</button>';
-      out += '<button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button>';
-      out += '<button data-act="del" data-station="' + station.id + '" data-project="' + p.id + '" title="Șterge etapa">✕</button>';
-      out += '</div></div>';
-      if(hasLanes){
-        out += '<div class="lanes-row">';
-        projLanes.forEach(function(lane){
-          var items = [];
-          if(station.type === 'proiect'){
-            if(p.stationId === station.id && (p.lane || defaultLaneId(projLanes)) === lane.id) items.push(p);
-          } else {
-            (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
-          }
-          out += '<div class="lane">';
-          out += '<div class="lane-head"><input class="lane-title" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" value="' + esc(lane.name) + '"><span class="col-count">' + items.length + '</span><button class="lane-del" data-act="lanedel" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" title="Șterge partiția">✕</button></div>';
-          out += '<div class="col-body lane-body" data-station="' + station.id + '" data-kind="' + station.type + '" data-lane="' + lane.id + '">';
-          if(items.length === 0) out += '<div class="col-empty">—</div>';
-          else if(station.type === 'proiect') out += renderProjectCard(p, station);
-          else items.forEach(function(pc){ out += renderPieceCard(pc, p); });
-          out += '</div></div>';
-        });
+    list.forEach(function(p){
+      var grad = urgencyGradient(p);
+      var posStyle = (typeof p.x === 'number' && typeof p.y === 'number') ? ('position:absolute; left:' + p.x + 'px; top:' + p.y + 'px;') : '';
+      var warns = projectWarnings(p);
+      var stg = currentStageInfo(p);
+      out += '<div class="proj-wrap' + (stg ? ' ' + stg.cls : '') + (warns.length ? ' has-warn' : '') + '" data-project="' + p.id + '" style="' + posStyle + '">';
+      out += '<div class="proj-cluster-tab"><span class="pct-code">' + esc(p.cod) + '</span> <span class="pct-client">' + esc(p.client) + '</span>' +
+        (stg ? '<span class="pct-stage ' + stg.cls + '" title="Etapa curentă: ' + esc(stg.name) + '">⚠ ' + esc(stg.name) + '</span>' : '') + '</div>';
+      out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
+      out += '<div class="proj-cluster-head">';
+      out += '<div class="head-add-stage">' +
+        '<button type="button" data-add-stage="' + p.id + '" data-type="proiect">+ etapă proiectare (anteproiect)</button>' +
+        '<button type="button" data-add-stage="' + p.id + '" data-type="piesa">+ etapă execuție</button>' +
+        '</div>';
+      out += '<span class="badge badge-' + urgencyOf(p) + '" style="margin-left:auto;">' + esc(urgencyLabel(p)) + '</span></div>';
+      if(warns.length){
+        out += '<div class="proj-warn-bar">⚠ ' + warns.map(esc).join(' <span class="pwb-sep">·</span> ') + '</div>';
+      }
+      out += '<div class="proj-cluster-stages">';
+      var pStations = stationsFor(p);
+      pStations.forEach(function(station, sIdx){
+        var projLanes = projectLanesFor(p, station);
+        var hasLanes = projLanes.length > 0;
+        out += '<div class="proj-stage-box ' + station.type + '">';
+        out += '<div class="proj-stage-head"><span>' + esc(station.name) + '</span><div class="col-actions">';
+        if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la stânga">‹</button>';
+        if(sIdx < pStations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la dreapta">›</button>';
+        out += '<button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button>';
+        out += '<button data-act="del" data-station="' + station.id + '" data-project="' + p.id + '" title="Șterge etapa">✕</button>';
+        out += '</div></div>';
+        if(hasLanes){
+          out += '<div class="lanes-row">';
+          projLanes.forEach(function(lane){
+            var items = [];
+            if(station.type === 'proiect'){
+              if(p.stationId === station.id && (p.lane || defaultLaneId(projLanes)) === lane.id) items.push(p);
+            } else {
+              (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
+            }
+            out += '<div class="lane">';
+            out += '<div class="lane-head"><input class="lane-title" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" value="' + esc(lane.name) + '"><span class="col-count">' + items.length + '</span><button class="lane-del" data-act="lanedel" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" title="Șterge partiția">✕</button></div>';
+            out += '<div class="col-body lane-body" data-station="' + station.id + '" data-kind="' + station.type + '" data-lane="' + lane.id + '">';
+            if(items.length === 0) out += '<div class="col-empty">—</div>';
+            else if(station.type === 'proiect') out += renderProjectCard(p, station);
+            else items.forEach(function(pc){ out += renderPieceCard(pc, p); });
+            out += '</div></div>';
+          });
+          out += '</div>';
+        } else {
+        out += '<div class="col-body" data-station="' + station.id + '" data-kind="' + station.type + '">';
+        if(station.type === 'proiect'){
+          if(p.stationId === station.id) out += renderProjectCard(p, station);
+          else out += '<div class="col-empty">—</div>';
+        } else {
+          var pieces = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
+          if(pieces.length) pieces.forEach(function(pc){ out += renderPieceCard(pc, p); });
+          else out += '<div class="col-empty">—</div>';
+        }
         out += '</div>';
-      } else {
-      out += '<div class="col-body" data-station="' + station.id + '" data-kind="' + station.type + '">';
-      if(station.type === 'proiect'){
-        if(p.stationId === station.id) out += renderProjectCard(p, station);
-        else out += '<div class="col-empty">—</div>';
-      } else {
-        var pieces = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
-        if(pieces.length) pieces.forEach(function(pc){ out += renderPieceCard(pc, p); });
-        else out += '<div class="col-empty">—</div>';
-      }
-      out += '</div>';
-      }
-      out += '</div>';
+        }
+        out += '</div>';
+      });
+      out += '</div></div>'; // close .proj-cluster-stages, .proj-cluster
+      out += renderOrdersPanel(p);   // left edge
+      out += renderMontajPanel(p);   // right edge
+      out += '</div>'; // close .proj-wrap
     });
-    out += '</div></div>'; // close .proj-cluster-stages, .proj-cluster
-    out += renderOrdersPanel(p);   // left edge
-    out += renderMontajPanel(p);   // right edge
-    out += '</div>'; // close .proj-wrap
+    checklists.forEach(function(cl){ out += renderChecklistCard(cl); });
     return out;
   }
 
@@ -2232,14 +2155,6 @@
   }
 
   function attachHalaEvents(){
-    document.querySelectorAll('[data-collapse-toggle]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var id = btn.dataset.collapseToggle;
-        collapsedProjects[id] = !collapsedProjects[id];
-        render();
-      });
-    });
     document.querySelectorAll('.col-title').forEach(function(inp){
       inp.addEventListener('change', function(){
         var st = stationById(inp.dataset.station);
@@ -3674,43 +3589,29 @@
   }
   var teamSidebarCtrl = makeSidebarController('team-sidebar', 'sidebar-handle', 'sidebar-close', 3000, 'panou-pin-echipa');
   var supplierSidebarCtrl = makeSidebarController('supplier-sidebar', 'supplier-handle', 'supplier-close', 3000, 'panou-pin-furnizori');
-  var checklistSidebarCtrl = makeSidebarController('checklist-sidebar', 'checklist-handle', 'checklist-close', 3000, 'panou-pin-liste');
-  sidebarBackdrop.addEventListener('click', function(){ teamSidebarCtrl.hide(); supplierSidebarCtrl.hide(); checklistSidebarCtrl.hide(); });
+  sidebarBackdrop.addEventListener('click', function(){ teamSidebarCtrl.hide(); supplierSidebarCtrl.hide(); });
 
   function updateSidebarForTab(){
     var aside1 = document.getElementById('team-sidebar');
     var aside2 = document.getElementById('supplier-sidebar');
-    var aside3 = document.getElementById('checklist-sidebar');
     var main = document.getElementById('main');
-    // the topbar is position:fixed — push the scrollable content clear of it
-    var tb = document.querySelector('.topbar');
-    var topPad = ((tb ? tb.offsetHeight : 60) + 12) + 'px';
     if(tab === 'hala'){
       aside1.style.display = 'flex';
       aside2.style.display = 'flex';
-      aside3.style.display = 'flex';
-      // "Pe proiecte" is a plain scrolling list (needs real overflow, not the canvas'
-      // overflow:hidden); only the unreachable free-grid station mode still wants fullbleed.
-      if(hartaViewMode === 'proiecte'){
-        main.classList.remove('canvas-fullbleed');
-        main.classList.add('sidebar-active');
-        main.style.paddingTop = topPad;
-      } else {
-        main.classList.add('sidebar-active');
-        main.classList.add('canvas-fullbleed');
-        main.style.paddingTop = '';
-      }
+      main.classList.add('sidebar-active');
+      main.classList.add('canvas-fullbleed');
+      main.style.paddingTop = '';
       // sidebars stay closed until the user hovers/taps the handle — never auto-open
     } else {
       aside1.style.display = 'none';
       aside2.style.display = 'none';
-      aside3.style.display = 'none';
       main.classList.remove('sidebar-active');
       main.classList.remove('canvas-fullbleed');
-      main.style.paddingTop = topPad;
+      // the topbar is position:fixed — push the scrollable content clear of it
+      var tb = document.querySelector('.topbar');
+      main.style.paddingTop = ((tb ? tb.offsetHeight : 60) + 12) + 'px';
       teamSidebarCtrl.clearTimer();
       supplierSidebarCtrl.clearTimer();
-      checklistSidebarCtrl.clearTimer();
     }
   }
 
