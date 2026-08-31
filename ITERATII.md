@@ -4,6 +4,7 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-08-31
 
+- **Echipă montaj pe cardul de proiect**: o casetă „🔧 Echipă montaj" (sub sublista de piese) — tragi persoane acolo ca să formezi echipa de instalare. Atribuire cu `assignment.pieceId = 'MONTAJ_TEAM'` (sentinel), independentă de atribuirile de proiect și de piesă. Apare doar dacă proiectul are o etapă de proiect după ultima etapă de piesă (Montaj) sau are deja echipă.
 - **Atribuiri proiect vs. piesă, separate**: `assignmentsForTask` nu mai returnează atribuirile de proiect (`pieceId=null`) și pentru carduri de piesă. Un coleg pus pe proiect rămâne doar pe cardul de proiect; fiecare piesă are oamenii ei. În sublista de piese de pe cardul de proiect apar acum avatarele celor care execută fiecare piesă, iar poți trage o persoană direct pe rândul piesei ca s-o legi.
 - **Fără „…" (trunchiere)**: scos `text-overflow:ellipsis` / `white-space:nowrap` / `max-width` de pe `.sub-piece-name`, `.assigned-name`, `.worker-name`, `.worker-task`, `.worker-task-chip span`, `.note-done-text`, `.note-tab`, capul coloanei de etapă. Textul se wrap-uiește, informația e mereu vizibilă integral. Rândurile de piese din sublistă: nume pe linie proprie, apoi oameni + status + buton.
 - Butoanele de adăugat etape mutate în **antetul dosarului** (lângă numele clientului), redenumite „+ etapă proiectare (anteproiect)" (tip proiect) și „+ etapă execuție" (tip piesă).
