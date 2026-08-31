@@ -1255,7 +1255,9 @@
     return counts;
   }
 
-  /* current stage of a project + which phase it belongs to (drives the pulsing tab pill) */
+  /* faza in care e proiectul acum (culoarea pastilei + halo).
+     Cartonasul de proiect sta mereu ori la o etapa de proiectare, ori la Montaj — deci
+     "executie" (portocaliu) o deducem din piese: daca vreo piesa e intr-o etapa de piesa. */
   function currentStageInfo(p){
     if(!p || !p.stationId) return null;
     var a = stationsFor(p);
@@ -1263,11 +1265,13 @@
     if(idx === -1) return null;
     var cur = a[idx];
     var lp = lastPiesaIndexFor(p);
-    var cls;
-    if(cur.type === 'piesa') cls = 'phase-piesa';               // executie -> portocaliu
-    else if(lp !== -1 && idx > lp) cls = 'phase-montaj';        // etapa de proiect dupa piese = Montaj -> rosu
-    else cls = 'phase-proiect';                                  // proiectare / anteproiect -> albastru
-    return { cls: cls, name: cur.name };
+    if(cur.type === 'piesa') return { cls:'phase-piesa', name: cur.name };      // (defensiv) cartonasul chiar pe o etapa de piesa
+    if(lp !== -1 && idx > lp) return { cls:'phase-montaj', name: cur.name };    // etapa de proiect dupa piese = Montaj -> rosu
+    var piesaIds = {};
+    a.forEach(function(s){ if(s.type === 'piesa') piesaIds[s.id] = true; });
+    if((p.pieces || []).some(function(pc){ return piesaIds[pc.stationId]; }))
+      return { cls:'phase-piesa', name:'Execuție' };                            // piese pe podea, desi cartonasul e la proiectare -> portocaliu
+    return { cls:'phase-proiect', name: cur.name };                            // proiectare / anteproiect -> albastru
   }
 
   /* things that are "missing" on a project — surfaced as a loud warning on the folder */
