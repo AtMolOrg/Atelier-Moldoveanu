@@ -150,15 +150,11 @@
 
   /* ---------- PROJECT ORDERS PANEL (materiale de comandat, per proiect) ---------- */
   .proj-orders{ border-bottom:1px solid var(--border); background:var(--panel-2); }
-  .proj-orders-toggle{
-    width:100%; text-align:left; background:transparent; border:none;
-    padding:8px 16px; font-family:'Raleway',sans-serif; font-weight:600; font-size:11.5px;
+  .proj-orders-head{
+    padding:8px 16px 4px; font-family:'Raleway',sans-serif; font-weight:600; font-size:11.5px;
     letter-spacing:0.02em; color:var(--ink-dim); display:flex; align-items:center; gap:6px;
   }
-  .proj-orders-toggle:hover{ color:var(--ink); }
-  .proj-orders-toggle .caret{ font-size:10px; color:var(--ink-faint); }
-  .proj-orders-count{ margin-left:6px; background:var(--panel-3); border-radius:999px; padding:1px 8px; font-size:10.5px; color:var(--ink-faint); }
-  .proj-orders.open .proj-orders-count{ color:var(--ink-dim); }
+  .proj-orders-count{ margin-left:6px; background:var(--panel-3); border-radius:999px; padding:1px 8px; font-size:10.5px; color:var(--ink-dim); }
   .proj-orders-body{ padding:4px 16px 12px; display:flex; flex-direction:column; gap:6px; }
   .order-row{ display:flex; align-items:center; gap:6px; }
   .order-status{
@@ -238,9 +234,7 @@
   .note-item-del:hover{ color:#a85248; border-color: rgba(200,110,95,0.45); }
   .note-add-item{ align-self:flex-start; }
   .note-done{ border-top:1px dashed var(--border); padding-top:6px; }
-  .note-done-toggle{ background:transparent; border:none; color:var(--ink-faint); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; display:flex; align-items:center; gap:5px; padding:2px 0; }
-  .note-done-toggle:hover{ color:var(--ink-dim); }
-  .note-done-toggle .caret{ font-size:9px; }
+  .note-done-label{ color:var(--ink-faint); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; padding:2px 0; }
   .note-done-list{ display:flex; flex-direction:column; gap:4px; margin-top:6px; }
   .note-done-row{ display:flex; align-items:center; gap:6px; }
   .note-done-text{ flex:1; min-width:0; font-size:12px; color:var(--ink-faint); text-decoration:line-through; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -695,8 +689,6 @@
   var SNAP_THRESHOLD = 10, SNAP_GRID = 20;
   var nodeDragging = false, nodeDragObj = null, nodeDragEl = null, nodeDragMoved = false;
   var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
-  var ordersOpen = {}; // projectId -> true while its materials panel is expanded (UI-only, not persisted)
-  var checklistDoneOpen = {}; // checklistId -> true while its "gata" section is expanded (UI-only, not persisted)
   var montajOpen = {}; // projectId -> true while its "necesar montaj" side panel is open on hover (transient; the pin is p.montajPinned in shared state)
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
@@ -1196,30 +1188,26 @@
   function renderProjectOrdersPanel(p){
     var orders = Array.isArray(p.orders) ? p.orders : [];
     var received = orders.filter(function(o){ return o.status === 'primit'; }).length;
-    var isOpen = !!ordersOpen[p.id];
     var summary = orders.length ? (received + '/' + orders.length) : '—';
-    var h = '<div class="proj-orders' + (isOpen ? ' open' : '') + '">';
-    h += '<button type="button" class="proj-orders-toggle" data-orders-toggle="' + p.id + '">';
-    h += '<span class="caret">' + (isOpen ? '▾' : '▸') + '</span> 📋 Comenzi materiale <span class="proj-orders-count">' + summary + '</span></button>';
-    if(isOpen){
-      h += '<div class="proj-orders-body">';
-      if(!orders.length){
-        h += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Nicio comandă încă.</div>';
-      } else {
-        orders.forEach(function(o){
-          var key = p.id + '::' + o.id;
-          h += '<div class="order-row">';
-          h += '<button type="button" class="order-status order-status-' + o.status + '" data-order-status="' + key + '" title="Schimbă starea">' + ORDER_STATUS_LABEL[o.status] + '</button>';
-          h += '<input class="order-text" data-order-edit="' + key + '" data-field="text" value="' + esc(o.text || '') + '" placeholder="Ce se comandă (ex: profil 40x40, 12 m)">';
-          h += '<input class="order-qty" data-order-edit="' + key + '" data-field="qty" value="' + esc(o.qty || '') + '" placeholder="Cant.">';
-          h += '<select class="order-supplier" data-order-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(o.supplierId || '') + '</select>';
-          h += '<button type="button" class="order-del" data-order-del="' + key + '" title="Șterge rândul">×</button>';
-          h += '</div>';
-        });
-      }
-      h += '<button type="button" class="btn btn-xs btn-ghost order-add" data-order-add="' + p.id + '">+ Adaugă comandă</button>';
-      h += '</div>';
+    var h = '<div class="proj-orders open">';
+    h += '<div class="proj-orders-head">📋 Comenzi materiale <span class="proj-orders-count">' + summary + '</span></div>';
+    h += '<div class="proj-orders-body">';
+    if(!orders.length){
+      h += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Nicio comandă încă.</div>';
+    } else {
+      orders.forEach(function(o){
+        var key = p.id + '::' + o.id;
+        h += '<div class="order-row">';
+        h += '<button type="button" class="order-status order-status-' + o.status + '" data-order-status="' + key + '" title="Schimbă starea">' + ORDER_STATUS_LABEL[o.status] + '</button>';
+        h += '<input class="order-text" data-order-edit="' + key + '" data-field="text" value="' + esc(o.text || '') + '" placeholder="Ce se comandă (ex: profil 40x40, 12 m)">';
+        h += '<input class="order-qty" data-order-edit="' + key + '" data-field="qty" value="' + esc(o.qty || '') + '" placeholder="Cant.">';
+        h += '<select class="order-supplier" data-order-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(o.supplierId || '') + '</select>';
+        h += '<button type="button" class="order-del" data-order-del="' + key + '" title="Șterge rândul">×</button>';
+        h += '</div>';
+      });
     }
+    h += '<button type="button" class="btn btn-xs btn-ghost order-add" data-order-add="' + p.id + '">+ Adaugă comandă</button>';
+    h += '</div>';
     h += '</div>';
     return h;
   }
@@ -1269,7 +1257,6 @@
     var items = Array.isArray(cl.items) ? cl.items : [];
     var active = items.filter(function(it){ return !it.done; });
     var done = items.filter(function(it){ return it.done; });
-    var doneOpen = !!checklistDoneOpen[cl.id];
     var posStyle = (typeof cl.x === 'number' && typeof cl.y === 'number') ? ('position:absolute; left:' + cl.x + 'px; top:' + cl.y + 'px;') : '';
     var h = '<div class="note-wrap" data-checklist="' + cl.id + '" style="' + posStyle + '">';
     h += '<div class="note-tab" data-note-rename="' + cl.id + '" title="Trage ca să muți · dublu-click ca să redenumești">📋 ' + esc(cl.title || 'Listă') + '</div>';
@@ -1282,17 +1269,15 @@
     h += '</div>';
     h += '<button type="button" class="btn btn-xs btn-ghost note-add-item" data-note-add="' + cl.id + '">+ rând</button>';
     if(done.length){
-      h += '<div class="note-done' + (doneOpen ? ' open' : '') + '">';
-      h += '<button type="button" class="note-done-toggle" data-note-done-toggle="' + cl.id + '"><span class="caret">' + (doneOpen ? '▾' : '▸') + '</span> gata (' + done.length + ')</button>';
-      if(doneOpen){
-        h += '<div class="note-done-list">';
-        done.forEach(function(it){
-          h += '<div class="note-done-row"><span class="note-done-text">' + esc(it.text || '(gol)') + '</span>' +
-            '<button type="button" class="note-restore" data-note-restore="' + cl.id + '::' + it.id + '" title="Înapoi în listă">↺</button></div>';
-        });
-        h += '<button type="button" class="btn btn-xs btn-danger-outline note-done-clear" data-note-done-clear="' + cl.id + '">Golește „gata"</button>';
-        h += '</div>';
-      }
+      h += '<div class="note-done open">';
+      h += '<div class="note-done-label">gata (' + done.length + ')</div>';
+      h += '<div class="note-done-list">';
+      done.forEach(function(it){
+        h += '<div class="note-done-row"><span class="note-done-text">' + esc(it.text || '(gol)') + '</span>' +
+          '<button type="button" class="note-restore" data-note-restore="' + cl.id + '::' + it.id + '" title="Înapoi în listă">↺</button></div>';
+      });
+      h += '<button type="button" class="btn btn-xs btn-danger-outline note-done-clear" data-note-done-clear="' + cl.id + '">Golește „gata"</button>';
+      h += '</div>';
       h += '</div>';
     }
     h += '</div></div>';
@@ -2269,14 +2254,6 @@
     });
 
     // project orders panel — materiale de comandat
-    document.querySelectorAll('[data-orders-toggle]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var id = btn.dataset.ordersToggle;
-        if(ordersOpen[id]) delete ordersOpen[id]; else ordersOpen[id] = true;
-        render();
-      });
-    });
     document.querySelectorAll('[data-order-add]').forEach(function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
@@ -2284,7 +2261,6 @@
         if(!p) return;
         if(!Array.isArray(p.orders)) p.orders = [];
         p.orders.push({ id: uid(), text: '', qty: '', supplierId: '', status: 'de-comandat' });
-        ordersOpen[p.id] = true;
         saveState(); render();
       });
     });
@@ -2387,14 +2363,6 @@
         if(!f) return;
         f.item.workerId = '';
         saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-note-done-toggle]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var id = btn.dataset.noteDoneToggle;
-        if(checklistDoneOpen[id]) delete checklistDoneOpen[id]; else checklistDoneOpen[id] = true;
-        render();
       });
     });
     document.querySelectorAll('[data-note-restore]').forEach(function(btn){

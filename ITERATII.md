@@ -2,6 +2,10 @@
 
 Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca istoric de decizii — separat de [TODO.md](TODO.md), care e lista de lucruri de făcut.
 
+## 2026-08-31
+
+- **Fără butoane de restrângere** la „Comenzi materiale" (panoul din dosarul de proiect) și la secțiunea „gata (N)" din listele de mărunțișuri. Ambele erau pliabile cu un ▸/▾ — acum sunt mereu deschise: panoul de comenzi arată tot timpul lista + „+ Adaugă comandă", iar rândurile bifate se văd mereu, tăiate, sub linie. Scos `ordersOpen` / `checklistDoneOpen` și handler-ele lor.
+
 ## 2026-08-28
 
 - **`index.html` nu se mai cache-uiește**: Firebase Hosting îl servea cu `Cache-Control: max-age=3600`, deci după un deploy userii puteau rula codul vechi până la o oră (și sincronizarea live nici nu pornea). Adăugat `hosting.headers` în `firebase.json` → `no-cache, must-revalidate` pe tot. Fișierul e mic, revalidarea e ieftină (304 când nu s-a schimbat). Plus câteva `console.log('[sync] …')` ca să se poată diagnostica din consolă dacă listener-ul e conectat / primește snapshot-uri.
