@@ -700,6 +700,7 @@
   var nodeDragging = false, nodeDragObj = null, nodeDragEl = null, nodeDragMoved = false;
   var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
   var sideOpen = {}; // "<projectId>|<kind>" -> true while that folder side panel is open on hover (transient; the pin lives in shared state)
+  var PIECE_MONTAJ = '__montaj__'; // pc.stationId sentinel: piece is done on the floor, sent to montaj
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
 
@@ -1842,9 +1843,13 @@
     if(p.pieces && p.pieces.length){
       html += '<div class="piece-sublist">';
       p.pieces.forEach(function(pc){
-        var st = pc.stationId ? stationById(pc.stationId) : null;
+        var atMontaj = pc.stationId === PIECE_MONTAJ;
+        var st = (pc.stationId && !atMontaj) ? stationById(pc.stationId) : null;
         html += '<div class="sub-piece-row" draggable="true" data-piece="' + p.id + '::' + pc.id + '" title="Trage direct pe un banc ca s-o muți"><span class="sub-piece-name">' + esc(pc.name) + (pc.colorCode ? ' <span class="sub-piece-color">'+esc(pc.colorCode)+'</span>' : '') + '</span>';
-        if(st){
+        if(atMontaj){
+          html += '<span class="sub-piece-status">Montaj</span>';
+          html += '<button type="button" class="sub-piece-btn" data-piece-demote="' + p.id + '::' + pc.id + '" title="Scoate de la montaj, înapoi la proiectare">↺</button>';
+        } else if(st){
           html += '<span class="sub-piece-status">' + esc(st.name) + '</span>';
           html += '<button type="button" class="sub-piece-btn" data-piece-demote="' + p.id + '::' + pc.id + '" title="Scoate din producție, înapoi la proiectare">↺</button>';
         } else {
@@ -1889,7 +1894,7 @@
     if(!isBack){
       html += '<div class="piece-btn-row">';
       html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Scoate doar această piesă din execuție, înapoi la proiectare">↺</button>';
-      if(firstProiectAfterLastPiesa()) html += '<button class="btn btn-xs sub-piece-btn send" data-to-montaj="' + project.id + '" title="Trimite proiectul la montaj">📦</button>';
+      html += '<button class="btn btn-xs sub-piece-btn send" data-piece-to-montaj="' + project.id + '::' + piece.id + '" title="Trimite piesa la montaj">📦</button>';
       html += '</div>';
     } else {
       html += '<button class="btn btn-xs btn-primary" style="width:100%; margin-top:6px;" data-piece-move="' + project.id + '::' + piece.id + '" data-dir="next">La execuție →</button>';
@@ -2149,14 +2154,16 @@
         }
       });
     });
-    document.querySelectorAll('[data-to-montaj]').forEach(function(btn){
+    document.querySelectorAll('[data-piece-to-montaj]').forEach(function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
-        var p = projectById(btn.dataset.toMontaj);
-        var target = firstProiectAfterLastPiesa();
-        if(!p || !target) return;
-        p.stationId = target.id; p.lane = null;
-        breakConnectionsFor(p.id);
+        var parts = btn.dataset.pieceToMontaj.split('::');
+        var p = projectById(parts[0]);
+        if(!p) return;
+        var pc = (p.pieces||[]).find(function(x){ return x.id === parts[1]; });
+        if(!pc) return;
+        pc.stationId = PIECE_MONTAJ; pc.lane = null;
+        breakConnectionsFor('pc:' + p.id + '::' + pc.id);
         saveState(); render();
       });
     });
