@@ -749,11 +749,16 @@
     });
   }
   function pad2(n){ return n < 10 ? '0'+n : ''+n; }
-  // key-order-independent JSON, used only to compare local state vs. a remote snapshot
+  // key-order-independent JSON, used only to compare local state vs. a remote snapshot.
+  // Skips null/undefined keys because Firebase prunes them on save, so the echo of our
+  // own write comes back without them — otherwise it looks like a remote change.
   function stableStringify(v){
-    if(v === null || typeof v !== 'object') return JSON.stringify(v);
+    if(v === null || v === undefined) return 'null';
+    if(typeof v !== 'object') return JSON.stringify(v);
     if(Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
-    return '{' + Object.keys(v).sort().map(function(k){
+    return '{' + Object.keys(v).sort().filter(function(k){
+      return v[k] !== null && v[k] !== undefined;
+    }).map(function(k){
       return JSON.stringify(k) + ':' + stableStringify(v[k]);
     }).join(',') + '}';
   }
