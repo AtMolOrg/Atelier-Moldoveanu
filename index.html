@@ -144,8 +144,10 @@
   .proj-stage-box:last-child{ border-right:none; }
   .proj-stage-box.piesa{ background: rgba(0,0,0,0.02); }
   .proj-stage-head{ font-family:'Raleway',sans-serif; text-transform:uppercase; font-size:10.5px; letter-spacing:0.03em; color:var(--ink-faint); padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap; display:flex; align-items:center; justify-content:space-between; gap:6px; }
-  .proj-stage-head .col-actions{ opacity:0.6; }
+  .proj-stage-head > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .proj-stage-head .col-actions{ opacity:0.6; flex:none; }
   .proj-stage-head .col-actions:hover{ opacity:1; }
+  .proj-stage-head .col-actions button{ padding:3px 4px; font-size:12px; }
   .proj-stage-box .col-body{ padding:8px; gap:8px; min-height:76px; flex:1; }
 
   /* ---------- SIDE PANELS — panouri laterale care ies din marginile fiecărui dosar
@@ -253,7 +255,7 @@
 
   .canvas-add-controls{
     position:absolute; left:12px; bottom:12px; z-index:5;
-    display:flex; gap:6px;
+    display:flex; flex-wrap:wrap; gap:6px; max-width:calc(100% - 84px);
     background:var(--panel-2); border:1px solid var(--border); border-radius:10px;
     padding:4px; box-shadow:var(--shadow);
   }
@@ -1258,6 +1260,19 @@
     state.checklists.push({ id: uid(), title: (t.trim() || 'Listă nouă'), x: cx + n * 16, y: cy + n * 16, items: [] });
     saveState(); render();
   }
+  // add a new flow stage (column): 'piesa' = urmărită piesă cu piesă, 'proiect' = la nivel de proiect
+  function addStation(type){
+    var name = prompt('Denumire etapă nouă (nivel ' + (type === 'piesa' ? 'piesă' : 'proiect') + '):');
+    if(!name || !name.trim()) return;
+    var st = { id: uid(), name: name.trim(), type: type };
+    if(type === 'piesa'){
+      var lp = lastPiesaIndex();
+      if(lp === -1) state.stations.push(st); else state.stations.splice(lp + 1, 0, st);
+    } else {
+      state.stations.push(st); // etapele de proiect intră la coadă; reordonează cu ‹ › din capul coloanei
+    }
+    saveState(); render();
+  }
   function findChecklistItem(key){
     var parts = String(key).split('::');
     var cl = checklistById(parts[0]);
@@ -1704,6 +1719,8 @@
     html += '<div class="canvas-add-controls">' +
       '<button class="btn btn-sm btn-primary" id="canvas-add-project">+ Proiect</button>' +
       '<button class="btn btn-sm" id="canvas-add-list">+ Listă</button>' +
+      '<button class="btn btn-sm" id="canvas-add-stage-proiect" title="Etapă urmărită la nivel de proiect (ca Ofertare, Montaj)">+ Etapă proiect</button>' +
+      '<button class="btn btn-sm" id="canvas-add-stage-piesa" title="Etapă urmărită piesă cu piesă (ca Debitare, Sudură)">+ Etapă piesă</button>' +
       '</div>';
     html += '</div>'; // .canvas-viewport
 
@@ -1717,6 +1734,10 @@
     if(cap) cap.addEventListener('click', function(){ openProjectModal(null); });
     var cal = document.getElementById('canvas-add-list');
     if(cal) cal.addEventListener('click', addChecklist);
+    var csp = document.getElementById('canvas-add-stage-proiect');
+    if(csp) csp.addEventListener('click', function(){ addStation('proiect'); });
+    var cspp = document.getElementById('canvas-add-stage-piesa');
+    if(cspp) cspp.addEventListener('click', function(){ addStation('piesa'); });
     document.querySelectorAll('.view-toggle-mini button[data-hmode]').forEach(function(b){
       b.addEventListener('click', function(){ hartaViewMode = b.dataset.hmode; canvasInitialized = false; render(); });
     });
@@ -1738,11 +1759,16 @@
       out += '<div class="proj-cluster-head"><span class="proj-cluster-client">' + esc(p.client) + '</span>';
       out += '<span class="badge badge-' + urgencyOf(p) + '" style="margin-left:auto;">' + esc(urgencyLabel(p)) + '</span></div>';
       out += '<div class="proj-cluster-stages">';
-      state.stations.forEach(function(station){
+      state.stations.forEach(function(station, sIdx){
         var projLanes = projectLanesFor(p, station);
         var hasLanes = projLanes.length > 0;
         out += '<div class="proj-stage-box ' + station.type + '">';
-        out += '<div class="proj-stage-head"><span>' + esc(station.name) + '</span><div class="col-actions"><button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button></div></div>';
+        out += '<div class="proj-stage-head"><span>' + esc(station.name) + '</span><div class="col-actions">';
+        if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" title="Mută etapa la stânga">‹</button>';
+        if(sIdx < state.stations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" title="Mută etapa la dreapta">›</button>';
+        out += '<button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button>';
+        out += '<button data-act="del" data-station="' + station.id + '" title="Șterge etapa">✕</button>';
+        out += '</div></div>';
         if(hasLanes){
           out += '<div class="lanes-row">';
           projLanes.forEach(function(lane){

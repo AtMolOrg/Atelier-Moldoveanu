@@ -4,6 +4,8 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-08-31
 
+- **Adăugare etape (coloane) din vizualizarea „Pe proiecte"**: în bara plutitoare stânga-jos, două butoane noi — „+ Etapă proiect" și „+ Etapă piesă". Piesă → se inserează după ultima etapă de piesă; proiect → la coadă. În plus, capul fiecărei coloane din dosar are acum ‹ › (reordonare) și ✕ (ștergere), refolosind handler-ul `.col-actions` existent. Înainte se puteau adăuga etape doar din view-ul de coloane (scos din navigare).
+
 - **Buton „📦" pe cardul de piesă** — marchează piesa ca trimisă la montaj: `pc.stationId = '__montaj__'` (sentinel). Cardul de piesă dispare de pe podea (nu se potrivește cu nicio etapă), iar în sublista de piese de pe cardul de proiect statusul devine „Montaj". „↺" o readuce la proiectare. Nu mai mută proiectul întreg (varianta inițială făcea asta, greșit).
 
 - **„Comenzi materiale" = panou lateral**, ca „necesar montaj". Iese acum din marginea **stângă** a dosarului (montaj rămâne pe dreapta), cu mâner vertical, hover/click ca să deschizi, auto-hide după ~1s, și pin sincronizat per proiect (`p.ordersPinned`). Nu mai e o fâșie în interiorul dosarului. Rândurile (stare + text + cantitate + furnizor + șterge) sunt acum pe grilă pe 3 linii ca să încapă în panoul îngust. Cele două panouri împart o carcasă comună `renderSidePanel({ side:'left'|'right', pinField, … })`; `montajOpen` → `sideOpen['<id>|<kind>']`, handler-ele `[data-montaj-*]` → `[data-side-*]`.
