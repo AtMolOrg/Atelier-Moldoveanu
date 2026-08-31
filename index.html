@@ -143,8 +143,8 @@
   .proj-stage-box{ flex:0 0 220px; border-right:1px dashed var(--border); display:flex; flex-direction:column; }
   .proj-stage-box:last-child{ border-right:none; }
   .proj-stage-box.piesa{ background: rgba(0,0,0,0.02); }
-  .proj-stage-head{ font-family:'Raleway',sans-serif; text-transform:uppercase; font-size:10.5px; letter-spacing:0.03em; color:var(--ink-faint); padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap; display:flex; align-items:center; justify-content:space-between; gap:6px; }
-  .proj-stage-head > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .proj-stage-head{ font-family:'Raleway',sans-serif; text-transform:uppercase; font-size:10.5px; letter-spacing:0.03em; color:var(--ink-faint); padding:9px 10px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; gap:6px; }
+  .proj-stage-head > span{ min-width:0; word-break:break-word; }
   .proj-stage-head .col-actions{ opacity:0.6; flex:none; }
   .proj-stage-head .col-actions:hover{ opacity:1; }
   .proj-stage-head .col-actions button{ padding:3px 4px; font-size:12px; }
@@ -220,11 +220,11 @@
   /* ---------- CHECKLIST CARD (listă permanentă de mărunțișuri, pe canvas) ---------- */
   .note-wrap{ width:max-content; margin-bottom:16px; }
   .note-tab{
-    display:inline-flex; align-items:center; position:relative; z-index:1; max-width:280px;
+    display:inline-flex; align-items:center; position:relative; z-index:1; max-width:300px;
     background:var(--panel-2); border:1px solid var(--border); border-bottom:none;
     border-radius:8px 8px 0 0; padding:5px 16px; margin:0 0 -1px 16px;
     font-family:'Raleway',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.03em; color:var(--accent);
-    cursor:grab; user-select:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    cursor:grab; user-select:none; word-break:break-word;
   }
   .note-tab:active{ cursor:grabbing; }
   .note-wrap.node-dragging{ z-index:50; }
@@ -254,7 +254,7 @@
   .note-done-label{ color:var(--ink-faint); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; padding:2px 0; }
   .note-done-list{ display:flex; flex-direction:column; gap:4px; margin-top:6px; }
   .note-done-row{ display:flex; align-items:center; gap:6px; }
-  .note-done-text{ flex:1; min-width:0; font-size:12px; color:var(--ink-faint); text-decoration:line-through; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .note-done-text{ flex:1; min-width:0; font-size:12px; color:var(--ink-faint); text-decoration:line-through; word-break:break-word; }
   .note-restore{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:22px; height:22px; font-size:11px; padding:0; }
   .note-restore:hover{ color:var(--ink); }
   .note-done-clear{ align-self:flex-start; margin-top:4px; }
@@ -327,13 +327,18 @@
   .badge-none{ background: rgba(0,0,0,0.08); color:var(--ink-faint); }
   .badge-done{ background: rgba(168,200,220,0.4); color:#3d6d85; }
   .card-notes{ font-size:12.5px; color:var(--ink-dim); margin-bottom:8px; line-height:1.4; }
-  .piece-sublist{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; background:var(--panel-3); border-radius:7px; padding:6px 8px; }
-  .sub-piece-row{ display:flex; align-items:center; gap:6px; font-size:11.5px; cursor:grab; transition: opacity var(--dur); }
+  .piece-sublist{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; background:var(--panel-3); border-radius:7px; padding:8px; }
+  .sub-piece-row{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; font-size:11.5px; cursor:grab; transition: opacity var(--dur); }
+  .sub-piece-row + .sub-piece-row{ border-top:1px dashed var(--border); padding-top:8px; }
   .sub-piece-row.dragging{ opacity:0.35; }
-  .sub-piece-name{ flex:1; color:var(--ink-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sub-piece-name{ flex:1 1 100%; color:var(--ink-dim); }
   .sub-piece-color{ color:#000000; font-size:10px; font-weight:600; }
   .sub-piece-status{ flex:none; font-size:10px; color:var(--steel); font-weight:600; }
   .sub-piece-status.pending{ color:var(--ink-faint); }
+  .sub-piece-people{ display:flex; flex-wrap:wrap; gap:4px; flex:1 1 auto; }
+  .sub-piece-people .assigned-chip{ padding:1px 3px 1px 1px; }
+  .sub-piece-people .assigned-name{ font-size:10px; }
+  .sub-piece-people .mini-avatar{ width:16px; height:16px; font-size:7.5px; }
   .sub-piece-btn{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:5px; width:22px; height:22px; font-size:11px; padding:0; }
   .sub-piece-btn:hover{ color:var(--ink); border-color:var(--ink-faint); }
   .sub-piece-btn.send{ color:#333333; border-color:rgba(0,0,0,0.45); }
@@ -341,7 +346,7 @@
   .assigned-people{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
   .assigned-chip{ display:flex; align-items:center; gap:5px; background:var(--panel-3); border:1px solid var(--border); border-radius:999px; padding:2px 4px 2px 2px; cursor:pointer; transition: background var(--dur); }
   .assigned-chip:hover{ background:var(--panel); }
-  .assigned-name{ font-size:11px; font-weight:600; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100px; }
+  .assigned-name{ font-size:11px; font-weight:600; color:var(--ink-dim); }
   .assigned-remove{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:12px; line-height:1; padding:2px 4px; border-radius:50%; }
   .assigned-remove:hover{ color:#4a1c14; background:var(--danger); }
   .mini-avatar{ flex:none; width:19px; height:19px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:8.5px; font-weight:700; color:#3d3020; }
@@ -456,15 +461,16 @@
   .worker-token.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; background: var(--panel-3); }
   .worker-token.reorder-target{ box-shadow: 0 0 0 2px var(--accent) inset; }
   .card.link-target, .piece-card.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; }
+  .sub-piece-row.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; border-radius:6px; }
   .worker-token.furnizor{ border-style:dashed; }
   .worker-token.furnizor .worker-avatar{ border-radius:8px; }
   .worker-avatar{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:#3d3020; flex:none; }
-  .worker-name{ font-size:10.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px; }
+  .worker-name{ font-size:10.5px; font-weight:700; line-height:1.25; }
   .worker-kind{ font-size:8px; color:var(--steel); text-transform:uppercase; letter-spacing:0.04em; font-weight:700; margin-top:-2px; }
-  .worker-task{ font-size:9px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px; }
+  .worker-task{ font-size:9px; color:var(--ink-faint); line-height:1.25; }
   .worker-tasks{ display:flex; flex-direction:column; gap:3px; width:100%; margin-top:1px; }
   .worker-task-chip{ display:flex; align-items:center; gap:4px; background:var(--panel-3); border-radius:5px; padding:2px 4px 2px 6px; }
-  .worker-task-chip span{ flex:1; font-size:9px; color:var(--ink-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
+  .worker-task-chip span{ flex:1; font-size:9px; color:var(--ink-dim); text-align:left; line-height:1.3; word-break:break-word; }
   .worker-task-chip button{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:11px; line-height:1; padding:1px 3px; }
   .worker-task-chip button:hover{ color:var(--danger); }
 
@@ -1197,8 +1203,11 @@
     list.splice(toIdx, 0, item);
   }
   function assignmentsForTask(projectId, pieceId){
+    // project-level and piece-level assignments are independent:
+    // a project's people stay on the project card, each piece has its own.
     return state.assignments.filter(function(a){
-      return a.projectId === projectId && (!a.pieceId || a.pieceId === pieceId);
+      if(a.projectId !== projectId) return false;
+      return pieceId ? a.pieceId === pieceId : !a.pieceId;
     });
   }
   function renderAssignedPeople(projectId, pieceId){
@@ -1215,6 +1224,22 @@
     });
     html += '</div>';
     return html;
+  }
+  // compact assignee chips for a piece row inside the project card's sublist
+  function renderPieceAssignees(projectId, pieceId){
+    var links = assignmentsForTask(projectId, pieceId);
+    if(!links.length) return '';
+    var h = '<div class="sub-piece-people">';
+    links.forEach(function(a){
+      var w = state.workers.find(function(x){ return x.id === a.workerId; });
+      if(!w) return;
+      h += '<div class="assigned-chip' + (w.kind==='furnizor'?' furnizor':'') + '" data-open-worker="' + w.id + '" title="' + esc(w.name) + '">' +
+        '<span class="mini-avatar" style="background:' + workerColor(w) + '">' + esc(initials(w.name)) + '</span>' +
+        '<span class="assigned-name">' + esc(w.name) + '</span>' +
+        '<button type="button" class="assigned-remove" data-unlink="' + a.id + '" title="Scoate legătura">×</button></div>';
+    });
+    h += '</div>';
+    return h;
   }
   function renderWorkerToken(w){
     var isFurnizor = w.kind === 'furnizor';
@@ -1901,7 +1926,8 @@
       p.pieces.forEach(function(pc){
         var atMontaj = pc.stationId === PIECE_MONTAJ;
         var st = (pc.stationId && !atMontaj) ? stationByIdFor(p, pc.stationId) : null;
-        html += '<div class="sub-piece-row" draggable="true" data-piece="' + p.id + '::' + pc.id + '" title="Trage direct pe un banc ca s-o muți"><span class="sub-piece-name">' + esc(pc.name) + (pc.colorCode ? ' <span class="sub-piece-color">'+esc(pc.colorCode)+'</span>' : '') + '</span>';
+        html += '<div class="sub-piece-row" draggable="true" data-piece="' + p.id + '::' + pc.id + '" title="Trage pe un banc ca s-o muți · trage o persoană aici ca s-o legi de piesă"><span class="sub-piece-name">' + esc(pc.name) + (pc.colorCode ? ' <span class="sub-piece-color">'+esc(pc.colorCode)+'</span>' : '') + '</span>';
+        html += renderPieceAssignees(p.id, pc.id);
         if(atMontaj){
           html += '<span class="sub-piece-status">Montaj</span>';
           html += '<button type="button" class="sub-piece-btn" data-piece-demote="' + p.id + '::' + pc.id + '" title="Scoate de la montaj, înapoi la proiectare">↺</button>';
@@ -2318,6 +2344,20 @@
         e.dataTransfer.setData('text/plain', payload);
       });
       row.addEventListener('dragend', function(){ row.classList.remove('dragging'); draggingData=null; });
+      // drop a person here to link them to this specific piece
+      row.addEventListener('dragover', function(e){
+        if((draggingData||'').indexOf('WRK::')===0){ e.preventDefault(); e.stopPropagation(); row.classList.add('link-target'); }
+      });
+      row.addEventListener('dragleave', function(){ row.classList.remove('link-target'); });
+      row.addEventListener('drop', function(e){
+        var data = e.dataTransfer.getData('text/plain') || draggingData;
+        if(!data || data.indexOf('WRK::')!==0) return;
+        e.preventDefault(); e.stopPropagation();
+        row.classList.remove('link-target');
+        var parts = row.dataset.piece.split('::');
+        addAssignment(data.slice(5), parts[0], parts[1]);
+        saveState(); render();
+      });
     });
     // drag & click — worker tokens
     document.querySelectorAll('.worker-token[draggable="true"]').forEach(function(card){
