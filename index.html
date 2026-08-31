@@ -480,6 +480,12 @@
   table.proj-table th{ text-align:left; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-faint); padding:12px 14px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--panel); }
   table.proj-table td{ padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
   table.proj-table tr:hover td{ background: rgba(0,0,0,0.05); }
+  .comenzi-table tr.comenzi-group:hover td{ background:var(--panel-2); }
+  .comenzi-table .comenzi-group td{ background:var(--panel-2); font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:11px; font-weight:700; color:var(--ink-dim); padding:8px 14px; }
+  .comenzi-group-n{ color:var(--ink-faint); font-weight:600; margin-left:6px; }
+  .cmz-inp{ width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:6px 8px; border-radius:6px; font-size:12.5px; }
+  .cmz-proj{ cursor:pointer; white-space:nowrap; }
+  .cmz-proj:hover .t-code{ text-decoration:underline; }
   .t-code{ font-family:'Raleway', sans-serif; color:var(--accent); font-weight:600; }
   .t-badges span{ font-family:'Raleway', sans-serif; font-size:10.5px; color:var(--ink-dim); background:var(--panel-2); border-radius:5px; padding:2px 6px; margin-right:4px; display:inline-block; margin-bottom:3px; }
   .toolbar-row{ display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:12.5px; color:var(--ink-dim); flex-wrap:wrap; }
@@ -658,6 +664,10 @@
   <header class="topbar">
     <div class="brand">
       <div class="brand-title">ATELIER MOLDOVEANU <span>—</span> ORGANIZARE</div>
+    </div>
+    <div class="tabs" id="tabs">
+      <button data-tab="hala" class="active">Hartă atelier</button>
+      <button data-tab="comenzi">Comenzi</button>
     </div>
     <div class="topbar-actions">
       <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
@@ -1151,6 +1161,7 @@
     board.style.alignItems = '';
     board.style.height = '100%';
     if(tab === 'hala') renderHala();
+    else if(tab === 'comenzi') renderComenzi();
     else if(tab === 'gantt') renderGantt();
     else if(tab === 'proiecte') renderProiecte();
     else if(tab === 'reparatii') renderReparatii();
@@ -2887,6 +2898,103 @@
     return html;
   }
 
+  /* ================= COMENZI (toate materialele de aprovizionat) ================= */
+  var comenziShowPrimit = false;
+  function renderComenzi(){
+    var board = document.getElementById('board');
+    board.className = ''; board.style.display = 'block'; board.style.height = '100%';
+
+    var rows = [];
+    state.projects.forEach(function(p){
+      if(p.finalizat) return;
+      (p.orders || []).forEach(function(o){
+        if(!comenziShowPrimit && o.status === 'primit') return;
+        rows.push({ p: p, o: o });
+      });
+    });
+    // group by supplier
+    var groups = {}, order = [];
+    rows.forEach(function(r){
+      var w = r.o.supplierId ? state.workers.find(function(x){ return x.id === r.o.supplierId; }) : null;
+      var key = w ? w.id : '__none__';
+      var name = w ? w.name : '— fără furnizor —';
+      if(!groups[key]){ groups[key] = { name: name, rows: [] }; order.push(key); }
+      groups[key].rows.push(r);
+    });
+    order.sort(function(a, b){
+      if(a === '__none__') return 1; if(b === '__none__') return -1;
+      return groups[a].name.localeCompare(groups[b].name);
+    });
+
+    var total = rows.length;
+    var toBuy = rows.filter(function(r){ return r.o.status === 'de-comandat'; }).length;
+
+    var html = '<div class="toolbar-row"><strong>Comenzi materiale</strong> — ' + total + ' rânduri, ' + toBuy + ' de comandat' +
+      '<label style="margin-left:16px;"><input type="checkbox" id="cmz-primit" ' + (comenziShowPrimit ? 'checked' : '') + '> Arată și primite</label></div>';
+
+    if(!total){
+      html += '<div class="empty-state" style="margin-top:20px;"><h2>Nicio comandă</h2><p>Adaugă materiale în panoul „Comenzi materiale" al fiecărui proiect (marginea stângă a dosarului).</p></div>';
+      board.innerHTML = html;
+      var cb0 = document.getElementById('cmz-primit');
+      if(cb0) cb0.addEventListener('change', function(e){ comenziShowPrimit = e.target.checked; render(); });
+      return;
+    }
+
+    html += '<div class="table-wrap"><table class="proj-table comenzi-table">';
+    html += '<thead><tr><th>Stare</th><th>Ce se comandă</th><th>Cant.</th><th>Furnizor</th><th>Proiect</th><th></th></tr></thead>';
+    order.forEach(function(gk){
+      var g = groups[gk];
+      html += '<tbody><tr class="comenzi-group"><td colspan="6">' + esc(g.name) + ' <span class="comenzi-group-n">' + g.rows.length + '</span></td></tr>';
+      g.rows.forEach(function(r){
+        var key = r.p.id + '::' + r.o.id;
+        html += '<tr>';
+        html += '<td><button type="button" class="order-status order-status-' + r.o.status + '" data-order-status="' + key + '" title="Schimbă starea">' + ORDER_STATUS_LABEL[r.o.status] + '</button></td>';
+        html += '<td><input class="cmz-inp" data-order-edit="' + key + '" data-field="text" value="' + esc(r.o.text || '') + '" placeholder="Ce se comandă"></td>';
+        html += '<td style="width:80px;"><input class="cmz-inp" data-order-edit="' + key + '" data-field="qty" value="' + esc(r.o.qty || '') + '" placeholder="Cant."></td>';
+        html += '<td style="width:150px;"><select class="cmz-inp" data-order-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(r.o.supplierId || '') + '</select></td>';
+        html += '<td class="cmz-proj" data-open-project="' + r.p.id + '"><span class="t-code">' + esc(r.p.cod) + '</span><span class="traseu-client">' + esc(r.p.client) + '</span></td>';
+        html += '<td style="width:34px;"><button type="button" class="order-del" data-order-del="' + key + '" title="Șterge rândul">×</button></td>';
+        html += '</tr>';
+      });
+      html += '</tbody>';
+    });
+    html += '</table></div>';
+    board.innerHTML = html;
+
+    var cb = document.getElementById('cmz-primit');
+    if(cb) cb.addEventListener('change', function(e){ comenziShowPrimit = e.target.checked; render(); });
+    board.querySelectorAll('[data-order-status]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var f = findOrderByKey(btn.dataset.orderStatus);
+        if(!f) return;
+        var i = ORDER_STATUSES.indexOf(f.order.status);
+        f.order.status = ORDER_STATUSES[(i + 1) % ORDER_STATUSES.length];
+        saveState(); render();
+      });
+    });
+    board.querySelectorAll('[data-order-edit]').forEach(function(inp){
+      inp.addEventListener('change', function(){
+        var f = findOrderByKey(inp.dataset.orderEdit);
+        if(!f) return;
+        f.order[inp.dataset.field] = inp.tagName === 'SELECT' ? inp.value : inp.value.trim();
+        saveState();
+        if(inp.dataset.field === 'supplierId') render(); // moves between groups
+      });
+    });
+    board.querySelectorAll('[data-order-del]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var f = findOrderByKey(btn.dataset.orderDel);
+        if(!f) return;
+        if(f.order.text && !confirm('Ștergi rândul „' + f.order.text + '”?')) return;
+        f.project.orders = f.project.orders.filter(function(x){ return x.id !== f.order.id; });
+        saveState(); render();
+      });
+    });
+    board.querySelectorAll('[data-open-project]').forEach(function(td){
+      td.addEventListener('click', function(){ openProjectModal(td.dataset.openProject); });
+    });
+  }
+
   /* ================= REPARAȚII ================= */
   var REPAIR_STATUSES = [
     {id:'deschisa', name:'Deschisă'},
@@ -3231,12 +3339,16 @@
       aside2.style.display = 'flex';
       main.classList.add('sidebar-active');
       main.classList.add('canvas-fullbleed');
+      main.style.paddingTop = '';
       // sidebars stay closed until the user hovers/taps the handle — never auto-open
     } else {
       aside1.style.display = 'none';
       aside2.style.display = 'none';
       main.classList.remove('sidebar-active');
       main.classList.remove('canvas-fullbleed');
+      // the topbar is position:fixed — push the scrollable content clear of it
+      var tb = document.querySelector('.topbar');
+      main.style.paddingTop = ((tb ? tb.offsetHeight : 60) + 12) + 'px';
       teamSidebarCtrl.clearTimer();
       supplierSidebarCtrl.clearTimer();
     }
@@ -3245,6 +3357,16 @@
   document.getElementById('search').addEventListener('input', function(e){ searchQuery = e.target.value; render(); });
   document.getElementById('btn-feedback').addEventListener('click', function(){ openFeedbackModal(); });
   document.getElementById('btn-add-list').addEventListener('click', addChecklist);
+  document.querySelectorAll('#tabs button').forEach(function(b){
+    b.addEventListener('click', function(){
+      if(tab === b.dataset.tab) return;
+      tab = b.dataset.tab;
+      document.querySelectorAll('#tabs button').forEach(function(x){ x.classList.toggle('active', x === b); });
+      setAddButton();
+      updateSidebarForTab();
+      render();
+    });
+  });
 
   document.getElementById('btn-reset').addEventListener('click', function(){
     if(confirm('Ștergi tot panoul (proiecte, etape, reparații)? Nu se poate anula.')){
