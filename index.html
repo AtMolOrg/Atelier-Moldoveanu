@@ -1928,7 +1928,7 @@
       var warns = projectWarnings(p);
       out += '<div class="proj-wrap' + (warns.length ? ' has-warn' : '') + '" data-project="' + p.id + '" style="' + posStyle + '">';
       out += '<div class="proj-cluster-tab"><span class="pct-code">' + esc(p.cod) + '</span> <span class="pct-client">' + esc(p.client) + '</span>' +
-        (warns.length ? '<span class="pct-warn" title="' + esc(warns.join('  ·  ')) + '">⚠ lipsește ceva</span>' : '') + '</div>';
+        (warns.length ? '<span class="pct-warn" title="' + esc(warns.join('  ·  ')) + '">⚠ incomplet</span>' : '') + '</div>';
       out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
       out += '<div class="proj-cluster-head">';
       out += '<div class="head-add-stage">' +
