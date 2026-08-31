@@ -350,6 +350,7 @@
   .piece-card .p-name{ font-size:13px; font-weight:600; margin:2px 0 1px; }
   .piece-card .p-color{ font-size:11px; color:#000000; font-weight:600; margin-bottom:2px; }
   .piece-card .p-client{ font-size:11.5px; color:var(--ink-faint); }
+  .piece-btn-row{ display:flex; gap:6px; margin-top:6px; }
   .piece-nav{ display:flex; justify-content:space-between; gap:6px; margin-top:8px; }
   .piece-nav button{ flex:1; background:var(--panel-3); border:1px solid var(--border); color:var(--ink-dim); border-radius:6px; padding:4px 0; font-size:12px; }
   .piece-nav button:hover{ color:var(--ink); border-color: var(--steel); }
@@ -1885,8 +1886,14 @@
     html += '<div class="p-client">' + esc(project.client) + '</div>';
     if(isBack) html += '<div class="badge badge-done" style="margin:4px 0;">La proiectare</div>';
     html += renderAssignedPeople(project.id, piece.id);
-    if(!isBack) html += '<button class="btn btn-xs btn-ghost" style="margin-top:6px;" data-piece-demote="' + project.id + '::' + piece.id + '" title="Scoate doar această piesă din execuție, înapoi la proiectare">↺</button>';
-    else html += '<button class="btn btn-xs btn-primary" style="width:100%; margin-top:6px;" data-piece-move="' + project.id + '::' + piece.id + '" data-dir="next">La execuție →</button>';
+    if(!isBack){
+      html += '<div class="piece-btn-row">';
+      html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Scoate doar această piesă din execuție, înapoi la proiectare">↺</button>';
+      if(firstProiectAfterLastPiesa()) html += '<button class="btn btn-xs sub-piece-btn send" data-to-montaj="' + project.id + '" title="Trimite proiectul la montaj">📦</button>';
+      html += '</div>';
+    } else {
+      html += '<button class="btn btn-xs btn-primary" style="width:100%; margin-top:6px;" data-piece-move="' + project.id + '::' + piece.id + '" data-dir="next">La execuție →</button>';
+    }
     html += '</div>';
     return html;
   }
@@ -2140,6 +2147,17 @@
           breakConnectionsFor('pc:' + p.id + '::' + pc.id);
           saveState(); render();
         }
+      });
+    });
+    document.querySelectorAll('[data-to-montaj]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var p = projectById(btn.dataset.toMontaj);
+        var target = firstProiectAfterLastPiesa();
+        if(!p || !target) return;
+        p.stationId = target.id; p.lane = null;
+        breakConnectionsFor(p.id);
+        saveState(); render();
       });
     });
 
