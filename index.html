@@ -127,12 +127,14 @@
 
   .proj-wrap{ width:max-content; margin-bottom:16px; position:relative; }
   .proj-cluster-tab{
-    display:inline-flex; align-items:center; position:relative; z-index:1;
+    display:inline-flex; align-items:baseline; gap:10px; position:relative; z-index:1;
     background:var(--panel-2); border:1px solid var(--border); border-bottom:none;
-    border-radius:8px 8px 0 0; padding:5px 16px; margin:0 0 -1px 16px;
-    font-family:'Raleway',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.03em; color:var(--accent);
+    border-radius:10px 10px 0 0; padding:8px 20px; margin:0 0 -1px 16px;
+    font-family:'Raleway',sans-serif; letter-spacing:0.02em;
     cursor:grab; user-select:none;
   }
+  .proj-cluster-tab .pct-code{ font-size:30px; font-weight:800; color:var(--accent); }
+  .proj-cluster-tab .pct-client{ font-size:28px; font-weight:600; color:var(--ink-dim); }
   .proj-cluster-tab:active{ cursor:grabbing; }
   .proj-wrap.node-dragging .proj-cluster-tab{ cursor:grabbing; }
   .proj-wrap.node-dragging{ z-index:50; }
@@ -1812,9 +1814,9 @@
       var grad = urgencyGradient(p);
       var posStyle = (typeof p.x === 'number' && typeof p.y === 'number') ? ('position:absolute; left:' + p.x + 'px; top:' + p.y + 'px;') : '';
       out += '<div class="proj-wrap" data-project="' + p.id + '" style="' + posStyle + '">';
-      out += '<div class="proj-cluster-tab">' + esc(p.cod) + '</div>';
+      out += '<div class="proj-cluster-tab"><span class="pct-code">' + esc(p.cod) + '</span> <span class="pct-client">' + esc(p.client) + '</span></div>';
       out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
-      out += '<div class="proj-cluster-head"><span class="proj-cluster-client">' + esc(p.client) + '</span>';
+      out += '<div class="proj-cluster-head">';
       out += '<div class="head-add-stage">' +
         '<button type="button" data-add-stage="' + p.id + '" data-type="proiect">+ etapă proiectare (anteproiect)</button>' +
         '<button type="button" data-add-stage="' + p.id + '" data-type="piesa">+ etapă execuție</button>' +

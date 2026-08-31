@@ -4,6 +4,7 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-08-31
 
+- **Tab-ul dosarului**: acum arată `cod + client` (ex. „0002 Gruia"), la font ~2.5× (cod 30px / client 28px, față de 12px). Clientul a fost scos din antetul dosarului (nu se mai dublează). Drag-ul dosarului merge în continuare de pe tab.
 - **Bara de tab-uri readăugată** (scoasă pe 2026-08-24): „Hartă atelier" | „Comenzi". `render()` dispecerizează `tab === 'comenzi'` → `renderComenzi()`.
 - **Tab „Comenzi"**: tabel cu toate rândurile `p.orders` din proiectele active, grupate pe furnizor (sortare alfabetică, „— fără furnizor —" ultimul). Coloane: Stare (buton care ciclează) · Ce · Cant. · Furnizor (select) · Proiect (cod+client, click → deschide proiectul) · ✕. Editabil inline (aceleași `data-order-*` ca panoul lateral, refolosind `findOrderByKey`/`ORDER_STATUSES`/`supplierOptionsHtml`, dar cu handler-e proprii). Toolbar: contor + checkbox „Arată și primite" (implicit ascunde `primit`).
 - **Fix**: view-urile non-canvas nu compensau bara de sus `position:fixed` → conținutul intra sub ea. `updateSidebarForTab` pune acum `main.paddingTop = topbar.offsetHeight + 12` pe tab-urile non-hala (măsurat, ca să meargă și când header-ul se rupe pe mai multe rânduri).
