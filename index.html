@@ -149,6 +149,12 @@
   .proj-stage-head .col-actions:hover{ opacity:1; }
   .proj-stage-head .col-actions button{ padding:3px 4px; font-size:12px; }
   .proj-stage-box .col-body{ padding:8px; gap:8px; min-height:76px; flex:1; }
+  .proj-stage-add{ flex:0 0 130px; display:flex; flex-direction:column; gap:6px; padding:10px 8px; align-self:flex-start; }
+  .proj-stage-add button{
+    border:1.5px dashed var(--border); background:transparent; color:var(--ink-dim);
+    border-radius:8px; padding:8px 6px; font-size:11px; font-weight:600;
+  }
+  .proj-stage-add button:hover{ border-color:var(--accent); color:var(--accent); }
 
   /* ---------- SIDE PANELS — panouri laterale care ies din marginile fiecărui dosar
      (dreapta: „necesar montaj"; stânga: „comenzi materiale"). Aceleași funcții: mâner, hover,
@@ -906,6 +912,10 @@
           : '';
       }
       delete p.montajNeeds;
+      // each project now carries its own flow stages — seed from the shared list on first load
+      if(!Array.isArray(p.stations) || !p.stations.length){
+        p.stations = JSON.parse(JSON.stringify(parsed.stations || []));
+      }
     });
     parsed.checklists.forEach(function(c){ if(!Array.isArray(c.items)) c.items = []; });
     return parsed;
@@ -1018,6 +1028,40 @@
     var st = stationById(stationId);
     return idx > lp && st && st.type === 'proiect';
   }
+  /* per-project flow stages: each project carries its own p.stations (copied from state.stations
+     at migration / on project creation). state.stations stays as the template for new projects. */
+  function stationsFor(p){ return (p && Array.isArray(p.stations)) ? p.stations : state.stations; }
+  function stationByIdFor(p, id){ return stationsFor(p).find(function(s){ return s.id === id; }); }
+  function piesaStationsFor(p){ return stationsFor(p).filter(function(s){ return s.type === 'piesa'; }); }
+  function lastPiesaIndexFor(p){ var a = stationsFor(p); for(var i=a.length-1;i>=0;i--){ if(a[i].type==='piesa') return i; } return -1; }
+  function firstPiesaIndexFor(p){ return stationsFor(p).findIndex(function(s){ return s.type === 'piesa'; }); }
+  function nextProiectStationFor(p, stationId){
+    var a = stationsFor(p);
+    var next = a[a.findIndex(function(s){ return s.id === stationId; }) + 1];
+    return (next && next.type === 'proiect') ? next : null;
+  }
+  function firstProiectAfterLastPiesaFor(p){
+    var a = stationsFor(p), lp = lastPiesaIndexFor(p);
+    if(lp === -1) return null;
+    for(var i=lp+1;i<a.length;i++){ if(a[i].type === 'proiect') return a[i]; }
+    return null;
+  }
+  function lastProiectBeforeFirstPiesaFor(p){
+    var a = stationsFor(p), fp = firstPiesaIndexFor(p);
+    if(fp === -1) return null;
+    for(var i=fp-1;i>=0;i--){ if(a[i].type === 'proiect') return a[i]; }
+    return null;
+  }
+  function isPostExecStationFor(p, stationId){
+    var a = stationsFor(p), lp = lastPiesaIndexFor(p);
+    if(lp === -1) return false;
+    var idx = a.findIndex(function(s){ return s.id === stationId; });
+    return idx > lp && a[idx] && a[idx].type === 'proiect';
+  }
+  function forkProjectStations(p){
+    if(!Array.isArray(p.stations)) p.stations = JSON.parse(JSON.stringify(state.stations || []));
+    return p.stations;
+  }
   function defaultLaneId(lanes){
     return (lanes && lanes[0]) ? lanes[0].id : null;
   }
@@ -1083,7 +1127,7 @@
   }
   function pieceBreakdown(p){
     var counts = {};
-    piesaStations().forEach(function(s){ counts[s.id] = 0; });
+    piesaStationsFor(p).forEach(function(s){ counts[s.id] = 0; });
     (p.pieces||[]).forEach(function(pc){ if(counts[pc.stationId] !== undefined) counts[pc.stationId]++; });
     return counts;
   }
@@ -1258,19 +1302,6 @@
       cy = Math.round((vp.clientHeight / 2 - canvasPanY) / canvasZoom) - 40;
     }
     state.checklists.push({ id: uid(), title: (t.trim() || 'Listă nouă'), x: cx + n * 16, y: cy + n * 16, items: [] });
-    saveState(); render();
-  }
-  // add a new flow stage (column): 'piesa' = urmărită piesă cu piesă, 'proiect' = la nivel de proiect
-  function addStation(type){
-    var name = prompt('Denumire etapă nouă (nivel ' + (type === 'piesa' ? 'piesă' : 'proiect') + '):');
-    if(!name || !name.trim()) return;
-    var st = { id: uid(), name: name.trim(), type: type };
-    if(type === 'piesa'){
-      var lp = lastPiesaIndex();
-      if(lp === -1) state.stations.push(st); else state.stations.splice(lp + 1, 0, st);
-    } else {
-      state.stations.push(st); // etapele de proiect intră la coadă; reordonează cu ‹ › din capul coloanei
-    }
     saveState(); render();
   }
   function findChecklistItem(key){
@@ -1719,8 +1750,6 @@
     html += '<div class="canvas-add-controls">' +
       '<button class="btn btn-sm btn-primary" id="canvas-add-project">+ Proiect</button>' +
       '<button class="btn btn-sm" id="canvas-add-list">+ Listă</button>' +
-      '<button class="btn btn-sm" id="canvas-add-stage-proiect" title="Etapă urmărită la nivel de proiect (ca Ofertare, Montaj)">+ Etapă proiect</button>' +
-      '<button class="btn btn-sm" id="canvas-add-stage-piesa" title="Etapă urmărită piesă cu piesă (ca Debitare, Sudură)">+ Etapă piesă</button>' +
       '</div>';
     html += '</div>'; // .canvas-viewport
 
@@ -1734,10 +1763,6 @@
     if(cap) cap.addEventListener('click', function(){ openProjectModal(null); });
     var cal = document.getElementById('canvas-add-list');
     if(cal) cal.addEventListener('click', addChecklist);
-    var csp = document.getElementById('canvas-add-stage-proiect');
-    if(csp) csp.addEventListener('click', function(){ addStation('proiect'); });
-    var cspp = document.getElementById('canvas-add-stage-piesa');
-    if(cspp) cspp.addEventListener('click', function(){ addStation('piesa'); });
     document.querySelectorAll('.view-toggle-mini button[data-hmode]').forEach(function(b){
       b.addEventListener('click', function(){ hartaViewMode = b.dataset.hmode; canvasInitialized = false; render(); });
     });
@@ -1759,15 +1784,16 @@
       out += '<div class="proj-cluster-head"><span class="proj-cluster-client">' + esc(p.client) + '</span>';
       out += '<span class="badge badge-' + urgencyOf(p) + '" style="margin-left:auto;">' + esc(urgencyLabel(p)) + '</span></div>';
       out += '<div class="proj-cluster-stages">';
-      state.stations.forEach(function(station, sIdx){
+      var pStations = stationsFor(p);
+      pStations.forEach(function(station, sIdx){
         var projLanes = projectLanesFor(p, station);
         var hasLanes = projLanes.length > 0;
         out += '<div class="proj-stage-box ' + station.type + '">';
         out += '<div class="proj-stage-head"><span>' + esc(station.name) + '</span><div class="col-actions">';
-        if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" title="Mută etapa la stânga">‹</button>';
-        if(sIdx < state.stations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" title="Mută etapa la dreapta">›</button>';
+        if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la stânga">‹</button>';
+        if(sIdx < pStations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la dreapta">›</button>';
         out += '<button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button>';
-        out += '<button data-act="del" data-station="' + station.id + '" title="Șterge etapa">✕</button>';
+        out += '<button data-act="del" data-station="' + station.id + '" data-project="' + p.id + '" title="Șterge etapa">✕</button>';
         out += '</div></div>';
         if(hasLanes){
           out += '<div class="lanes-row">';
@@ -1801,6 +1827,10 @@
         }
         out += '</div>';
       });
+      out += '<div class="proj-stage-add">' +
+        '<button type="button" data-add-stage="' + p.id + '" data-type="proiect">+ etapă proiect</button>' +
+        '<button type="button" data-add-stage="' + p.id + '" data-type="piesa">+ etapă piesă</button>' +
+        '</div>';
       out += '</div></div>'; // close .proj-cluster-stages, .proj-cluster
       out += renderOrdersPanel(p);   // left edge
       out += renderMontajPanel(p);   // right edge
@@ -1870,7 +1900,7 @@
       html += '<div class="piece-sublist">';
       p.pieces.forEach(function(pc){
         var atMontaj = pc.stationId === PIECE_MONTAJ;
-        var st = (pc.stationId && !atMontaj) ? stationById(pc.stationId) : null;
+        var st = (pc.stationId && !atMontaj) ? stationByIdFor(p, pc.stationId) : null;
         html += '<div class="sub-piece-row" draggable="true" data-piece="' + p.id + '::' + pc.id + '" title="Trage direct pe un banc ca s-o muți"><span class="sub-piece-name">' + esc(pc.name) + (pc.colorCode ? ' <span class="sub-piece-color">'+esc(pc.colorCode)+'</span>' : '') + '</span>';
         if(atMontaj){
           html += '<span class="sub-piece-status">Montaj</span>';
@@ -1880,7 +1910,7 @@
           html += '<button type="button" class="sub-piece-btn" data-piece-demote="' + p.id + '::' + pc.id + '" title="Scoate din producție, înapoi la proiectare">↺</button>';
         } else {
           html += '<span class="sub-piece-status pending">La proiectare</span>';
-          if(piesaStations().length > 0) html += '<button type="button" class="sub-piece-btn send" data-piece-move="' + p.id + '::' + pc.id + '" data-dir="next" title="Trimite în producție">→</button>';
+          if(piesaStationsFor(p).length > 0) html += '<button type="button" class="sub-piece-btn send" data-piece-move="' + p.id + '::' + pc.id + '" data-dir="next" title="Trimite în producție">→</button>';
         }
         html += '</div>';
       });
@@ -1890,9 +1920,9 @@
     if(p.finalizat){
       html += '<button class="btn btn-sm btn-ghost" data-reopen="' + p.id + '">↺ Redeschide</button>';
     } else {
-      var next = nextStationIfProiect(station.id);
+      var next = nextProiectStationFor(p, station.id);
       if(next) html += '<button class="btn btn-sm" data-advance="' + p.id + '" data-target="' + next.id + '">Avansează → ' + esc(next.name) + '</button>';
-      if(isPostExecStation(station.id)){
+      if(isPostExecStationFor(p, station.id)){
         html += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează proiect ✓</button>';
       }
     }
@@ -1905,7 +1935,7 @@
   }
 
   function renderPieceCard(piece, project){
-    var ps = piesaStations();
+    var ps = piesaStationsFor(project);
     var psIdx = ps.findIndex(function(s){ return s.id === piece.stationId; });
     var isBack = psIdx === -1;
     var grad = urgencyGradient(project);
@@ -1962,7 +1992,7 @@
           var lanes = proj.laneDefs[btn.dataset.station];
           var remaining = lanes.filter(function(l){ return l.id !== laneId; });
           var fallbackId = remaining[0] ? remaining[0].id : null;
-          var st0 = stationById(btn.dataset.station);
+          var st0 = stationByIdFor(proj, btn.dataset.station);
           if(st0 && st0.type === 'proiect'){
             if(proj.stationId===btn.dataset.station && proj.lane===laneId) proj.lane = fallbackId;
           } else {
@@ -1988,13 +2018,16 @@
     document.querySelectorAll('.col-actions button').forEach(function(btn){
       btn.addEventListener('click', function(){
         var id = btn.dataset.station;
-        var idx = state.stations.findIndex(function(s){ return s.id === id; });
-        if(btn.dataset.act === 'addlane'){
-          var projId = btn.dataset.project;
-          if(projId){
-            var proj = state.projects.find(function(x){ return x.id===projId; });
-            var stP = stationById(id);
-            if(!proj || !stP) return;
+        var act = btn.dataset.act;
+        var proj = btn.dataset.project ? projectById(btn.dataset.project) : null;
+        // the flow of stages is per-project now — a project scopes to its own p.stations
+        var arr = proj ? forkProjectStations(proj) : state.stations;
+        var idx = arr.findIndex(function(s){ return s.id === id; });
+        var st = arr[idx];
+        if(act === 'addlane'){
+          if(proj){
+            var stP = stationByIdFor(proj, id);
+            if(!stP) return;
             var existing = projectLanesFor(proj, stP);
             var laneNameP = prompt('Denumire partiție nouă:', existing.length ? '' : 'Atelier');
             if(!laneNameP || !laneNameP.trim()) return;
@@ -2008,20 +2041,31 @@
           if(!stA.lanes) stA.lanes = [];
           stA.lanes.push({id: uid(), name: laneName.trim()});
           saveState(); render();
-        } else if(btn.dataset.act === 'left' && idx > 0){
-          var t = state.stations[idx-1]; state.stations[idx-1]=state.stations[idx]; state.stations[idx]=t; saveState(); render();
-        } else if(btn.dataset.act === 'right' && idx < state.stations.length-1){
-          var t2 = state.stations[idx+1]; state.stations[idx+1]=state.stations[idx]; state.stations[idx]=t2; saveState(); render();
-        } else if(btn.dataset.act === 'del'){
-          var st = stationById(id);
-          var sameType = state.stations.filter(function(s){ return s.type===st.type; });
+        } else if(act === 'left' && idx > 0){
+          var t = arr[idx-1]; arr[idx-1]=arr[idx]; arr[idx]=t; saveState(); render();
+        } else if(act === 'right' && idx < arr.length-1){
+          var t2 = arr[idx+1]; arr[idx+1]=arr[idx]; arr[idx]=t2; saveState(); render();
+        } else if(act === 'del'){
+          if(!st) return;
+          var sameType = arr.filter(function(s){ return s.type===st.type; });
           if(sameType.length <= 1){ alert('Trebuie să existe cel puțin o etapă de tip ' + (st.type==='piesa'?'piesă':'proiect') + '.'); return; }
+          var remaining = arr.filter(function(s){ return s.id !== id; });
+          var fallback = remaining.filter(function(s){ return s.type===st.type; })[0];
+          if(proj){
+            var affected = st.type==='proiect'
+              ? (proj.stationId===id ? 1 : 0)
+              : (proj.pieces||[]).filter(function(pc){ return pc.stationId===id; }).length;
+            if(affected > 0 && !confirm('Etapa are ' + affected + (st.type==='piesa'?' piese':' proiect') + ' aici. Se mută în altă etapă. Continui?')) return;
+            if(st.type==='proiect'){ if(proj.stationId===id){ proj.stationId = fallback.id; proj.lane = null; breakConnectionsFor(proj.id); } }
+            else { (proj.pieces||[]).forEach(function(pc){ if(pc.stationId===id){ pc.stationId = fallback.id; pc.lane = null; breakConnectionsFor('pc:' + proj.id + '::' + pc.id); } }); }
+            proj.stations = remaining;
+            saveState(); render();
+            return;
+          }
           var affectedCount = st.type==='proiect'
             ? state.projects.filter(function(p){ return p.stationId===id; }).length
             : state.projects.reduce(function(a,p){ return a + (p.pieces||[]).filter(function(pc){ return pc.stationId===id; }).length; }, 0);
           if(affectedCount > 0 && !confirm('Etapa are ' + affectedCount + ' ' + (st.type==='piesa'?'piese':'proiect(e)') + '. Se mută în etapa anterioară de același tip. Continui?')) return;
-          var remaining = state.stations.filter(function(s){ return s.id !== id; });
-          var fallback = remaining.filter(function(s){ return s.type===st.type; })[0];
           if(st.type==='proiect'){
             state.projects.forEach(function(p){ if(p.stationId===id){ p.stationId = fallback.id; p.lane = null; breakConnectionsFor(p.id); } });
           } else {
@@ -2030,6 +2074,25 @@
           state.stations = remaining;
           saveState(); render();
         }
+      });
+    });
+    document.querySelectorAll('[data-add-stage]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var p = projectById(btn.dataset.addStage);
+        if(!p) return;
+        var type = btn.dataset.type;
+        var name = prompt('Denumire etapă nouă (nivel ' + (type==='piesa'?'piesă':'proiect') + '):');
+        if(!name || !name.trim()) return;
+        var arr = forkProjectStations(p);
+        var st = { id: uid(), name: name.trim(), type: type };
+        if(type === 'piesa'){
+          var lp = lastPiesaIndexFor(p);
+          if(lp === -1) arr.push(st); else arr.splice(lp + 1, 0, st);
+        } else {
+          arr.push(st);
+        }
+        saveState(); render();
       });
     });
     var addSt = document.getElementById('btn-add-station');
@@ -2079,7 +2142,7 @@
       btn.addEventListener('click', function(){
         var p = state.projects.find(function(x){ return x.id===btn.dataset.finalize; });
         if(!p) return;
-        var target = firstProiectAfterLastPiesa();
+        var target = firstProiectAfterLastPiesaFor(p);
         if(target){ p.stationId = target.id; p.lane = null; }
         else p.finalizat = true; // no post-execution stage configured — nowhere else for it to go
         breakConnectionsFor(p.id);
@@ -2090,7 +2153,7 @@
       btn.addEventListener('click', function(){
         var p = state.projects.find(function(x){ return x.id===btn.dataset.demote; });
         if(!p) return;
-        var target = lastProiectBeforeFirstPiesa();
+        var target = lastProiectBeforeFirstPiesaFor(p);
         (p.pieces||[]).forEach(function(pc){ pc.stationId = null; pc.lane = null; breakConnectionsFor('pc:' + p.id + '::' + pc.id); });
         if(target){ p.stationId = target.id; p.lane = null; }
         breakConnectionsFor(p.id);
@@ -2157,7 +2220,7 @@
         if(!p) return;
         var pc = p.pieces.find(function(x){ return x.id===parts[1]; });
         if(!pc) return;
-        var ps = piesaStations();
+        var ps = piesaStationsFor(p);
         var idx = ps.findIndex(function(s){ return s.id===pc.stationId; });
         var newIdx = btn.dataset.dir==='next' ? idx+1 : idx-1;
         if(newIdx>=0 && newIdx<ps.length){
@@ -2536,7 +2599,7 @@
             pc.stationId = zone.dataset.station; pc.lane = zone.dataset.lane || null;
             breakConnectionsFor('pc:' + p.id + '::' + pc.id);
             saveState(); render();
-          } else if(kind === 'proiect' && isPostExecStation(zone.dataset.station)){
+          } else if(kind === 'proiect' && isPostExecStationFor(p, zone.dataset.station)){
             // dropping a piece onto Montaj (or any post-execution stage) sends the whole project there
             p.stationId = zone.dataset.station; p.lane = zone.dataset.lane || null;
             breakConnectionsFor(p.id);
@@ -2955,7 +3018,7 @@
     html += '<div class="field"><label>Termen limită</label><input type="date" id="f-termen" value="'+esc(editing?proj.termen:'')+'"></div></div>';
     html += '<div class="field"><label>Client</label><input id="f-client" value="'+esc(editing?proj.client:'')+'" placeholder="Nume client"></div>';
 
-    var proiectStations = state.stations.filter(function(s){ return s.type==='proiect'; });
+    var proiectStations = (editing ? stationsFor(proj) : state.stations).filter(function(s){ return s.type==='proiect'; });
     var showStageField = (!editing) || !proj.finalizat;
     if(showStageField && proiectStations.length){
       html += '<div class="field"><label>Etapă curentă</label><select id="f-stage">' + proiectStations.map(function(s){
@@ -3022,9 +3085,11 @@
         if(stageSel){ proj.stationId = stageSel.value; proj.lane = null; breakConnectionsFor(proj.id); }
       } else {
         var stageSelNew = document.getElementById('f-stage');
-        var firstProiect = state.stations.filter(function(s){ return s.type==='proiect'; })[0];
+        var newStations = JSON.parse(JSON.stringify(state.stations || []));
+        var firstProiect = newStations.filter(function(s){ return s.type==='proiect'; })[0];
         state.projects.push({
           id: uid(), cod:cod, client:client, termen:termen, tip:tip,
+          stations: newStations,
           stationId: stageSelNew ? stageSelNew.value : (firstProiect ? firstProiect.id : null),
           finalizat:false, notite:notite, pieces:pieces, orders:[], montajNotes:'', createdAt: isoToday()
         });

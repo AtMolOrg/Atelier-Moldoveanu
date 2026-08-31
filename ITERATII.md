@@ -4,7 +4,7 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-08-31
 
-- **Adăugare etape (coloane) din vizualizarea „Pe proiecte"**: în bara plutitoare stânga-jos, două butoane noi — „+ Etapă proiect" și „+ Etapă piesă". Piesă → se inserează după ultima etapă de piesă; proiect → la coadă. În plus, capul fiecărei coloane din dosar are acum ‹ › (reordonare) și ✕ (ștergere), refolosind handler-ul `.col-actions` existent. Înainte se puteau adăuga etape doar din view-ul de coloane (scos din navigare).
+- **Etape (coloane) per proiect**: fluxul nu mai e global — fiecare proiect are propria listă `p.stations`. La migrare, fiecare proiect existent primește o copie a celor din `state.stations` (care rămâne șablon pentru proiecte noi). Butoanele „+ etapă proiect" / „+ etapă piesă" sunt acum în coada rândului de etape din **fiecare dosar** (nu global), plus ‹ › (reordonare) și ✕ (ștergere) în capul fiecărei coloane. Helperele de stații au variante `…For(p)` scoped pe proiect (`stationsFor`, `stationByIdFor`, `piesaStationsFor`, `firstProiectAfterLastPiesaFor`, …); cele globale rămân pentru view-urile scoase din navigare. `.col-actions` și `del` fac fork pe `p.stations` la prima modificare.
 
 - **Buton „📦" pe cardul de piesă** — marchează piesa ca trimisă la montaj: `pc.stationId = '__montaj__'` (sentinel). Cardul de piesă dispare de pe podea (nu se potrivește cu nicio etapă), iar în sublista de piese de pe cardul de proiect statusul devine „Montaj". „↺" o readuce la proiectare. Nu mai mută proiectul întreg (varianta inițială făcea asta, greșit).
 
