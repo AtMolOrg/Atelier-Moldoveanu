@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE 3 — Canvas liber cu minimap + zoom semantic (tipar D)
+  ================================================================
+  Ce demonstrează: DACĂ se ține poziționarea liberă (canvas infinit), cum
+  se face ca să nu te mai rătăcești în ea — un minimap într-un colț (ca la
+  jocurile video / Miro) plus "zoom semantic": la zoom mic vezi doar un
+  punct colorat + codul, la zoom mare vezi cardul întreg. Sursă: pattern-ul
+  descris de storyflow.so și aiuxplayground.com.
+
+  Notă: acesta e alternativa dacă se decide să NU se renunțe la
+  poziționarea liberă. Pentru majoritatea cazurilor (20-50 proiecte),
+  templateurile 01/02 (listă / panou grupat) sunt soluția mai simplă și
+  mai sigură — asta e aici doar ca opțiune documentată, nu recomandarea
+  principală.
+
+  Cum e construit:
+  - Canvas-ul e un singur element cu `transform: translate(x,y) scale(z)`
+    — pan/zoom nu mișcă fiecare card individual, mișcă tot containerul,
+    la fel ca în aplicația reală.
+  - Minimap-ul e un <div> mic, separat, care redesenează niște puncte la
+    o scară fixă (raportul dintre "toată harta" și cutia mică) — click pe
+    minimap recentrează canvas-ul mare pe punctul apăsat.
+  - Pragul de zoom semantic e un simplu `if(scale < 0.6)` care comută o
+    clasă CSS pe tot canvas-ul; cardurile își schimbă afișarea prin CSS,
+    nu prin re-render — mult mai ieftin la fiecare pas de zoom.
+-->
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Template — Canvas cu minimap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f1f1f1; --panel:#ffffff; --panel-2:#e8e8e8; --border: rgba(0,0,0,0.15);
+    --ink:#141414; --ink-dim:#5a5a5a; --radius:10px; --shadow: 0 8px 22px rgba(0,0,0,0.14);
+    --phase-proiect:#2f80c0; --phase-piesa:#e0842a; --phase-montaj:#c0392b;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'Raleway',system-ui,sans-serif; overflow:hidden; }
+  .hint{
+    position:fixed; top:14px; left:14px; z-index:20; background:var(--panel); border:1px solid var(--border);
+    border-radius:var(--radius); box-shadow:var(--shadow); padding:10px 14px; font-size:12.5px; color:var(--ink-dim); max-width:280px;
+  }
+  .viewport{ position:absolute; inset:0; overflow:hidden; cursor:grab; touch-action:none; }
+  .viewport.panning{ cursor:grabbing; }
+  .canvas{ position:absolute; top:0; left:0; transform-origin:0 0; }
+  .card{
+    position:absolute; width:150px; background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; box-shadow:var(--shadow); padding:9px 10px; border-top:3px solid;
+  }
+  .card .cod{ font-weight:700; font-size:12.5px; }
+  .card .client{ font-size:11px; color:var(--ink-dim); margin-top:2px; }
+  .card .dot{ display:none; }
+
+  /* semantic zoom: below the threshold, collapse every card to a dot + code */
+  .canvas.zoomed-out .card{ width:auto; padding:0; border:none; box-shadow:none; background:transparent; display:flex; align-items:center; gap:5px; }
+  .canvas.zoomed-out .card .client{ display:none; }
+  .canvas.zoomed-out .card .cod{ font-size:16px; background:var(--panel); padding:2px 6px; border-radius:5px; box-shadow:var(--shadow); }
+  .canvas.zoomed-out .card .dot{ display:block; width:12px; height:12px; border-radius:50%; flex:none; box-shadow:0 0 0 2px #fff, var(--shadow); }
+
+  .minimap{
+    position:fixed; right:14px; bottom:14px; width:180px; height:130px; background:var(--panel);
+    border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); z-index:20; overflow:hidden; cursor:pointer;
+  }
+  .minimap .mm-dot{ position:absolute; width:6px; height:6px; border-radius:50%; }
+  .minimap .mm-view{ position:absolute; border:1.5px solid var(--ink); background:rgba(20,20,20,0.06); pointer-events:none; }
+  .minimap-label{ position:absolute; top:4px; left:7px; font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-dim); }
+
+  .zoom-label{
+    position:fixed; right:14px; bottom:154px; background:var(--panel); border:1px solid var(--border);
+    border-radius:999px; padding:4px 12px; font-size:11.5px; color:var(--ink-dim); box-shadow:var(--shadow); z-index:20;
+  }
+</style>
+</head>
+<body>
+  <div class="hint">Trage fundalul ca să te plimbi, rotița mouse-ului ca să dai zoom. Sub un anumit zoom, cardurile devin doar puncte colorate + cod (zoom semantic). Click pe minimap (jos-dreapta) ca să sari direct undeva.</div>
+  <div class="zoom-label" id="zoomLabel">100%</div>
+  <div class="viewport" id="viewport">
+    <div class="canvas" id="canvas"></div>
+  </div>
+  <div class="minimap" id="minimap">
+    <div class="minimap-label">Hartă</div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  var PROIECTE = [
+    {id:'p1', cod:'P-01', client:'Vasilescu', faza:'proiect', x:40, y:60},
+    {id:'p2', cod:'P-02', client:'Studio Amber', faza:'piesa', x:320, y:120},
+    {id:'p3', cod:'P-03', client:'Ionescu & Fii', faza:'montaj', x:610, y:80},
+    {id:'p4', cod:'P-04', client:'Casa Verde', faza:'proiect', x:90, y:340},
+    {id:'p5', cod:'P-05', client:'Radu M.', faza:'piesa', x:400, y:400},
+    {id:'p6', cod:'P-06', client:'Popescu Design', faza:'montaj', x:700, y:340},
+    {id:'p7', cod:'P-07', client:'Atelier Nord', faza:'piesa', x:250, y:600},
+    {id:'p8', cod:'P-08', client:'Muntean Interior', faza:'proiect', x:550, y:620},
+    {id:'p9', cod:'P-09', client:'Georgescu', faza:'piesa', x:850, y:520},
+    {id:'p10', cod:'P-10', client:'Loft Studio', faza:'montaj', x:120, y:820}
+  ];
+  var PHASE_COLOR = {proiect:'#2f80c0', piesa:'#e0842a', montaj:'#c0392b'};
+  var MAP_W = 1000, MAP_H = 950; // logical extent of the "world"
+
+  var panX = 60, panY = 60, zoom = 1;
+  var dragging = false, startX = 0, startY = 0, startPanX = 0, startPanY = 0;
+
+  var viewport = document.getElementById('viewport');
+  var canvas = document.getElementById('canvas');
+  var minimap = document.getElementById('minimap');
+  var zoomLabel = document.getElementById('zoomLabel');
+
+  function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  canvas.innerHTML = PROIECTE.map(function(p){
+    return '<div class="card" style="left:' + p.x + 'px; top:' + p.y + 'px; border-top-color:' + PHASE_COLOR[p.faza] + '">' +
+      '<span class="dot" style="background:' + PHASE_COLOR[p.faza] + '"></span>' +
+      '<div><div class="cod">' + esc(p.cod) + '</div><div class="client">' + esc(p.client) + '</div></div>' +
+    '</div>';
+  }).join('');
+
+  minimap.innerHTML += PROIECTE.map(function(p){
+    var mx = (p.x / MAP_W) * 180, my = 18 + (p.y / MAP_H) * (130 - 22);
+    return '<div class="mm-dot" style="left:' + mx + 'px; top:' + my + 'px; background:' + PHASE_COLOR[p.faza] + '"></div>';
+  }).join('');
+  var mmView = document.createElement('div');
+  mmView.className = 'mm-view';
+  minimap.appendChild(mmView);
+
+  function apply(){
+    canvas.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+    canvas.classList.toggle('zoomed-out', zoom < 0.6);
+    zoomLabel.textContent = Math.round(zoom * 100) + '%';
+    // sync the minimap's viewport rectangle to what's actually visible
+    var vw = viewport.clientWidth, vh = viewport.clientHeight;
+    var visX = -panX / zoom, visY = -panY / zoom;
+    var visW = vw / zoom, visH = vh / zoom;
+    mmView.style.left = Math.max(0, (visX / MAP_W) * 180) + 'px';
+    mmView.style.top = Math.max(18, 18 + (visY / MAP_H) * (130 - 22)) + 'px';
+    mmView.style.width = Math.min(180, (visW / MAP_W) * 180) + 'px';
+    mmView.style.height = Math.min(130 - 22, (visH / MAP_H) * (130 - 22)) + 'px';
+  }
+
+  viewport.addEventListener('wheel', function(e){
+    e.preventDefault();
+    var rect = viewport.getBoundingClientRect();
+    var ax = e.clientX - rect.left, ay = e.clientY - rect.top;
+    var factor = e.deltaY > 0 ? 0.9 : 1.1;
+    var newZoom = Math.min(2.2, Math.max(0.25, zoom * factor));
+    var cx = (ax - panX) / zoom, cy = (ay - panY) / zoom;
+    panX = ax - cx * newZoom; panY = ay - cy * newZoom;
+    zoom = newZoom;
+    apply();
+  }, {passive:false});
+
+  viewport.addEventListener('mousedown', function(e){
+    dragging = true; startX = e.clientX; startY = e.clientY; startPanX = panX; startPanY = panY;
+    viewport.classList.add('panning');
+  });
+  window.addEventListener('mousemove', function(e){
+    if(!dragging) return;
+    panX = startPanX + (e.clientX - startX);
+    panY = startPanY + (e.clientY - startY);
+    apply();
+  });
+  window.addEventListener('mouseup', function(){ dragging = false; viewport.classList.remove('panning'); });
+
+  minimap.addEventListener('click', function(e){
+    var rect = minimap.getBoundingClientRect();
+    var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    var targetX = (mx / 180) * MAP_W, targetY = ((my - 18) / (130 - 22)) * MAP_H;
+    var vw = viewport.clientWidth, vh = viewport.clientHeight;
+    panX = vw / 2 - targetX * zoom;
+    panY = vh / 2 - targetY * zoom;
+    apply();
+  });
+
+  apply();
+})();
+</script>
+</body>
+</html>

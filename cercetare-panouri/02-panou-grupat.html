@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE 2 — Panou grupat pe fază, cu reordonare prin drag (tipare B+C+E)
+  ==========================================================================
+  Ce demonstrează: proiectele grupate automat pe fază (Proiectare / Execuție
+  / Montaj — regula empirică din research: 3-7 grupuri e pragul bun),
+  fiecare grup restrângibil (ca la Linear), și reordonare prin drag DOAR în
+  cadrul propriului grup (fază = derivată din date reale, nu ceva ce se
+  trage dintr-un grup în altul).
+
+  De ce a picat încercarea trecută (vezi ITERATII.md, 2026-08-31):
+  panoul lateral "Necesar montaj" era position:absolute, dar combinat cu
+  scroll real + un CSS `zoom` aplicat pe tot panoul ca să încapă lățimea
+  ecranului — combinația asta a stricat poziționarea. Aici NU mai folosim
+  `zoom`: cardurile sunt responsive din start (flex-wrap, max-width), deci
+  nu mai există nevoia unei rescalări globale, și panoul lateral (vezi
+  cardul cu eticheta "cu panou") e testat explicit, deschis, ca să
+  confirmăm că nu mai iese rupt de card.
+
+  Cum e construit drag-ul (ce am învățat din research):
+  - HTML5 native Drag & Drop (draggable="true" + dragstart/dragover/drop),
+    nu mouse-move manual — e API-ul standard pentru exact acest caz.
+  - `dragover` OBLIGATORIU cu `e.preventDefault()`, altfel `drop` nu se
+    declanșează niciodată (cea mai frecventă greșeală, conform research).
+  - NU se umblă la DOM în interiorul lui `dragover` (doar se calculează
+    ținta) — manipularea DOM-ului acolo strică fluiditatea. Reordonarea
+    vizuală efectivă se face abia la `drop`.
+  - Stilurile de "se trage acum" se curăță mereu la `dragend`, nu doar la
+    `drop` (dragend se declanșează și dacă utilizatorul anulează cu Esc).
+-->
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Template — Panou grupat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f1f1f1; --panel:#ffffff; --panel-2:#e8e8e8; --panel-3:#d9d9d9;
+    --ink:#141414; --ink-dim:#5a5a5a; --ink-faint:#8a8a8a; --border: rgba(0,0,0,0.15);
+    --accent:#1f1f1f; --accent-ink:#ffffff; --radius:10px; --shadow: 0 8px 22px rgba(0,0,0,0.14);
+    --phase-proiect:#2f80c0; --phase-piesa:#e0842a; --phase-montaj:#c0392b;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Raleway',system-ui,sans-serif; }
+  .page{ max-width:1000px; margin:0 auto; padding:28px 20px 60px; }
+  h1{ font-size:19px; letter-spacing:0.04em; text-transform:uppercase; margin:0 0 4px; }
+  .sub{ color:var(--ink-dim); font-size:13px; margin:0 0 24px; max-width:640px; }
+
+  .group{ margin-bottom:26px; }
+  .group-head{
+    display:flex; align-items:center; gap:9px; cursor:pointer; user-select:none;
+    padding:6px 2px; margin-bottom:10px;
+  }
+  .group-head .tri{ font-size:11px; transition:transform 150ms ease; color:var(--ink-faint); }
+  .group.collapsed .group-head .tri{ transform:rotate(-90deg); }
+  .group-head .name{ font-size:13px; text-transform:uppercase; letter-spacing:0.05em; font-weight:700; }
+  .group-head .cnt{ background:var(--panel-2); border-radius:999px; padding:1px 9px; font-size:11.5px; color:var(--ink-dim); }
+  .group.collapsed .cards{ display:none; }
+
+  .cards{ display:flex; flex-wrap:wrap; gap:12px; }
+  .card{
+    position:relative; width:250px; background:var(--panel); border:1px solid var(--border);
+    border-radius:var(--radius); box-shadow:var(--shadow); overflow:visible;
+  }
+  .card.dragging{ opacity:0.4; }
+  .card.drag-over-before{ box-shadow:0 0 0 2px var(--ink) inset, var(--shadow); }
+  .card-tab{
+    display:inline-flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--border);
+    border-bottom:none; border-radius:8px 8px 0 0; padding:5px 12px; margin:0 0 -1px 12px;
+    font-weight:700; font-size:12px; cursor:grab;
+  }
+  .card-tab:active{ cursor:grabbing; }
+  .card-body{ padding:12px; border-top:3px solid; border-radius:0 var(--radius) var(--radius) var(--radius); }
+  .card-client{ font-size:12.5px; color:var(--ink-dim); margin-bottom:8px; }
+  .card-term{ font-size:11.5px; color:var(--ink-faint); }
+
+  /* side panel, correctly anchored — position:absolute relative to .card
+     (position:relative), no zoom involved anywhere on the page */
+  .side-handle{
+    position:absolute; top:14px; left:100%; writing-mode:vertical-rl;
+    background:var(--panel-2); border:1px solid var(--border); border-left:none; border-radius:0 6px 6px 0;
+    padding:8px 5px; font-size:9.5px; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-dim); cursor:pointer;
+  }
+  .side-panel{
+    position:absolute; top:0; left:calc(100% + 22px); width:190px; background:var(--panel);
+    border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:10px;
+    display:none; z-index:5;
+  }
+  .side-panel.open{ display:block; }
+  .side-panel textarea{ width:100%; min-height:70px; border:1px solid var(--border); border-radius:6px; padding:7px; font-family:inherit; font-size:12px; resize:vertical; }
+  .side-panel .lbl{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-faint); margin-bottom:6px; }
+
+  .note{ margin-top:34px; padding:14px 16px; background:var(--panel); border:1px dashed var(--border); border-radius:var(--radius); font-size:12.5px; color:var(--ink-dim); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Proiecte — panou grupat pe fază</h1>
+  <p class="sub">Trage un dosar de eticheta lui — se reordonează doar în cadrul grupei proprii. Click pe titlul unei faze ca s-o restrângi. Cardul „P-2026-03" are eticheta „Necesar montaj" — deschide-o și verifică, la orice lățime de fereastră, că nu se rupe.</p>
+  <div id="groups"></div>
+  <div class="note">Grupele astea sunt calculate din <code>faza</code> fiecărui proiect — exact ca <code>currentStageInfo()</code> din aplicația reală. Nu poți muta un card într-o grupă greșită prin drag, pentru că faza vine din date, nu din poziție.</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var PROIECTE = [
+    {id:'p1', cod:'P-2026-01', client:'Vasilescu', faza:'proiect', termen:'în 42 zile'},
+    {id:'p2', cod:'P-2026-04', client:'Casa Verde SRL', faza:'proiect', termen:'în 31 zile'},
+    {id:'p3', cod:'P-2026-08', client:'Muntean Interior', faza:'proiect', termen:'în 55 zile'},
+    {id:'p4', cod:'P-2026-02', client:'Studio Amber', faza:'piesa', termen:'în 9 zile'},
+    {id:'p5', cod:'P-2026-05', client:'Radu M.', faza:'piesa', termen:'în 14 zile'},
+    {id:'p6', cod:'P-2026-07', client:'Atelier Nord', faza:'piesa', termen:'în 21 zile'},
+    {id:'p7', cod:'P-2026-09', client:'Georgescu', faza:'piesa', termen:'în 7 zile'},
+    {id:'p8', cod:'P-2026-03', client:'Ionescu & Fii', faza:'montaj', termen:'în 2 zile', hasPanel:true},
+    {id:'p9', cod:'P-2026-06', client:'Popescu Design', faza:'montaj', termen:'în 5 zile'},
+    {id:'p10', cod:'P-2026-10', client:'Loft Studio', faza:'montaj', termen:'în 1 zi'}
+  ];
+  var PHASES = [
+    {key:'proiect', label:'Proiectare', color:'var(--phase-proiect)'},
+    {key:'piesa', label:'Execuție', color:'var(--phase-piesa)'},
+    {key:'montaj', label:'Montaj', color:'var(--phase-montaj)'}
+  ];
+  var collapsed = {};
+  var dragId = null;
+
+  function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function render(){
+    var root = document.getElementById('groups');
+    var html = '';
+    PHASES.forEach(function(ph){
+      var list = PROIECTE.filter(function(p){ return p.faza === ph.key; });
+      if(!list.length) return;
+      var isCollapsed = !!collapsed[ph.key];
+      html += '<div class="group' + (isCollapsed?' collapsed':'') + '" data-phase="' + ph.key + '">';
+      html += '<div class="group-head" data-toggle="' + ph.key + '"><span class="tri">▾</span><span class="name">' + ph.label + '</span><span class="cnt">' + list.length + '</span></div>';
+      html += '<div class="cards" data-phase-group="' + ph.key + '">';
+      list.forEach(function(p){
+        html += '<div class="card" data-id="' + p.id + '">';
+        html += '<div class="card-tab" draggable="true" data-drag-handle="' + p.id + '">' + esc(p.cod) + '</div>';
+        html += '<div class="card-body" style="border-top-color:' + ph.color + '">';
+        html += '<div class="card-client">' + esc(p.client) + '</div>';
+        html += '<div class="card-term">' + esc(p.termen) + '</div>';
+        html += '</div>';
+        if(p.hasPanel){
+          html += '<div class="side-handle" data-panel-toggle="' + p.id + '">Necesar montaj</div>';
+          html += '<div class="side-panel" id="panel-' + p.id + '"><div class="lbl">Necesar montaj</div><textarea placeholder="Ce trebuie pregătit / dus la montaj…"></textarea></div>';
+        }
+        html += '</div>';
+      });
+      html += '</div></div>';
+    });
+    root.innerHTML = html;
+    attachEvents();
+  }
+
+  function attachEvents(){
+    document.querySelectorAll('[data-toggle]').forEach(function(el){
+      el.addEventListener('click', function(){
+        var k = el.dataset.toggle;
+        collapsed[k] = !collapsed[k];
+        render();
+      });
+    });
+    document.querySelectorAll('[data-panel-toggle]').forEach(function(el){
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        var panel = document.getElementById('panel-' + el.dataset.panelToggle);
+        panel.classList.toggle('open');
+      });
+    });
+
+    document.querySelectorAll('[data-drag-handle]').forEach(function(handle){
+      handle.addEventListener('dragstart', function(e){
+        dragId = handle.dataset.dragHandle;
+        e.dataTransfer.setData('text/plain', dragId); // Firefox needs data actually set
+        e.dataTransfer.effectAllowed = 'move';
+        handle.closest('.card').classList.add('dragging');
+      });
+      handle.addEventListener('dragend', function(){
+        // always clean up here, not just on drop — covers Esc-cancelled drags too
+        document.querySelectorAll('.card').forEach(function(c){ c.classList.remove('dragging','drag-over-before'); });
+        dragId = null;
+      });
+    });
+
+    document.querySelectorAll('.cards').forEach(function(group){
+      group.addEventListener('dragover', function(e){
+        if(!dragId) return;
+        var dragged = PROIECTE.find(function(p){ return p.id === dragId; });
+        if(!dragged || dragged.faza !== group.dataset.phaseGroup) return; // never cross a phase boundary
+        e.preventDefault(); // required, or drop never fires
+      });
+      group.addEventListener('drop', function(e){
+        if(!dragId) return;
+        var dragged = PROIECTE.find(function(p){ return p.id === dragId; });
+        if(!dragged || dragged.faza !== group.dataset.phaseGroup) return;
+        e.preventDefault();
+        var afterEl = Array.from(group.querySelectorAll('.card:not(.dragging)')).find(function(c){
+          var r = c.getBoundingClientRect();
+          return e.clientX < r.left + r.width / 2;
+        });
+        var fromIdx = PROIECTE.indexOf(dragged);
+        PROIECTE.splice(fromIdx, 1);
+        var targetId = afterEl ? afterEl.dataset.id : null;
+        var toIdx = targetId ? PROIECTE.findIndex(function(p){ return p.id === targetId; }) : PROIECTE.length;
+        PROIECTE.splice(toIdx, 0, dragged);
+        render();
+      });
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

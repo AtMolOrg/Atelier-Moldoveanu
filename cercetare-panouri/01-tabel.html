@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE 1 — Tabel / listă densă (tipar A + C din cercetare)
+  ==============================================================
+  Ce demonstrează: aceleași proiecte ca în "Hartă atelier", dar ca tabel
+  sortabil/filtrabil — o A DOUA vedere pe lângă canvas, nu un înlocuitor.
+  Inspirat din shopVOX ("My View" — tot pe un ecran) și din vederile de
+  tip Grid ale Airtable.
+
+  Cum e construit (ce am învățat din research):
+  - Antetul tabelului e `position:sticky` pus pe FIECARE <th>, nu pe
+    <thead>/<tr> (sticky nu funcționează pe acele elemente) — sursă:
+    css-tricks.com/position-sticky-and-table-headers
+  - Containerul tabelului trebuie să aibă el însuși `overflow:auto` —
+    dacă vreun strămoș are `overflow:hidden` (cum are .canvas-fullbleed
+    din aplicația reală), sticky nu mai prinde deloc. De asta tabelul
+    de-aici își face propriul container de scroll, separat.
+  - Coloanele cu cifre (termen, zile rămase) au
+    `font-variant-numeric: tabular-nums` ca să se alinieze pe verticală.
+  - Datele sunt „împrumutate" (inventate, dar cu aceeași formă ca în
+    aplicația reală: cod, client, fază, termen) — schimbă array-ul
+    PROIECTE de mai jos cu date reale ca să testezi cu volum real.
+-->
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Template — Tabel proiecte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f1f1f1; --panel:#ffffff; --panel-2:#e8e8e8; --panel-3:#d9d9d9;
+    --ink:#141414; --ink-dim:#5a5a5a; --ink-faint:#8a8a8a; --border: rgba(0,0,0,0.15);
+    --accent:#1f1f1f; --accent-ink:#ffffff; --radius:10px; --shadow: 0 8px 22px rgba(0,0,0,0.14);
+    --phase-proiect:#2f80c0; --phase-piesa:#e0842a; --phase-montaj:#c0392b;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Raleway',system-ui,sans-serif; }
+  .page{ max-width:1100px; margin:0 auto; padding:28px 20px 60px; }
+  h1{ font-size:19px; letter-spacing:0.04em; text-transform:uppercase; margin:0 0 4px; }
+  .sub{ color:var(--ink-dim); font-size:13px; margin:0 0 20px; }
+  .toolbar{ display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  input[type=text]{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:9px 12px; border-radius:8px; font-size:13px; font-family:inherit; min-width:220px; }
+  select{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:9px 10px; border-radius:8px; font-size:13px; font-family:inherit; }
+  .count{ font-size:12.5px; color:var(--ink-faint); margin-left:auto; }
+
+  /* the table's own scroll container — sticky headers only work if THIS
+     element (not an ancestor) is the thing with overflow:auto */
+  .table-scroll{ overflow:auto; max-height:70vh; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel); box-shadow:var(--shadow); }
+  table{ border-collapse:collapse; width:100%; font-size:13.5px; }
+  th{
+    position:sticky; top:0; z-index:1; background:var(--panel-2); text-align:left;
+    padding:11px 14px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-dim);
+    border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap;
+  }
+  th:hover{ color:var(--ink); }
+  th.sorted::after{ content:' ▾'; }
+  th.sorted.asc::after{ content:' ▴'; }
+  td{ padding:10px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  tr:last-child td{ border-bottom:none; }
+  tr.row:hover{ background:var(--panel-2); }
+  .cod{ font-weight:700; }
+  .client{ color:var(--ink-dim); }
+  .phase-pill{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 9px 3px 7px; border-radius:999px;
+    font-size:11px; font-weight:600; color:#fff; white-space:nowrap;
+  }
+  .phase-pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.85); }
+  .term{ font-variant-numeric:tabular-nums; text-align:right; }
+  .warn{ color:#c0392b; font-size:12px; }
+  .warn.none{ color:var(--ink-faint); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Proiecte — vedere tabel</h1>
+  <p class="sub">Aceleași proiecte ca pe „Hartă atelier", ca listă densă. Click pe un antet ca să sortezi.</p>
+
+  <div class="toolbar">
+    <input type="text" id="q" placeholder="Caută cod sau client…">
+    <select id="fase">
+      <option value="">Toate fazele</option>
+      <option value="proiect">Proiectare</option>
+      <option value="piesa">Execuție</option>
+      <option value="montaj">Montaj</option>
+    </select>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th data-key="cod">Cod</th>
+          <th data-key="client">Client</th>
+          <th data-key="faza">Fază</th>
+          <th data-key="termenZile">Termen</th>
+          <th data-key="avertisment">Avertismente</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // date "împrumutate" — aceeași formă ca proiectele reale din index.html
+  var PROIECTE = [
+    {cod:'P-2026-01', client:'Vasilescu', faza:'proiect', fazaName:'Proiectare', termenZile:42, avertisment:''},
+    {cod:'P-2026-02', client:'Studio Amber', faza:'piesa', fazaName:'Execuție', termenZile:9, avertisment:'2 piese neîncepute'},
+    {cod:'P-2026-03', client:'Ionescu & Fii', faza:'montaj', fazaName:'Montaj', termenZile:2, avertisment:'fără echipă montaj'},
+    {cod:'P-2026-04', client:'Casa Verde SRL', faza:'proiect', fazaName:'Proiectare', termenZile:31, avertisment:''},
+    {cod:'P-2026-05', client:'Radu M.', faza:'piesa', fazaName:'Execuție', termenZile:14, avertisment:''},
+    {cod:'P-2026-06', client:'Popescu Design', faza:'montaj', fazaName:'Montaj', termenZile:5, avertisment:'2 comenzi neprimite'},
+    {cod:'P-2026-07', client:'Atelier Nord', faza:'piesa', fazaName:'Execuție', termenZile:21, avertisment:''},
+    {cod:'P-2026-08', client:'Muntean Interior', faza:'proiect', fazaName:'Proiectare', termenZile:55, avertisment:''},
+    {cod:'P-2026-09', client:'Georgescu', faza:'piesa', fazaName:'Execuție', termenZile:7, avertisment:'1 piesă neîncepută'},
+    {cod:'P-2026-10', client:'Loft Studio', faza:'montaj', fazaName:'Montaj', termenZile:1, avertisment:''}
+  ];
+  var PHASE_COLOR = {proiect:'var(--phase-proiect)', piesa:'var(--phase-piesa)', montaj:'var(--phase-montaj)'};
+
+  var sortKey = 'termenZile', sortAsc = true;
+  var q = '', fazaFilter = '';
+
+  function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function render(){
+    var list = PROIECTE.filter(function(p){
+      if(fazaFilter && p.faza !== fazaFilter) return false;
+      if(q && (p.cod+' '+p.client).toLowerCase().indexOf(q.toLowerCase()) === -1) return false;
+      return true;
+    });
+    list.sort(function(a,b){
+      var av = a[sortKey], bv = b[sortKey];
+      var cmp = (typeof av === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      return sortAsc ? cmp : -cmp;
+    });
+    document.getElementById('count').textContent = list.length + ' din ' + PROIECTE.length;
+    document.getElementById('rows').innerHTML = list.map(function(p){
+      return '<tr class="row">' +
+        '<td class="cod">' + esc(p.cod) + '</td>' +
+        '<td class="client">' + esc(p.client) + '</td>' +
+        '<td><span class="phase-pill" style="background:' + PHASE_COLOR[p.faza] + '">' + esc(p.fazaName) + '</span></td>' +
+        '<td class="term">' + (p.termenZile <= 3 ? '<strong>' : '') + 'în ' + p.termenZile + ' zile' + (p.termenZile <= 3 ? '</strong>' : '') + '</td>' +
+        '<td class="warn' + (p.avertisment ? '' : ' none') + '">' + (p.avertisment ? '⚠ ' + esc(p.avertisment) : '—') + '</td>' +
+      '</tr>';
+    }).join('');
+    document.querySelectorAll('th[data-key]').forEach(function(th){
+      th.classList.toggle('sorted', th.dataset.key === sortKey);
+      th.classList.toggle('asc', th.dataset.key === sortKey && sortAsc);
+    });
+  }
+
+  document.querySelectorAll('th[data-key]').forEach(function(th){
+    th.addEventListener('click', function(){
+      var key = th.dataset.key;
+      if(sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = true; }
+      render();
+    });
+  });
+  document.getElementById('q').addEventListener('input', function(e){ q = e.target.value; render(); });
+  document.getElementById('fase').addEventListener('change', function(e){ fazaFilter = e.target.value; render(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
