@@ -59,7 +59,8 @@
     background: transparent;
     flex-wrap:wrap;
   }
-  .brand{ display:flex; flex-direction:column; margin-right:auto; }
+  .brand{ display:flex; flex-direction:column; }
+  .topbar-actions{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-left:auto; }
   .brand-title{
     font-family:'Raleway', sans-serif; font-weight:700; letter-spacing:0.06em;
     text-transform:uppercase; font-size:19px; color:var(--ink);
@@ -259,13 +260,6 @@
   .note-restore{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:22px; height:22px; font-size:11px; padding:0; }
   .note-restore:hover{ color:var(--ink); }
   .note-done-clear{ align-self:flex-start; margin-top:4px; }
-
-  .canvas-add-controls{
-    position:absolute; left:12px; bottom:12px; z-index:5;
-    display:flex; flex-wrap:wrap; gap:6px; max-width:calc(100% - 84px);
-    background:var(--panel-2); border:1px solid var(--border); border-radius:10px;
-    padding:4px; box-shadow:var(--shadow);
-  }
 
   .col-resize{
     position:absolute; right:0; bottom:0; width:18px; height:18px;
@@ -665,10 +659,13 @@
     <div class="brand">
       <div class="brand-title">ATELIER MOLDOVEANU <span>—</span> ORGANIZARE</div>
     </div>
-    <input type="text" id="search" class="search-input" placeholder="Caută cod sau client…">
-    <button class="btn btn-ghost btn-icon" id="btn-feedback" title="Lasă un feedback">💬</button>
-    <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
-    <button class="btn btn-ghost btn-icon" id="btn-reset" title="Resetează tot panoul">⟲</button>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
+      <button class="btn" id="btn-add-list">+ Listă</button>
+      <input type="text" id="search" class="search-input" placeholder="Caută cod sau client…">
+      <button class="btn btn-ghost btn-icon" id="btn-feedback" title="Lasă un feedback">💬</button>
+      <button class="btn btn-ghost btn-icon" id="btn-reset" title="Resetează tot panoul">⟲</button>
+    </div>
   </header>
 
   <main id="main">
@@ -1780,10 +1777,6 @@
       '<button id="zoom-in" title="Mărește">+</button>' +
       '<button id="zoom-fit" title="Potrivește totul pe ecran">⤢</button>' +
       '</div>';
-    html += '<div class="canvas-add-controls">' +
-      '<button class="btn btn-sm btn-primary" id="canvas-add-project">+ Proiect</button>' +
-      '<button class="btn btn-sm" id="canvas-add-list">+ Listă</button>' +
-      '</div>';
     html += '</div>'; // .canvas-viewport
 
     board.innerHTML = html;
@@ -1792,10 +1785,6 @@
     attachCanvasEvents();
     attachColumnDragEvents();
     attachCanvasNodeDrag();
-    var cap = document.getElementById('canvas-add-project');
-    if(cap) cap.addEventListener('click', function(){ openProjectModal(null); });
-    var cal = document.getElementById('canvas-add-list');
-    if(cal) cal.addEventListener('click', addChecklist);
     document.querySelectorAll('.view-toggle-mini button[data-hmode]').forEach(function(b){
       b.addEventListener('click', function(){ hartaViewMode = b.dataset.hmode; canvasInitialized = false; render(); });
     });
@@ -3172,10 +3161,11 @@
   /* ---------------- top-level wiring ---------------- */
   function setAddButton(){
     var btn = document.getElementById('btn-add');
-    // on "hala" the canvas toolbar already has its own "+ Proiect nou" — no need to duplicate it up top
-    btn.style.display = (tab === 'hala') ? 'none' : '';
+    var listBtn = document.getElementById('btn-add-list');
     if(tab === 'reparatii'){ btn.textContent = '+ Reparație nouă'; btn.onclick = function(){ openRepairModal(null); }; }
     else { btn.textContent = '+ Proiect nou'; btn.onclick = function(){ openProjectModal(null); }; }
+    // "+ Listă" only makes sense on the canvas
+    if(listBtn) listBtn.style.display = (tab === 'hala') ? '' : 'none';
   }
 
   function isMobile(){ return window.matchMedia('(max-width: 640px)').matches; }
@@ -3254,6 +3244,7 @@
 
   document.getElementById('search').addEventListener('input', function(e){ searchQuery = e.target.value; render(); });
   document.getElementById('btn-feedback').addEventListener('click', function(){ openFeedbackModal(); });
+  document.getElementById('btn-add-list').addEventListener('click', addChecklist);
 
   document.getElementById('btn-reset').addEventListener('click', function(){
     if(confirm('Ștergi tot panoul (proiecte, etape, reparații)? Nu se poate anula.')){
