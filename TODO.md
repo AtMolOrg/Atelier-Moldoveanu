@@ -11,11 +11,9 @@ Istoricul lucrurilor rezolvate s-a mutat în [ITERATII.md](ITERATII.md), ca să 
 
 ## În lucru — „tracker deștept" / prognoză (Cronologie faza 2+)
 - [x] Faza 1: tab „Cronologie" — Gantt cu bare per proiect (deschidere → dată estimată de gata), culori pe fază, zoom Zi/Săpt/Lună, linie „azi", ⚑ termen, mâner de tras pe capătul barei care arată întârzierea (`p.gataEstimat`).
-- [x] Faza 0a: câmpuri de estimare — `pc.qty` (buc/piesă), `station.minPerUnit` (⏱ min/buc pe capul etapei de piesă), `state.settings.hoursPerDay` (7), `state.calib` (acumulator gol).
-- [ ] Faza 0b: `stageEnteredAt` pe proiect + piesă la fiecare schimbare de etapă; la ieșirea dintr-o etapă de piesă → sample în `state.calib` (minute / buc). Log și mutările de piese. Silent.
-- [ ] Faza 2: motor de simulare — pe fiecare om, coadă de etape (durata = `Σ(qty×min/buc)/(7h×nr oameni)`), prioritate cel-mai-strâns-termen; ieșire = dată estimată de final per proiect + cine slăbește. Ecran „bilanț de seară". Cronologie folosește data din simulare.
+- [ ] Faza 0: măsurăm timpul real — `p.stageEnteredAt` la fiecare schimbare de etapă, logăm și mutările de piese. Fără asta nu există prognoză.
+- [ ] Faza 2: motor de prognoză — `durataEstimata` (zile) opțional per etapă; data estimată de final = azi + suma etapelor rămase; „bilanț de seară" (proiecte sortate după cât pierd, ordine sugerată).
 - [ ] Faza 3 (opțional): apel real la un model (Claude) cu rezumatul structurat → recomandare în cuvinte. Necesită cheie API în client — de discutat riscul.
-- [ ] Mai târziu: contenție pe bancuri (capacitate din „lanes"), dependențe explicite proiect→proiect, date de sosire pe comenzi de material.
 
 ## Idei / de discutat
 - (adaugă aici orice altceva observi — o notăm și decidem prioritatea împreună)
