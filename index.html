@@ -1966,7 +1966,8 @@
     } else {
       var next = nextProiectStationFor(p, station.id);
       if(next) html += '<button class="btn btn-sm" data-advance="' + p.id + '" data-target="' + next.id + '">Avansează → ' + esc(next.name) + '</button>';
-      if(isPostExecStationFor(p, station.id)){
+      if(isPostExecStationFor(p, station.id) || (!next && piesaStationsFor(p).length === 0)){
+        // la Montaj, SAU pe ultima etapă a unui flux fără etape de piesă (n-ar mai avea unde avansa)
         html += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează proiect ✓</button>';
       }
     }
@@ -2440,7 +2441,15 @@
     document.querySelectorAll('[data-unlink]').forEach(function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
-        state.assignments = state.assignments.filter(function(a){ return a.id !== btn.dataset.unlink; });
+        var a = state.assignments.find(function(x){ return x.id === btn.dataset.unlink; });
+        // dacă scoți un furnizor plecat cu piesa fără să fi apăsat „✓ primit", notează totuși cât a stat
+        if(a && a.sentAt && !a.receivedAt){
+          var w = state.workers.find(function(x){ return x.id === a.workerId; });
+          var pp = projectById(a.projectId);
+          var pc = (pp && a.pieceId) ? (pp.pieces || []).find(function(x){ return x.id === a.pieceId; }) : null;
+          logEvent('furnizor-retur', (pp ? pp.cod + ' · ' : '') + (pc ? pc.name + ' · ' : '') + (w ? w.name : '?') + ' · ' + daysSinceIso(a.sentAt) + ' zile (scos, fără confirmare)');
+        }
+        state.assignments = state.assignments.filter(function(x){ return x.id !== btn.dataset.unlink; });
         saveState(); render();
       });
     });
@@ -3498,6 +3507,13 @@
       supplierSidebarCtrl.clearTimer();
     }
   }
+  // bara de sus e position:fixed și îi măsurăm înălțimea o dată — dacă fereastra se
+  // redimensionează și butoanele se rup pe alt număr de rânduri, remăsurăm.
+  var resizeTimer = null;
+  window.addEventListener('resize', function(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function(){ if(tab !== 'hala') updateSidebarForTab(); }, 150);
+  });
 
   document.getElementById('search').addEventListener('input', function(e){ searchQuery = e.target.value; render(); });
   document.getElementById('btn-feedback').addEventListener('click', function(){ openFeedbackModal(); });
