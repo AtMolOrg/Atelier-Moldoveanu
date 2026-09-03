@@ -585,6 +585,10 @@
   .gantt-seg.seg-ante{ background:#2f80c0; }
   .gantt-seg.seg-exec{ background:#e0842a; }
   .gantt-seg.seg-montaj{ background:#c0392b; }
+  .gantt-seg.seg-done{ opacity:0.4; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.28) 0 4px, rgba(255,255,255,0) 4px 8px); }
+  .gantt-seg.is-current{ opacity:1; box-shadow: 0 1px 4px rgba(0,0,0,0.22), 0 0 0 2px rgba(0,0,0,0.18); }
+  .gantt-seg-remain{ position:absolute; top:0; bottom:0; background: rgba(255,255,255,0.5); }
+  .gantt-overdue{ position:absolute; top:9px; height:22px; z-index:2; border-radius:0 4px 4px 0; pointer-events:none; background: repeating-linear-gradient(45deg, rgba(192,57,43,0.92) 0 5px, rgba(192,57,43,0.5) 5px 10px); }
   .gantt-overshoot{ position:absolute; top:9px; height:22px; background:repeating-linear-gradient(45deg, rgba(192,57,43,0.85), rgba(192,57,43,0.85) 6px, rgba(192,57,43,0.6) 6px, rgba(192,57,43,0.6) 12px); border-radius:0 5px 5px 0; z-index:3; display:flex; align-items:center; padding-left:6px; font-size:10px; font-weight:800; color:#fff; white-space:nowrap; pointer-events:none; }
   .gantt-handle{ position:absolute; top:5px; height:30px; width:12px; margin-left:-6px; cursor:ew-resize; z-index:4; display:flex; align-items:center; justify-content:center; }
   .gantt-handle::after{ content:''; width:4px; height:18px; border-radius:2px; background:rgba(0,0,0,0.35); }
@@ -1092,6 +1096,7 @@
   }
 
   function saveState(){
+    refreshPhaseStamps();
     noteUndoPoint();
     prevStateJson = JSON.stringify(state);
     if(hasRtdb){
@@ -1306,6 +1311,23 @@
     if((p.pieces || []).some(function(pc){ return piesaIds[pc.stationId]; }))
       return { cls:'phase-piesa', name:'Execuție' };                            // piese pe podea, desi cartonasul e la proiectare -> portocaliu
     return { cls:'phase-proiect', name: cur.name };                            // proiectare / anteproiect -> albastru
+  }
+  // faza curentă ca 'ante' | 'exec' | 'montaj' (pentru Gantt)
+  function currentPhaseKind(p){
+    var s = currentStageInfo(p);
+    if(!s) return 'ante';
+    return s.cls === 'phase-piesa' ? 'exec' : (s.cls === 'phase-montaj' ? 'montaj' : 'ante');
+  }
+  // stampilează momentul intrării în faza curentă, la fiecare tranziție de fază (o singură dată/fază).
+  // p.phaseKind = faza la ultima verificare, p.phaseSince = când a intrat în ea. Rulează din saveState.
+  function refreshPhaseStamps(){
+    if(!state || !Array.isArray(state.projects)) return;
+    var now = new Date().toISOString();
+    state.projects.forEach(function(p){
+      if(p.finalizat) return;
+      var k = currentPhaseKind(p);
+      if(p.phaseKind !== k){ p.phaseKind = k; p.phaseSince = now; }
+    });
   }
 
   /* things that are "missing" on a project — surfaced as a loud warning on the folder */
@@ -3048,27 +3070,70 @@
     var rows = '';
     projects.forEach(function(p){
       var termen = parseDate(p.termen);
-      var stg = currentStageInfo(p) || { cls: 'phase-proiect' };
-      var curKind = stg.cls === 'phase-piesa' ? 'exec' : (stg.cls === 'phase-montaj' ? 'montaj' : 'ante');
+      var curKind = currentPhaseKind(p);
+      var planned = ganttPhaseDates(p);
+      var curIdx = planned.findIndex(function(ph){ return ph.kind === curKind; });
+      if(curIdx === -1) curIdx = 0;
 
-      var phases = ganttPhaseDates(p);
-      var projEnd = phases.length ? phases[phases.length - 1].end : (termen || addDays(today, 7));
+      var createdD = parseDate(p.createdAt) || today;
+      var sinceD = p.phaseSince ? new Date(p.phaseSince) : null;
+      if(sinceD && !isNaN(sinceD)) sinceD.setHours(0,0,0,0); else sinceD = null;
+      // prima fază e activă de la deschiderea proiectului; celelalte, de când s-a intrat în ele
+      var curStart = (curIdx === 0) ? createdD : (sinceD || planned[curIdx].start);
+      if(curStart < createdD) curStart = createdD;
+
+      // rebuild the phases anchored to reality: done phases fill [creat .. faza curentă a început],
+      // faza curentă [start real .. capăt planificat], fazele viitoare înlănțuite după.
+      var real = [];
+      var doneNTot = 0; for(var di=0; di<curIdx; di++) doneNTot += planned[di].n;
+      var spanDone = Math.max(0, daysBetween(createdD, curStart));
+      var accD = 0;
+      for(var i=0; i<curIdx; i++){
+        accD += planned[i].n;
+        var s = (i === 0) ? createdD : real[i-1].end;
+        var e = (i === curIdx-1) ? curStart : addDays(createdD, Math.round(spanDone * accD / Math.max(1, doneNTot)));
+        if(e < s) e = s;
+        real.push({ kind: planned[i].kind, start: s, end: e, status: 'done' });
+      }
+      var curEnd = (p.faze && p.faze[curKind]) ? parseDate(p.faze[curKind]) : planned[curIdx].end;
+      if(curEnd <= curStart) curEnd = addDays(curStart, 1);
+      real.push({ kind: curKind, start: curStart, end: curEnd, status: 'current' });
+      var runEnd = curEnd;
+      for(var j=curIdx+1; j<planned.length; j++){
+        var dur = Math.max(1, daysBetween(planned[j].start, planned[j].end));
+        real.push({ kind: planned[j].kind, start: runEnd, end: addDays(runEnd, dur), status: 'future' });
+        runEnd = addDays(runEnd, dur);
+      }
+
+      var projEnd = real[real.length - 1].end;
+      var curOverdue = today > curEnd;
+      // un proiect neterminat nu se poate încheia în trecut — podim la azi pentru decalaj
+      var effEnd = (projEnd < today) ? today : projEnd;
 
       var slipTxt = '', slipCol = '';
       if(termen){
-        var slip = daysBetween(termen, projEnd);
+        var slip = daysBetween(termen, effEnd);
         if(slip > 0){ slipTxt = '+'+slip+(slip===1?' zi':' zile')+' peste termen'; slipCol = '#a8483a'; }
         else if(slip === 0){ slipTxt = 'fix pe termen'; slipCol = '#3d7a52'; }
         else { slipTxt = (-slip)+(slip===-1?' zi':' zile')+' în avans'; slipCol = '#3d7a52'; }
       }
 
       var segHtml = '';
-      phases.forEach(function(ph, i){
+      real.forEach(function(ph, i){
         var l = x(ph.start), w = Math.max(3, x(ph.end) - l);
-        var shape = phases.length === 1 ? ' seg-only' : (i === 0 ? ' seg-first' : (i === phases.length - 1 ? ' seg-last' : ''));
-        segHtml += '<div class="gantt-seg seg-'+ph.kind+(ph.kind === curKind ? ' is-current' : '')+shape+'" data-open="'+p.id+'"'+
-          ' style="left:'+l+'px; width:'+w+'px" title="'+esc(GANTT_PHASE_LABEL[ph.kind]+': '+isoOf(ph.start)+' → '+isoOf(ph.end))+'">'+(w > 56 ? GANTT_PHASE_LABEL[ph.kind] : '')+'</div>';
-        segHtml += '<div class="gantt-handle" data-handle="'+p.id+'" data-phase="'+ph.kind+'" style="left:'+x(ph.end)+'px" title="Trage capătul fazei '+esc(GANTT_PHASE_LABEL[ph.kind])+'"></div>';
+        var shape = real.length === 1 ? ' seg-only' : (i === 0 ? ' seg-first' : (i === real.length - 1 ? ' seg-last' : ''));
+        var cls = 'gantt-seg seg-'+ph.kind+shape + (ph.status==='current' ? ' is-current' : '') + (ph.status==='done' ? ' seg-done' : '');
+        var inner = (w > 56 ? GANTT_PHASE_LABEL[ph.kind] : '');
+        if(ph.status === 'current' && !curOverdue && today > ph.start){
+          // wash out the part not done yet (today → end of phase)
+          var doneW = Math.min(w, Math.max(0, x(today) - l));
+          inner += '<span class="gantt-seg-remain" style="left:'+doneW+'px; right:0"></span>';
+        }
+        segHtml += '<div class="'+cls+'" data-open="'+p.id+'" style="left:'+l+'px; width:'+w+'px" title="'+
+          esc(GANTT_PHASE_LABEL[ph.kind]+' · '+(ph.status==='done'?'gata':ph.status==='current'?'în lucru':'de făcut')+' · '+isoOf(ph.start)+' → '+isoOf(ph.end))+'">'+inner+'</div>';
+        if(ph.status !== 'done'){
+          segHtml += '<div class="gantt-handle" data-handle="'+p.id+'" data-phase="'+ph.kind+'" style="left:'+x(ph.end)+'px" title="Trage capătul fazei '+esc(GANTT_PHASE_LABEL[ph.kind])+'"></div>';
+        }
       });
 
       rows += '<div class="gantt-row">';
@@ -3077,8 +3142,11 @@
       rows += '<div class="gantt-track" style="width:'+trackW+'px; height:40px;">';
       rows += '<div class="gantt-today-line" style="left:'+todayX+'px"></div>';
       rows += segHtml;
-      if(termen && projEnd > termen){
-        rows += '<div class="gantt-overshoot" style="left:'+x(termen)+'px; width:'+(x(projEnd)-x(termen))+'px">+'+daysBetween(termen,projEnd)+'z</div>';
+      if(curOverdue){
+        rows += '<div class="gantt-overdue" style="left:'+x(curEnd)+'px; width:'+Math.max(3,(x(today)-x(curEnd)))+'px" title="Faza a depășit planul cu '+daysBetween(curEnd,today)+' zile"></div>';
+      }
+      if(termen && effEnd > termen){
+        rows += '<div class="gantt-overshoot" style="left:'+x(termen)+'px; width:'+(x(effEnd)-x(termen))+'px">+'+daysBetween(termen,effEnd)+'z</div>';
       }
       if(termen) rows += '<div class="gantt-deadline" style="left:'+x(termen)+'px"></div>';
       rows += '</div></div>';
@@ -3088,7 +3156,7 @@
       '<button data-gz="day" class="'+(ganttZoom==='day'?'active':'')+'">Zi</button>'+
       '<button data-gz="week" class="'+(ganttZoom==='week'?'active':'')+'">Săptămână</button>'+
       '<button data-gz="month" class="'+(ganttZoom==='month'?'active':'')+'">Lună</button>'+
-      '</div><span class="gantt-hint">Fiecare fază (anteproiect · execuție · montaj) are un mâner la capăt — trage-l ca să-i muți sfârșitul. ⚑ termen · linia roșie = azi.</span></div>';
+      '</div><span class="gantt-hint">Fazele terminate (hașurat) și cea în lucru se iau din hartă; fazele viitoare le tragi de mâner. Dungă roșie = faza a depășit planul · ⚑ termen · linia roșie verticală = azi.</span></div>';
 
     var html = toolbar + '<div class="gantt-wrap"><div style="min-width:'+(210+trackW)+'px;">';
     html += '<div class="gantt-row gantt-row-header"><div class="gantt-label"><span class="g-code">Proiect</span></div>';
