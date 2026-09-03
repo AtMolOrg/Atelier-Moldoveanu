@@ -788,17 +788,21 @@
   }
   function pad2(n){ return n < 10 ? '0'+n : ''+n; }
   // key-order-independent JSON, used only to compare local state vs. a remote snapshot.
-  // Skips null/undefined keys because Firebase prunes them on save, so the echo of our
-  // own write comes back without them — otherwise it looks like a remote change.
+  // Firebase RTDB prunes null/undefined, empty arrays, empty objects and empty strings on
+  // save (recursively), so the echo of our own write comes back without those keys. We drop
+  // the same things here — otherwise every save looks like a change from a colleague, which
+  // used to wipe the undo history right after each action.
   function stableStringify(v){
     if(v === null || v === undefined) return 'null';
     if(typeof v !== 'object') return JSON.stringify(v);
     if(Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
-    return '{' + Object.keys(v).sort().filter(function(k){
-      return v[k] !== null && v[k] !== undefined;
-    }).map(function(k){
-      return JSON.stringify(k) + ':' + stableStringify(v[k]);
-    }).join(',') + '}';
+    var parts = [];
+    Object.keys(v).sort().forEach(function(k){
+      var s = stableStringify(v[k]);
+      if(s === 'null' || s === '[]' || s === '{}' || s === '""') return; // pruned by Firebase
+      parts.push(JSON.stringify(k) + ':' + s);
+    });
+    return '{' + parts.join(',') + '}';
   }
   function todayDate(){ var d = new Date(); d.setHours(0,0,0,0); return d; }
   function isoToday(){ var d = todayDate(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
