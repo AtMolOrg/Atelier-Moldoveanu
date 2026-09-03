@@ -4,6 +4,7 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-09-03
 
+- **Modalele nu se mai închid la click pe fundal.** Toate 4 (proiect, reparație, membru echipă, feedback) aveau `modal-overlay` → `close()` la click în afara cutiei — ușor de atins din greșeală și pierdeai tot ce completaseși. Scos din toate. Închidere doar cu ✕ sau „Anulează".
 - **Tab „Reparații" readăugat** în bara de tab-uri (fusese scos pe 2026-08-24, codul rămăsese intact). Nicio schimbare de cod în afară de butonul din `#tabs` — `renderReparatii`, `openRepairModal`, `REPAIR_STATUSES`, dispatch-ul din `render()` și `setAddButton` (relabel „+ Reparație nouă") erau deja acolo. E un board kanban cu 3 coloane (Deschisă / În lucru / Rezolvată), card cu cod proiect original + client + descriere problemă + dată, mutare prin drag&drop sau butoane ‹ înapoi / înainte ›, Editează / Șterge. Modalul „+ Reparație nouă" cere codul proiectului original (autocomplete din codurile existente → completează automat clientul). Reparațiile stau în `state.repairs`, se sincronizează ca restul.
 
 ## 2026-08-31

@@ -2895,7 +2895,7 @@
     function close(){ root.innerHTML = ''; }
     document.getElementById('modal-close').addEventListener('click', close);
     document.getElementById('btn-cancel').addEventListener('click', close);
-    document.getElementById('modal-overlay').addEventListener('click', function(e){ if(e.target.id==='modal-overlay') close(); });
+    // clicul pe fundal NU închide modalul (ca să nu pierzi ce ai completat) — închizi cu ✕ sau Anulează
     document.getElementById('btn-del-worker').addEventListener('click', function(){
       if(confirm('Ștergi pe '+w.name+'?')){
         state.workers = state.workers.filter(function(x){ return x.id !== w.id; });
@@ -3355,7 +3355,7 @@
     function close(){ root.innerHTML=''; }
     document.getElementById('modal-close').addEventListener('click', close);
     document.getElementById('btn-cancel').addEventListener('click', close);
-    document.getElementById('modal-overlay').addEventListener('click', function(e){ if(e.target.id==='modal-overlay') close(); });
+    // clicul pe fundal NU închide modalul (ca să nu pierzi ce ai completat) — închizi cu ✕ sau Anulează
     if(editing) document.getElementById('btn-del-repair').addEventListener('click', function(){
       if(confirm('Ștergi această reparație?')){ state.repairs = state.repairs.filter(function(x){ return x.id!==r.id; }); saveState(); close(); render(); }
     });
@@ -3385,7 +3385,7 @@
     function close(){ root.innerHTML=''; }
     document.getElementById('modal-close').addEventListener('click', close);
     document.getElementById('btn-cancel').addEventListener('click', close);
-    document.getElementById('modal-overlay').addEventListener('click', function(e){ if(e.target.id==='modal-overlay') close(); });
+    // clicul pe fundal NU închide modalul (ca să nu pierzi ce ai completat) — închizi cu ✕ sau Anulează
 
     document.getElementById('fb-send').addEventListener('click', function(){
       var text = document.getElementById('fb-text').value.trim();
@@ -3486,7 +3486,7 @@
     function close(){ root.innerHTML=''; }
     document.getElementById('modal-close').addEventListener('click', close);
     document.getElementById('btn-cancel').addEventListener('click', close);
-    document.getElementById('modal-overlay').addEventListener('click', function(e){ if(e.target.id==='modal-overlay') close(); });
+    // clicul pe fundal NU închide modalul (ca să nu pierzi ce ai completat) — închizi cu ✕ sau Anulează
     if(editing) document.getElementById('btn-del-project').addEventListener('click', function(){
       if(confirm('Ștergi proiectul '+proj.cod+'?')){ state.projects = state.projects.filter(function(p){ return p.id!==proj.id; }); saveState(); close(); render(); }
     });
