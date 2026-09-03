@@ -796,14 +796,9 @@
   var draggingData = null;
   var suppressWorkerClick = false;
   var canvasZoom = 1, canvasPanX = 0, canvasPanY = 0;
-  var hartaViewMode = 'proiecte';
   var canvasInitialized = false;
   var canvasDragging = false, canvasStartX = 0, canvasStartY = 0, canvasStartPanX = 0, canvasStartPanY = 0;
   var CANVAS_MIN_ZOOM = 0.35, CANVAS_MAX_ZOOM = 2.2;
-  var colDragging = false, colDragStation = null;
-  var resizeDragging = false, resizeStation = null, resizeStartMouseX = 0, resizeStartWidth = 0;
-  var MIN_COL_WIDTH = 220;
-  var colDragStartMouseX = 0, colDragStartMouseY = 0, colDragStartX = 0, colDragStartY = 0;
   var SNAP_THRESHOLD = 10, SNAP_GRID = 20;
   var nodeDragging = false, nodeDragObj = null, nodeDragEl = null, nodeDragMoved = false;
   var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
@@ -856,10 +851,6 @@
   }
   var LOG_LABEL = { 'proiect-nou':'proiect nou', 'finalizat':'finalizat', 'redeschis':'redeschis', 'avansat':'avansat', 'piesa-montaj':'piesă la montaj', 'furnizor-retur':'primit de la furnizor' };
 
-  function stationBoxWidth(s){
-    if(typeof s.width === 'number') return s.width;
-    return s.type === 'piesa' ? 250 : 280;
-  }
   function layoutStationsGrid(stations){
     var colWidth = 260, gap = 14, maxCols = 6, rowHeight = 440;
     var curCol = 0, curRow = 0;
@@ -890,7 +881,6 @@
       workers: [],
       assignments: [],
       colorHistory: ['#f0b878','#a8c8dc','#a8d9b8','#f0dd9a','#d4b8dc','#a8dcc8','#f0b3bd','#b3d0e8'],
-      connections: [],
       checklists: []
     };
   }
@@ -1031,7 +1021,6 @@
     if(!Array.isArray(parsed.workers)) parsed.workers = [];
     if(!Array.isArray(parsed.assignments)) parsed.assignments = [];
     if(!Array.isArray(parsed.colorHistory)) parsed.colorHistory = [];
-    if(!Array.isArray(parsed.connections)) parsed.connections = [];
     if(!Array.isArray(parsed.checklists)) parsed.checklists = [];
     parsed.projects.forEach(function(p){
       if(!Array.isArray(p.orders)) p.orders = [];
@@ -1155,47 +1144,8 @@
   }
 
   /* ---------------- station helpers ---------------- */
-  function piesaStations(){ return state.stations.filter(function(s){ return s.type === 'piesa'; }); }
-  function firstPiesaIndex(){ return state.stations.findIndex(function(s){ return s.type === 'piesa'; }); }
-  function lastPiesaIndex(){ for(var i=state.stations.length-1;i>=0;i--){ if(state.stations[i].type==='piesa') return i; } return -1; }
   function stationById(id){ return state.stations.find(function(s){ return s.id === id; }); }
   function projectById(id){ return state.projects.find(function(p){ return p.id === id; }); }
-  function isLastPreExecStation(stationId){
-    var fp = firstPiesaIndex();
-    if(fp === -1) return false;
-    for(var i=fp-1;i>=0;i--){
-      if(state.stations[i].type === 'proiect') return state.stations[i].id === stationId;
-    }
-    return false;
-  }
-  function nextStationIfProiect(stationId){
-    var idx = state.stations.findIndex(function(s){ return s.id === stationId; });
-    var next = state.stations[idx+1];
-    return (next && next.type === 'proiect') ? next : null;
-  }
-  function firstProiectAfterLastPiesa(){
-    var lp = lastPiesaIndex();
-    if(lp === -1) return null;
-    for(var i=lp+1;i<state.stations.length;i++){
-      if(state.stations[i].type === 'proiect') return state.stations[i];
-    }
-    return null;
-  }
-  function lastProiectBeforeFirstPiesa(){
-    var fp = firstPiesaIndex();
-    if(fp === -1) return null;
-    for(var i=fp-1;i>=0;i--){
-      if(state.stations[i].type === 'proiect') return state.stations[i];
-    }
-    return null;
-  }
-  function isPostExecStation(stationId){
-    var lp = lastPiesaIndex();
-    if(lp === -1) return false;
-    var idx = state.stations.findIndex(function(s){ return s.id === stationId; });
-    var st = stationById(stationId);
-    return idx > lp && st && st.type === 'proiect';
-  }
   /* per-project flow stages: each project carries its own p.stations (copied from state.stations
      at migration / on project creation). state.stations stays as the template for new projects. */
   function stationsFor(p){ return (p && Array.isArray(p.stations)) ? p.stations : state.stations; }
@@ -1293,13 +1243,6 @@
     var q = searchQuery.toLowerCase();
     return (codOrClient1||'').toLowerCase().indexOf(q) > -1 || (codOrClient2||'').toLowerCase().indexOf(q) > -1;
   }
-  function pieceBreakdown(p){
-    var counts = {};
-    piesaStationsFor(p).forEach(function(s){ counts[s.id] = 0; });
-    (p.pieces||[]).forEach(function(pc){ if(counts[pc.stationId] !== undefined) counts[pc.stationId]++; });
-    return counts;
-  }
-
   /* faza in care e proiectul acum (culoarea pastilei + halo).
      Cartonasul de proiect sta mereu ori la o etapa de proiectare, ori la Montaj — deci
      "executie" (portocaliu) o deducem din piese: daca vreo piesa e intr-o etapa de piesa. */
@@ -1372,7 +1315,6 @@
     else if(tab === 'comenzi') renderComenzi();
     else if(tab === 'finalizate') renderFinalizate();
     else if(tab === 'gantt') renderGantt();
-    else if(tab === 'proiecte') renderProiecte();
     else if(tab === 'reparatii') renderReparatii();
     updateUndoButtons();
   }
@@ -1659,7 +1601,7 @@
   }
   function hartaContentBounds(){
     var grid = document.getElementById('harta-grid');
-    var selector = hartaViewMode === 'proiecte' ? '.proj-wrap, .note-wrap' : '.column';
+    var selector = '.proj-wrap, .note-wrap';
     var minX = 0, minY = 0, maxX = 300, maxY = 300;
     if(grid){
       grid.querySelectorAll(selector).forEach(function(el){
@@ -1698,10 +1640,6 @@
     var bounds = hartaContentBounds();
     grid.style.width = (bounds.maxX + 20) + 'px';
     grid.style.height = (bounds.maxY + 20) + 'px';
-  }
-  function breakConnectionsFor(nodeId){
-    if(!state.connections || !state.connections.length) return;
-    state.connections = state.connections.filter(function(c){ return c.from !== nodeId && c.to !== nodeId; });
   }
   function attachCanvasEvents(){
     var viewport = document.getElementById('canvas-viewport');
@@ -1774,79 +1712,6 @@
     }
     return Math.round(value / SNAP_GRID) * SNAP_GRID;
   }
-  function attachColumnDragEvents(){
-    document.querySelectorAll('.harta-grid .col-head').forEach(function(head){
-      head.addEventListener('mousedown', function(e){
-        if(e.target.closest('button, input')) return;
-        var col = head.closest('.column');
-        if(!col) return;
-        var st = stationById(col.dataset.station);
-        if(!st) return;
-        e.preventDefault();
-        e.stopPropagation();
-        colDragging = true;
-        colDragStation = st;
-        colDragStartMouseX = e.clientX; colDragStartMouseY = e.clientY;
-        colDragStartX = st.x || 0; colDragStartY = st.y || 0;
-        col.classList.add('dragging-col');
-      });
-    });
-    document.querySelectorAll('.col-resize').forEach(function(handle){
-      handle.addEventListener('mousedown', function(e){
-        e.preventDefault(); e.stopPropagation();
-        var st = stationById(handle.dataset.station);
-        if(!st) return;
-        resizeDragging = true;
-        resizeStation = st;
-        resizeStartMouseX = e.clientX;
-        resizeStartWidth = stationBoxWidth(st);
-      });
-    });
-  }
-  window.addEventListener('mousemove', function(e){
-    if(!resizeDragging || !resizeStation) return;
-    var dx = (e.clientX - resizeStartMouseX) / canvasZoom;
-    var newWidth = Math.max(MIN_COL_WIDTH, Math.round(resizeStartWidth + dx));
-    resizeStation.width = newWidth;
-    var el = document.querySelector('.harta-grid .column[data-station="' + resizeStation.id + '"]');
-    if(el) el.style.width = newWidth + 'px';
-    adjustCanvasExtent();
-  });
-  window.addEventListener('mouseup', function(){
-    if(!resizeDragging) return;
-    resizeDragging = false;
-    if(resizeStation) saveState();
-    resizeStation = null;
-  });
-  window.addEventListener('mousemove', function(e){
-    if(!colDragging || !colDragStation) return;
-    var dx = (e.clientX - colDragStartMouseX) / canvasZoom;
-    var dy = (e.clientY - colDragStartMouseY) / canvasZoom;
-    var rawX = colDragStartX + dx;
-    var rawY = colDragStartY + dy;
-    var xRefs = [], yRefs = [];
-    state.stations.forEach(function(s){
-      if(s.id === colDragStation.id) return;
-      var w = stationBoxWidth(s);
-      xRefs.push(s.x || 0, (s.x || 0) + w);
-      yRefs.push(s.y || 0);
-    });
-    var snappedX = Math.max(0, snapValue(rawX, xRefs));
-    var snappedY = Math.max(0, snapValue(rawY, yRefs));
-    colDragStation.x = snappedX;
-    colDragStation.y = snappedY;
-    var el = document.querySelector('.harta-grid .column[data-station="' + colDragStation.id + '"]');
-    if(el){ el.style.left = snappedX + 'px'; el.style.top = snappedY + 'px'; }
-  });
-  window.addEventListener('mouseup', function(){
-    if(!colDragging) return;
-    colDragging = false;
-    var el = document.querySelector('.column.dragging-col');
-    if(el) el.classList.remove('dragging-col');
-    if(colDragStation) saveState();
-    colDragStation = null;
-    adjustCanvasExtent();
-  });
 
   // canvas nodes that can be dragged freely on the "Pe proiecte" map: project folders
   // (.proj-wrap, backed by a project) and checklist cards (.note-wrap, backed by a checklist).
@@ -1934,76 +1799,10 @@
 
     var html = '';
 
-    layoutStationsGrid(state.stations);
     html += '<div class="canvas-viewport" id="canvas-viewport">';
     html += '<div class="canvas-content" id="canvas-content">';
     html += '<div class="harta-grid" id="harta-grid">';
-    if(hartaViewMode === 'proiecte'){
-      html += renderHartaPeProiecte();
-    } else {
-    state.stations.forEach(function(station, idx){
-      var hasLanes = station.lanes && station.lanes.length > 0;
-      var boxWidth = stationBoxWidth(station);
-      html += '<div class="column ' + station.type + (hasLanes?' lanes-wide':'') + '" data-station="' + station.id + '" style="left:' + (station.x||0) + 'px; top:' + (station.y||0) + 'px; width:' + boxWidth + 'px; animation-delay:' + (idx*35) + 'ms;">';
-      html += '<div class="col-resize" data-station="' + station.id + '" title="Trage ca să lățești blocul"></div>';
-      html += '<div class="col-head">';
-      html += '<div style="flex:1"><input class="col-title" data-station="' + station.id + '" value="' + esc(station.name) + '"><span class="col-kind">' + (station.type === 'piesa' ? 'nivel piesă' : 'nivel proiect') + '</span></div>';
-      var countHere = station.type === 'proiect'
-        ? state.projects.filter(function(p){ return matchesSearch(p.cod,p.client) && p.stationId===station.id; }).length
-        : state.projects.reduce(function(acc,p){ if(p.finalizat) return acc; return acc + p.pieces.filter(function(pc){ return pc.stationId===station.id && matchesSearch(p.cod,p.client); }).length; }, 0);
-      html += '<span class="col-count">' + countHere + '</span>';
-      html += '<div class="col-actions">';
-      html += '<button data-act="addlane" data-station="' + station.id + '" title="Adaugă o coloană (sub-secțiune)">⊞</button>';
-      if(idx > 0) html += '<button data-act="left" data-station="' + station.id + '" title="Mută în ordinea fluxului la stânga">‹</button>';
-      if(idx < state.stations.length-1) html += '<button data-act="right" data-station="' + station.id + '" title="Mută în ordinea fluxului la dreapta">›</button>';
-      html += '<button data-act="del" data-station="' + station.id + '" title="Șterge etapa">✕</button>';
-      html += '</div></div>';
-
-      if(hasLanes){
-        html += '<div class="lanes-row">';
-        station.lanes.forEach(function(lane){
-          var items = [];
-          if(station.type === 'proiect'){
-            state.projects.forEach(function(p){
-              if(!matchesSearch(p.cod,p.client) || p.stationId !== station.id) return;
-              if((p.lane || defaultLaneId(station.lanes)) === lane.id) items.push(p);
-            });
-          } else {
-            state.projects.forEach(function(p){
-              if(p.finalizat || !matchesSearch(p.cod,p.client)) return;
-              p.pieces.forEach(function(pc){ if(pc.stationId===station.id && (pc.lane||defaultLaneId(station.lanes))===lane.id) items.push({piece:pc, project:p}); });
-            });
-          }
-          html += '<div class="lane">';
-          html += '<div class="lane-head"><input class="lane-title" data-station="' + station.id + '" data-lane="' + lane.id + '" value="' + esc(lane.name) + '"><span class="col-count">' + items.length + '</span><button class="lane-del" data-act="lanedel" data-station="' + station.id + '" data-lane="' + lane.id + '" title="Șterge coloana">✕</button></div>';
-          html += '<div class="col-body lane-body" data-station="' + station.id + '" data-kind="' + station.type + '" data-lane="' + lane.id + '">';
-          if(items.length===0) html += '<div class="col-empty">Nimic aici.</div>';
-          else if(station.type === 'proiect') items.forEach(function(p){ html += renderProjectCard(p, station); });
-          else items.forEach(function(item){ html += renderPieceCard(item.piece, item.project); });
-          html += '</div></div>';
-        });
-        html += '</div>';
-      } else if(station.type === 'proiect'){
-        html += '<div class="col-body" data-station="' + station.id + '" data-kind="' + station.type + '">';
-        var projs = state.projects.filter(function(p){ return matchesSearch(p.cod,p.client) && p.stationId===station.id; })
-          .sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
-        if(projs.length===0) html += '<div class="col-empty">Nimic aici.</div>';
-        else projs.forEach(function(p){ html += renderProjectCard(p, station); });
-        html += '</div>';
-      } else {
-        html += '<div class="col-body" data-station="' + station.id + '" data-kind="' + station.type + '">';
-        var pieces = [];
-        state.projects.forEach(function(p){
-          if(p.finalizat || !matchesSearch(p.cod,p.client)) return;
-          p.pieces.forEach(function(pc){ if(pc.stationId===station.id) pieces.push({piece:pc, project:p}); });
-        });
-        if(pieces.length===0) html += '<div class="col-empty">Nicio piesă aici.</div>';
-        else pieces.forEach(function(item){ html += renderPieceCard(item.piece, item.project); });
-        html += '</div>';
-      }
-      html += '</div>';
-    });
-    }
+    html += renderHartaPeProiecte();
     html += '</div>'; // .harta-grid
     html += '</div>'; // .canvas-content
     html += '<div class="canvas-zoom-controls">' +
@@ -2018,11 +1817,7 @@
     renderTeamSidebar();
     attachHalaEvents();
     attachCanvasEvents();
-    attachColumnDragEvents();
     attachCanvasNodeDrag();
-    document.querySelectorAll('.view-toggle-mini button[data-hmode]').forEach(function(b){
-      b.addEventListener('click', function(){ hartaViewMode = b.dataset.hmode; canvasInitialized = false; render(); });
-    });
   }
   function renderHartaPeProiecte(){
     var list = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod,p.client); })
@@ -2327,8 +2122,8 @@
               ? (proj.stationId===id ? 1 : 0)
               : (proj.pieces||[]).filter(function(pc){ return pc.stationId===id; }).length;
             if(affected > 0 && !confirm('Etapa are ' + affected + (st.type==='piesa'?' piese':' proiect') + ' aici. Se mută în altă etapă. Continui?')) return;
-            if(st.type==='proiect'){ if(proj.stationId===id){ proj.stationId = fallback.id; proj.lane = null; breakConnectionsFor(proj.id); } }
-            else { (proj.pieces||[]).forEach(function(pc){ if(pc.stationId===id){ pc.stationId = fallback.id; pc.lane = null; breakConnectionsFor('pc:' + proj.id + '::' + pc.id); } }); }
+            if(st.type==='proiect'){ if(proj.stationId===id){ proj.stationId = fallback.id; proj.lane = null; } }
+            else { (proj.pieces||[]).forEach(function(pc){ if(pc.stationId===id){ pc.stationId = fallback.id; pc.lane = null; } }); }
             proj.stations = remaining;
             saveState(); render();
             return;
@@ -2338,9 +2133,9 @@
             : state.projects.reduce(function(a,p){ return a + (p.pieces||[]).filter(function(pc){ return pc.stationId===id; }).length; }, 0);
           if(affectedCount > 0 && !confirm('Etapa are ' + affectedCount + ' ' + (st.type==='piesa'?'piese':'proiect(e)') + '. Se mută în etapa anterioară de același tip. Continui?')) return;
           if(st.type==='proiect'){
-            state.projects.forEach(function(p){ if(p.stationId===id){ p.stationId = fallback.id; p.lane = null; breakConnectionsFor(p.id); } });
+            state.projects.forEach(function(p){ if(p.stationId===id){ p.stationId = fallback.id; p.lane = null; } });
           } else {
-            state.projects.forEach(function(p){ (p.pieces||[]).forEach(function(pc){ if(pc.stationId===id){ pc.stationId = fallback.id; pc.lane = null; breakConnectionsFor('pc:' + p.id + '::' + pc.id); } }); });
+            state.projects.forEach(function(p){ (p.pieces||[]).forEach(function(pc){ if(pc.stationId===id){ pc.stationId = fallback.id; pc.lane = null; } }); });
           }
           state.stations = remaining;
           saveState(); render();
@@ -2365,14 +2160,6 @@
         }
         saveState(); render();
       });
-    });
-    var addSt = document.getElementById('btn-add-station');
-    if(addSt) addSt.addEventListener('click', function(){
-      var name = prompt('Denumire etapă nouă:');
-      if(!name || !name.trim()) return;
-      var isPiesa = confirm('OK = etapă la nivel de PIESĂ (urmărești fiecare piesă individual, ca la laser sau sudură).\nAnulează = etapă la nivel de PROIECT întreg (ca ofertare sau montaj).');
-      state.stations.push({id: uid(), name: name.trim(), type: isPiesa ? 'piesa' : 'proiect'});
-      saveState(); render();
     });
     var addWk = document.getElementById('btn-add-worker');
     if(addWk) addWk.addEventListener('click', function(){
@@ -2404,7 +2191,7 @@
         var p = state.projects.find(function(x){ return x.id===btn.dataset.advance; });
         if(p){
           p.stationId = btn.dataset.target; p.lane = null;
-          breakConnectionsFor(p.id);
+
           var tSt = stationByIdFor(p, btn.dataset.target);
           logEvent('avansat', p.cod + ' · ' + p.client + ' → ' + (tSt ? tSt.name : '?'));
           saveState(); render();
@@ -2418,18 +2205,7 @@
         var target = firstProiectAfterLastPiesaFor(p);
         if(target){ p.stationId = target.id; p.lane = null; }
         else { p.finalizat = true; p.finalizatAt = new Date().toISOString(); logEvent('finalizat', p.cod + ' · ' + p.client); } // nowhere else for it to go
-        breakConnectionsFor(p.id);
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-demote]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var p = state.projects.find(function(x){ return x.id===btn.dataset.demote; });
-        if(!p) return;
-        var target = lastProiectBeforeFirstPiesaFor(p);
-        (p.pieces||[]).forEach(function(pc){ pc.stationId = null; pc.lane = null; breakConnectionsFor('pc:' + p.id + '::' + pc.id); });
-        if(target){ p.stationId = target.id; p.lane = null; }
-        breakConnectionsFor(p.id);
+
         saveState(); render();
       });
     });
@@ -2498,7 +2274,7 @@
         var newIdx = btn.dataset.dir==='next' ? idx+1 : idx-1;
         if(newIdx>=0 && newIdx<ps.length){
           pc.stationId = ps[newIdx].id; pc.lane = null;
-          breakConnectionsFor('pc:' + p.id + '::' + pc.id);
+
           saveState(); render();
         }
       });
@@ -2511,7 +2287,7 @@
         var pc = p.pieces.find(function(x){ return x.id===parts[1]; });
         if(pc){
           pc.stationId = null; pc.lane = null;
-          breakConnectionsFor('pc:' + p.id + '::' + pc.id);
+
           saveState(); render();
         }
       });
@@ -2525,7 +2301,7 @@
         var pc = (p.pieces||[]).find(function(x){ return x.id === parts[1]; });
         if(!pc) return;
         pc.stationId = PIECE_MONTAJ; pc.lane = null;
-        breakConnectionsFor('pc:' + p.id + '::' + pc.id);
+
         logEvent('piesa-montaj', p.cod + ' · ' + p.client + ' · ' + pc.name);
         saveState(); render();
       });
@@ -2914,12 +2690,12 @@
           if(!pc) return;
           if(kind === 'piesa'){
             pc.stationId = zone.dataset.station; pc.lane = zone.dataset.lane || null;
-            breakConnectionsFor('pc:' + p.id + '::' + pc.id);
+
             saveState(); render();
           } else if(kind === 'proiect' && isPostExecStationFor(p, zone.dataset.station)){
             // dropping a piece onto Montaj (or any post-execution stage) sends the whole project there
             p.stationId = zone.dataset.station; p.lane = zone.dataset.lane || null;
-            breakConnectionsFor(p.id);
+
             saveState(); render();
           }
         } else if(data.indexOf('PRJ::') === 0){
@@ -2927,7 +2703,7 @@
           var proj = state.projects.find(function(x){ return x.id === data.slice(5); });
           if(proj){
             proj.stationId = zone.dataset.station; proj.lane = zone.dataset.lane || null;
-            breakConnectionsFor(proj.id);
+
             saveState(); render();
           }
         }
@@ -3270,82 +3046,6 @@
     ganttDrag = null;
     render();
   });
-
-  /* ================= PROIECTE (table / traseu) ================= */
-  var showFinalizate = false;
-  var proiecteViewMode = 'traseu';
-  function renderProiecte(){
-    var board = document.getElementById('board');
-    board.className=''; board.style.display='block'; board.style.height='100%';
-
-    var list = state.projects.filter(function(p){ return matchesSearch(p.cod,p.client); })
-      .filter(function(p){ return showFinalizate || !p.finalizat; })
-      .sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
-
-    var html = '<div class="toolbar-row"><label><input type="checkbox" id="chk-finalizate" ' + (showFinalizate?'checked':'') + '> Arată și proiectele finalizate</label>';
-    html += '<div class="view-toggle-mini"><button data-mode="traseu" class="' + (proiecteViewMode==='traseu'?'active':'') + '">Traseu, câte un rând per proiect</button><button data-mode="tabel" class="' + (proiecteViewMode==='tabel'?'active':'') + '">Tabel</button></div></div>';
-
-    if(list.length === 0){
-      html += '<div class="empty-state" style="margin-top:20px;"><h2>Niciun proiect de listat</h2><p>Ajustează căutarea sau adaugă un proiect nou.</p></div>';
-      board.innerHTML = html;
-      document.getElementById('chk-finalizate').addEventListener('change', function(e){ showFinalizate = e.target.checked; render(); });
-      document.querySelectorAll('.view-toggle-mini button').forEach(function(b){ b.addEventListener('click', function(){ proiecteViewMode = b.dataset.mode; render(); }); });
-      return;
-    }
-
-    html += proiecteViewMode === 'traseu' ? renderProiecteTraseu(list) : renderProiecteTabel(list);
-
-    board.innerHTML = html;
-    document.getElementById('chk-finalizate').addEventListener('change', function(e){ showFinalizate = e.target.checked; render(); });
-    document.querySelectorAll('.view-toggle-mini button').forEach(function(b){ b.addEventListener('click', function(){ proiecteViewMode = b.dataset.mode; render(); }); });
-    document.querySelectorAll('[data-edit]').forEach(function(el){ el.addEventListener('click', function(){ openProjectModal(el.dataset.edit); }); });
-  }
-  function renderProiecteTabel(list){
-    var html = '<div class="table-wrap"><table class="proj-table"><thead><tr><th>Cod</th><th>Client</th><th>Tip</th><th>Stare</th><th>Termen</th><th></th></tr></thead><tbody>';
-    list.forEach(function(p){
-      var st = stationById(p.stationId);
-      var stareHtml = esc(st ? st.name : '—');
-      var bd = pieceBreakdown(p);
-      var badges = piesaStations().map(function(s){ return bd[s.id] ? '<span>'+bd[s.id]+' '+esc(s.name)+'</span>' : ''; }).join('');
-      if(badges) stareHtml += '<div class="t-badges" style="margin-top:4px;">'+badges+'</div>';
-      html += '<tr><td class="t-code">'+esc(p.cod)+'</td><td>'+esc(p.client)+'</td><td>'+esc(displayTip(p))+'</td><td>'+stareHtml+'</td>';
-      html += '<td><span class="badge badge-'+(p.finalizat?'done':urgencyOf(p))+'">'+esc(p.finalizat?'Finalizat':urgencyLabel(p))+'</span></td>';
-      html += '<td><button class="btn btn-xs" data-edit="'+p.id+'">Editează</button></td></tr>';
-    });
-    html += '</tbody></table></div>';
-    return html;
-  }
-  function renderProiecteTraseu(list){
-    var html = '<div class="table-wrap"><table class="traseu-table"><thead><tr><th class="traseu-proj-col">Proiect</th>';
-    state.stations.forEach(function(s){
-      html += '<th>' + esc(s.name) + '<span class="traseu-kind">' + (s.type==='piesa'?'piesă':'proiect') + '</span></th>';
-    });
-    html += '</tr></thead><tbody>';
-    list.forEach(function(p){
-      var grad = urgencyGradient(p);
-      html += '<tr class="traseu-row" data-edit="' + p.id + '">';
-      html += '<td class="traseu-proj-cell"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
-      html += '<span class="t-code">' + esc(p.cod) + '</span><span class="traseu-client">' + esc(p.client) + '</span>';
-      html += '<span class="badge badge-' + (p.finalizat?'done':urgencyOf(p)) + '">' + esc(p.finalizat?'Finalizat':urgencyLabel(p)) + '</span></td>';
-      state.stations.forEach(function(s){
-        html += '<td class="traseu-cell">';
-        if(s.type === 'proiect'){
-          if(p.stationId === s.id) html += '<span class="traseu-here" title="Proiectul e aici acum">●</span>';
-        } else {
-          var pieces = (p.pieces||[]).filter(function(pc){ return pc.stationId === s.id; });
-          if(pieces.length){
-            html += '<div class="traseu-pieces">';
-            pieces.forEach(function(pc){ html += '<span class="traseu-piece-chip">' + esc(pc.name) + '</span>'; });
-            html += '</div>';
-          }
-        }
-        html += '</td>';
-      });
-      html += '</tr>';
-    });
-    html += '</tbody></table></div>';
-    return html;
-  }
 
   /* ================= COMENZI (toate materialele de aprovizionat) ================= */
   var comenziShowPrimit = false;
@@ -3802,7 +3502,7 @@
         proj.cod=cod; proj.client=client; proj.termen=termen; proj.tip=tip;
         proj.notite=notite; proj.pieces=pieces;
         var stageSel = document.getElementById('f-stage');
-        if(stageSel){ proj.stationId = stageSel.value; proj.lane = null; breakConnectionsFor(proj.id); }
+        if(stageSel){ proj.stationId = stageSel.value; proj.lane = null; }
       } else {
         var stageSelNew = document.getElementById('f-stage');
         var newStations = JSON.parse(JSON.stringify(state.stations || []));
@@ -3946,7 +3646,6 @@
     loadState().then(function(s){
       state = s;
       if(!state.colorHistory) state.colorHistory = ['#f0b878','#a8c8dc','#a8d9b8','#f0dd9a','#d4b8dc','#a8dcc8','#f0b3bd','#b3d0e8'];
-      if(!state.connections) state.connections = [];
       document.getElementById('loading').style.display = 'none';
       document.getElementById('app').style.display = 'flex';
       resetUndoHistory();
@@ -3963,7 +3662,7 @@
   function userIsBusy(){
     var mr = document.getElementById('modal-root');
     if(mr && mr.children.length) return true;
-    if(nodeDragging || canvasDragging || colDragging || resizeDragging) return true;
+    if(nodeDragging || canvasDragging) return true;
     var a = document.activeElement;
     if(!a || (a.tagName !== 'INPUT' && a.tagName !== 'TEXTAREA' && a.tagName !== 'SELECT')) return false;
     // the top-bar search box is a filter, not data entry — it must not block live sync

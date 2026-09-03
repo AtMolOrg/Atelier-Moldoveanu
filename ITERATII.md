@@ -4,6 +4,13 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-09-03
 
+- **Audit + curățenie de cod mort (pasul 1 din planul de coerență).** După un citit linie-cu-linie al lui `index.html`, scoase ~300 de linii care nu făceau nimic — zero schimbare de comportament, verificat pe toate cele 5 taburi + avansare / mutare piese / drag&drop / modal / ștergere etapă / reparații / undo:
+  - `state.connections` + funcția `breakConnectionsFor` + toate cele ~15 apeluri (feature de legături între noduri, scos demult, array niciodată populat, nimic nu-l desena).
+  - Vederea veche „Etape comune" din `renderHala` (ramura `hartaViewMode !== 'proiecte'`), `attachColumnDragEvents`, drag-ul de `.col-resize`, `stationBoxWidth`, listener-ele window de col-drag / resize, `hartaViewMode`, toggle-ul `data-hmode`. A rămas doar `renderHartaPeProiecte`.
+  - `renderProiecte` / `renderProiecteTabel` / `renderProiecteTraseu` + `showFinalizate` / `proiecteViewMode` (tab-ul `proiecte` n-are buton).
+  - Handler-ele `[data-demote]` și `btn-add-station` (niciun buton nu le emite). `[data-finalize]` păstrat — se reactivează la B1.
+  - Helperele globale de stații rămase din modelul vechi: `piesaStations`, `firstPiesaIndex`, `lastPiesaIndex`, `isLastPreExecStation`, `nextStationIfProiect`, `firstProiectAfterLastPiesa`, `lastProiectBeforeFirstPiesa`, `isPostExecStation`, `pieceBreakdown` (toate 0 apeluri; variantele `…For(p)` rămân). `stationById` / `displayTip` păstrate (folosite).
+  - Audit complet (bug-uri B1–B8, incoerențe C1–C4, plan P1–P6): artefact `claude.ai/code/artifact/decbeaf2-27c0-4986-8976-1c4b43f9d586`.
 - **Cronometru pentru lucrul la furnizor.** Când atribui un `worker.kind==='furnizor'` unei piese (sau proiect), `addAssignment` pune `a.sentAt`. Pe cip-ul furnizorului (sublista de piese, cardul de piesă, cardul de proiect) apare „🚚 Nz" = de câte zile e plecată, plus buton „✓". La ✓ → `a.receivedAt`, cip-ul devine „✓ Nz" verde + se scrie în log (`furnizor-retur`). Helper `supplierTimeChip(a,w)` + `daysSinceIso` / `daysBetweenIso`. Contorul se împrospătează la fiecare render.
 - **Tracker deștept / prognoză automată — abandonat.** După ce s-a stabilit modelul (resursă = oameni, durata etapei = `Σ(cant × min/buc) / (7h × oameni)`, simulare înainte pentru propagarea întârzierii), clientul a renunțat („nu cred că va merge"). Groundwork-ul (`pc.qty`, buton `⏱ min/buc` pe capul etapei, `state.settings`, `state.calib`, `effectiveMinPerUnit`) a fost dat înapoi cu `git revert`. Rămâne doar tab-ul Gantt ca vizualizare manuală.
 - **„Cronologie" → „Gantt".** Redenumit doar butonul din bara de tab-uri (`data-tab="gantt"` neschimbat).
