@@ -4,6 +4,7 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-09-03
 
+- **C3 — calmat dosarul (pasul 2).** Trei semnale care se suprapuneau pe același dosar → unul singur alarmist. Eticheta de fază din tab-ul mare: fără `⚠`, fără pulsație, mai mică (13px/700) — e „ești aici", nu alarmă. Inelul de halo colorat pe fază: rămâne, dar static, mai subțire (3px), fără `haloPulse`. La `has-warn`: inel doar puțin mai gros (5px, static), fără animație. Bara roz care enumeră ce lipsește = singurul semnal de alarmă, neatinsă. Scoase keyframe-urile `stagePulse` / `haloPulse` și variabila `--ph-glow`.
 - **Audit + curățenie de cod mort (pasul 1 din planul de coerență).** După un citit linie-cu-linie al lui `index.html`, scoase ~300 de linii care nu făceau nimic — zero schimbare de comportament, verificat pe toate cele 5 taburi + avansare / mutare piese / drag&drop / modal / ștergere etapă / reparații / undo:
   - `state.connections` + funcția `breakConnectionsFor` + toate cele ~15 apeluri (feature de legături între noduri, scos demult, array niciodată populat, nimic nu-l desena).
   - Vederea veche „Etape comune" din `renderHala` (ramura `hartaViewMode !== 'proiecte'`), `attachColumnDragEvents`, drag-ul de `.col-resize`, `stationBoxWidth`, listener-ele window de col-drag / resize, `hartaViewMode`, toggle-ul `data-hmode`. A rămas doar `renderHartaPeProiecte`.

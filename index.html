@@ -142,36 +142,22 @@
   .proj-cluster{ background:var(--panel); border:1px solid var(--border); border-radius:0 10px 10px 10px; overflow:hidden; box-shadow:var(--shadow); }
   .proj-cluster-head{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel-2); }
   .proj-cluster-client{ color:var(--ink-dim); font-size:12.5px; }
-  /* culorile fazei — folosite si de pastila, si de halo-ul din jurul dosarului */
-  .proj-wrap.phase-proiect{ --ph:#2f80c0; --ph-glow:rgba(47,128,192,0.65); --ph-halo:rgba(47,128,192,0.36); }
-  .proj-wrap.phase-piesa{   --ph:#e0842a; --ph-glow:rgba(224,132,42,0.65); --ph-halo:rgba(224,132,42,0.36); }
-  .proj-wrap.phase-montaj{  --ph:#c0392b; --ph-glow:rgba(192,57,43,0.65); --ph-halo:rgba(192,57,43,0.36); }
-  /* halo colorat dupa faza, pe toate dosarele */
-  .proj-wrap .proj-cluster{ box-shadow:0 0 0 3.5px var(--ph-halo, transparent), var(--shadow); }
+  /* culorile fazei — folosite si de eticheta de faza, si de inelul din jurul dosarului */
+  .proj-wrap.phase-proiect{ --ph:#2f80c0; --ph-halo:rgba(47,128,192,0.32); }
+  .proj-wrap.phase-piesa{   --ph:#e0842a; --ph-halo:rgba(224,132,42,0.32); }
+  .proj-wrap.phase-montaj{  --ph:#c0392b; --ph-halo:rgba(192,57,43,0.32); }
+  /* inel colorat dupa faza, pe toate dosarele — calm, static, "harta color dintr-o privire" */
+  .proj-wrap .proj-cluster{ box-shadow:0 0 0 3px var(--ph-halo, transparent), var(--shadow); }
   .proj-wrap[class*="phase-"] .proj-cluster-tab{ border-color:var(--ph); }
-  /* pastila cu etapa curenta, colorata dupa faza, palpaind */
+  /* eticheta cu faza curenta — "esti aici", nu alarma */
   .proj-cluster-tab .pct-stage{
-    align-self:center; margin-left:6px; padding:3px 11px; border-radius:999px;
-    font-size:15px; font-weight:800; letter-spacing:0.01em;
-    color:#fff; white-space:nowrap;
-    background:var(--ph); box-shadow:0 0 0 0 var(--ph-glow);
-    animation:stagePulse 1.7s ease-out infinite;
+    align-self:center; margin-left:8px; padding:2px 10px; border-radius:999px;
+    font-size:13px; font-weight:700; letter-spacing:0.02em;
+    color:#fff; white-space:nowrap; background:var(--ph);
   }
-  @keyframes stagePulse{
-    0%{ box-shadow:0 0 0 0 var(--ph-glow); }
-    70%{ box-shadow:0 0 0 12px rgba(0,0,0,0); }
-    100%{ box-shadow:0 0 0 0 rgba(0,0,0,0); }
-  }
-  @media (prefers-reduced-motion: reduce){ .proj-cluster-tab .pct-stage{ animation:none; } }
-  /* proiect cu ceva incomplet: halo mai gros + pulsatoriu + bara care enumera ce lipseste */
-  .proj-wrap.has-warn .proj-cluster{ border-color:var(--ph, #c0392b); animation:haloPulse 1.7s ease-out infinite; }
+  /* proiect cu ceva incomplet: inel mai gros (static) + bara care enumera ce lipseste = singura alarma */
+  .proj-wrap.has-warn .proj-cluster{ border-color:var(--ph, #c0392b); box-shadow:0 0 0 5px var(--ph-halo, rgba(192,57,43,0.32)), var(--shadow); }
   .proj-wrap.has-warn .proj-cluster-tab{ border-color:var(--ph, #c0392b); }
-  @keyframes haloPulse{
-    0%{ box-shadow:0 0 0 3.5px var(--ph-halo, rgba(192,57,43,0.36)), var(--shadow); }
-    60%{ box-shadow:0 0 0 11px rgba(0,0,0,0), var(--shadow); }
-    100%{ box-shadow:0 0 0 3.5px var(--ph-halo, rgba(192,57,43,0.36)), var(--shadow); }
-  }
-  @media (prefers-reduced-motion: reduce){ .proj-wrap.has-warn .proj-cluster{ animation:none; box-shadow:0 0 0 6px var(--ph-halo, rgba(192,57,43,0.36)), var(--shadow); } }
   .proj-warn-bar{
     display:flex; flex-wrap:wrap; align-items:center; gap:8px;
     padding:9px 16px; background:#fbe6e3; color:#8c2a1e;
@@ -1834,7 +1820,7 @@
       var stg = currentStageInfo(p);
       out += '<div class="proj-wrap' + (stg ? ' ' + stg.cls : '') + (warns.length ? ' has-warn' : '') + '" data-project="' + p.id + '" style="' + posStyle + '">';
       out += '<div class="proj-cluster-tab"><span class="pct-code">' + esc(p.cod) + '</span> <span class="pct-client">' + esc(p.client) + '</span>' +
-        (stg ? '<span class="pct-stage ' + stg.cls + '" title="Etapa curentă: ' + esc(stg.name) + '">⚠ ' + esc(stg.name) + '</span>' : '') + '</div>';
+        (stg ? '<span class="pct-stage ' + stg.cls + '" title="Etapa curentă">' + esc(stg.name) + '</span>' : '') + '</div>';
       out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
       out += '<div class="proj-cluster-head">';
       out += '<div class="head-add-stage">' +
