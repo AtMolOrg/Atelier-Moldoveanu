@@ -575,13 +575,14 @@
   .gantt-daycell.is-today{ color:#b3402f; font-weight:800; }
   .gantt-daycell .g-month{ display:block; color:var(--accent); font-weight:700; font-size:9px; text-transform:uppercase; margin-top:1px; }
   .gantt-today-line{ position:absolute; top:0; bottom:0; width:2px; background:#c0392b; z-index:2; pointer-events:none; }
-  .gantt-bar{ position:absolute; top:9px; height:22px; border-radius:5px; display:flex; align-items:center; padding:0 8px; overflow:visible; font-size:11px; font-weight:700; color:#fff; white-space:nowrap; cursor:pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
-  .gantt-bar span{ overflow:hidden; text-overflow:ellipsis; }
+  .gantt-bar{ position:absolute; top:9px; height:22px; border-radius:5px; display:flex; overflow:hidden; cursor:pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
   .gantt-bar:hover{ filter:brightness(1.06); }
-  .gantt-bar.phase-proiect{ background:#2f80c0; }
-  .gantt-bar.phase-piesa{ background:#e0842a; }
-  .gantt-bar.phase-montaj{ background:#c0392b; }
-  .gantt-bar.is-done{ background:var(--steel); color:rgba(0,0,0,0.55); }
+  .gantt-seg{ flex:none; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap; overflow:hidden; opacity:0.5; }
+  .gantt-seg.is-current{ opacity:1; }
+  .gantt-seg + .gantt-seg{ border-left:1px solid rgba(255,255,255,0.55); }
+  .gantt-seg.seg-ante{ background:#2f80c0; }
+  .gantt-seg.seg-exec{ background:#e0842a; }
+  .gantt-seg.seg-montaj{ background:#c0392b; }
   .gantt-overshoot{ position:absolute; top:9px; height:22px; background:repeating-linear-gradient(45deg, rgba(192,57,43,0.85), rgba(192,57,43,0.85) 6px, rgba(192,57,43,0.6) 6px, rgba(192,57,43,0.6) 12px); border-radius:0 5px 5px 0; z-index:1; display:flex; align-items:center; padding-left:6px; font-size:10px; font-weight:800; color:#fff; white-space:nowrap; pointer-events:none; }
   .gantt-handle{ position:absolute; top:5px; height:30px; width:12px; margin-left:-6px; cursor:ew-resize; z-index:4; display:flex; align-items:center; justify-content:center; }
   .gantt-handle::after{ content:''; width:4px; height:18px; border-radius:2px; background:rgba(0,0,0,0.35); }
@@ -729,7 +730,7 @@
     </div>
     <div class="tabs" id="tabs">
       <button data-tab="hala" class="active">Hartă atelier</button>
-      <button data-tab="gantt">Cronologie</button>
+      <button data-tab="gantt">Gantt</button>
       <button data-tab="comenzi">Comenzi</button>
       <button data-tab="reparatii">Reparații</button>
       <button data-tab="finalizate">Finalizate</button>
@@ -2944,11 +2945,23 @@
     });
   }
 
-  /* ================= CRONOLOGIE (Gantt) ================= */
+  /* ================= GANTT ================= */
   function ganttDayWidth(){ return ganttZoom === 'day' ? 40 : (ganttZoom === 'month' ? 6 : 15); }
   // estimated finish date of a project: the user's dragged value, else the termen, else a week out
   function ganttEnd(p, start){
     return parseDate(p.gataEstimat) || parseDate(p.termen) || addDays(start, 7);
+  }
+  // how many stages fall in each of the 3 phases — used to split the bar proportionally.
+  // anteproiect = etapele de proiect dinaintea pieselor (include proiectarea); execuție = etapele de piesă;
+  // montaj = etapele de proiect de după piese.
+  function ganttPhaseSpans(p){
+    var a = stationsFor(p);
+    var fp = a.findIndex(function(s){ return s.type === 'piesa'; });
+    var lp = -1; for(var i=a.length-1;i>=0;i--){ if(a[i].type==='piesa'){ lp=i; break; } }
+    var ante = (fp === -1) ? a.length : fp;
+    var exec = (fp === -1) ? 0 : (lp - fp + 1);
+    var montaj = (lp === -1) ? 0 : (a.length - lp - 1);
+    return { ante: ante, exec: exec, montaj: montaj, total: Math.max(1, ante + exec + montaj) };
   }
   function renderGantt(){
     var board = document.getElementById('board');
@@ -2958,7 +2971,7 @@
       .slice().sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
 
     if(projects.length === 0){
-      board.innerHTML = '<div class="empty-state gantt-empty"><h2>Nimic pe cronologie</h2><p>Proiectele active apar aici ca bare pe timp, de la deschidere până la data estimată de gata.</p></div>';
+      board.innerHTML = '<div class="empty-state gantt-empty"><h2>Nimic pe Gantt</h2><p>Proiectele active apar aici ca bare pe timp, de la deschidere până la data estimată de gata.</p></div>';
       return;
     }
 
@@ -3027,12 +3040,26 @@
       var barEndX = overshoot ? x(termen) : x(est);
       var barW = Math.max(dayW*0.7, barEndX - left);
 
+      // split the bar into anteproiect / execuție / montaj, widths proportional to how many stages each has
+      var sp = ganttPhaseSpans(p);
+      var segDefs = [
+        { kind:'ante',   n:sp.ante,   label:'Anteproiect', cur: stg.cls === 'phase-proiect' },
+        { kind:'exec',   n:sp.exec,   label:'Execuție',    cur: stg.cls === 'phase-piesa' },
+        { kind:'montaj', n:sp.montaj, label:'Montaj',      cur: stg.cls === 'phase-montaj' }
+      ].filter(function(s){ return s.n > 0; });
+      var accW = 0;
+      var segHtml = segDefs.map(function(s, i){
+        var w = (i === segDefs.length - 1) ? (barW - accW) : Math.round(barW * s.n / sp.total);
+        w = Math.max(0, w); accW += w;
+        return '<div class="gantt-seg seg-'+s.kind+(s.cur ? ' is-current' : '')+'" style="width:'+w+'px">'+(w > 56 ? s.label : '')+'</div>';
+      }).join('');
+
       rows += '<div class="gantt-row">';
       rows += '<div class="gantt-label" data-open="'+p.id+'"><span class="g-code">'+esc(p.cod)+'</span><span class="g-client">'+esc(p.client)+'</span>'+
         (slipTxt ? '<span class="g-slip" style="color:'+slipCol+'">'+slipTxt+'</span>' : '')+'</div>';
       rows += '<div class="gantt-track" style="width:'+trackW+'px; height:40px;">';
       rows += '<div class="gantt-today-line" style="left:'+todayX+'px"></div>';
-      rows += '<div class="gantt-bar '+stg.cls+'" data-open="'+p.id+'" style="left:'+left+'px; width:'+barW+'px"><span>'+esc(p.cod)+' · '+esc(p.client)+'</span></div>';
+      rows += '<div class="gantt-bar" data-open="'+p.id+'" style="left:'+left+'px; width:'+barW+'px" title="'+esc(p.cod+' · '+p.client)+'">'+segHtml+'</div>';
       if(overshoot){
         rows += '<div class="gantt-overshoot" style="left:'+x(termen)+'px; width:'+(x(est)-x(termen))+'px">+'+daysBetween(termen,est)+'z</div>';
       }
