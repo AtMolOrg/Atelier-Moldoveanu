@@ -622,7 +622,8 @@
   .pieces-editor{ display:flex; flex-direction:column; gap:8px; }
   .piece-row{ display:flex; gap:8px; align-items:center; }
   .piece-row input.piece-name{ flex:1; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:8px 10px; border-radius:7px; font-size:13px; }
-  .piece-row input.piece-color{ flex:0 0 130px; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:8px 10px; border-radius:7px; font-size:13px; }
+  .piece-row input.piece-qty{ flex:0 0 62px; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:8px 6px; border-radius:7px; font-size:13px; text-align:center; }
+  .piece-row input.piece-color{ flex:0 0 120px; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:8px 10px; border-radius:7px; font-size:13px; }
   .btn-remove-piece{ background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:7px; width:32px; height:32px; flex:none; }
   .btn-remove-piece:hover{ color:#a85248; border-color: rgba(200,110,95,0.45); }
   .modal-foot{ display:flex; justify-content:space-between; gap:10px; padding:16px 20px 20px; border-top:1px solid var(--border); }
@@ -878,7 +879,9 @@
       assignments: [],
       colorHistory: ['#f0b878','#a8c8dc','#a8d9b8','#f0dd9a','#d4b8dc','#a8dcc8','#f0b3bd','#b3d0e8'],
       connections: [],
-      checklists: []
+      checklists: [],
+      settings: { hoursPerDay: 7 },   // ore productive pe zi / om — folosit de prognoză
+      calib: {}                       // { [stationId]: { units, minutes } } — mediere auto a lui min/buc din realitate
     };
   }
 
@@ -1020,8 +1023,12 @@
     if(!Array.isArray(parsed.colorHistory)) parsed.colorHistory = [];
     if(!Array.isArray(parsed.connections)) parsed.connections = [];
     if(!Array.isArray(parsed.checklists)) parsed.checklists = [];
+    if(!parsed.settings || typeof parsed.settings !== 'object') parsed.settings = {};
+    if(typeof parsed.settings.hoursPerDay !== 'number' || parsed.settings.hoursPerDay <= 0) parsed.settings.hoursPerDay = 7;
+    if(!parsed.calib || typeof parsed.calib !== 'object') parsed.calib = {};
     parsed.projects.forEach(function(p){
       if(!Array.isArray(p.orders)) p.orders = [];
+      (p.pieces || []).forEach(function(pc){ if(typeof pc.qty !== 'number' || pc.qty < 1) pc.qty = 1; });
       if(typeof p.montajNotes !== 'string'){
         // the short-lived structured "necesar montaj" list is now just a free-text note
         p.montajNotes = (Array.isArray(p.montajNeeds) && p.montajNeeds.length)
@@ -1140,6 +1147,14 @@
   }
 
   /* ---------------- station helpers ---------------- */
+  // minute de lucru pe bucată la o etapă: media măsurată din realitate dacă avem destule date,
+  // altfel valoarea pusă manual (⏱ pe capul etapei), altfel null (necunoscut).
+  function effectiveMinPerUnit(station){
+    if(!station) return null;
+    var c = state.calib && state.calib[station.id];
+    if(c && c.units >= 20 && c.minutes > 0) return Math.round(c.minutes / c.units);
+    return (typeof station.minPerUnit === 'number' && station.minPerUnit > 0) ? station.minPerUnit : null;
+  }
   function piesaStations(){ return state.stations.filter(function(s){ return s.type === 'piesa'; }); }
   function firstPiesaIndex(){ return state.stations.findIndex(function(s){ return s.type === 'piesa'; }); }
   function lastPiesaIndex(){ for(var i=state.stations.length-1;i>=0;i--){ if(state.stations[i].type==='piesa') return i; } return -1; }
@@ -2011,6 +2026,10 @@
         var hasLanes = projLanes.length > 0;
         out += '<div class="proj-stage-box ' + station.type + '">';
         out += '<div class="proj-stage-head"><span>' + esc(station.name) + '</span><div class="col-actions">';
+        if(station.type === 'piesa'){
+          var mpu = effectiveMinPerUnit(station);
+          out += '<button data-act="minperunit" data-station="' + station.id + '" data-project="' + p.id + '" title="Minute de lucru pe bucată la etapa asta (pentru prognoză)">⏱ ' + (mpu ? mpu : '—') + '</button>';
+        }
         if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la stânga">‹</button>';
         if(sIdx < pStations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la dreapta">›</button>';
         out += '<button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button>';
@@ -2249,6 +2268,18 @@
         var arr = proj ? forkProjectStations(proj) : state.stations;
         var idx = arr.findIndex(function(s){ return s.id === id; });
         var st = arr[idx];
+        if(act === 'minperunit'){
+          if(!st) return;
+          var cur = (typeof st.minPerUnit === 'number' && st.minPerUnit > 0) ? String(st.minPerUnit) : '';
+          var ans = prompt('Minute de lucru pe bucată la „' + st.name + '" (câte minute ia o singură bucată). Gol = necunoscut:', cur);
+          if(ans === null) return;
+          ans = ans.trim();
+          var n = parseFloat(ans.replace(',', '.'));
+          if(ans === '' || isNaN(n) || n <= 0){ delete st.minPerUnit; }
+          else st.minPerUnit = Math.round(n * 10) / 10;
+          saveState(); render();
+          return;
+        }
         if(act === 'addlane'){
           if(proj){
             var stP = stationByIdFor(proj, id);
@@ -3599,17 +3630,19 @@
     root.innerHTML = html;
 
     var piecesEditor = document.getElementById('pieces-editor');
-    function addPieceRow(pieceId, name, stationId, colorCode){
+    function addPieceRow(pieceId, name, stationId, colorCode, qty){
       var row = document.createElement('div');
       row.className = 'piece-row';
       row.dataset.id = pieceId || uid();
       row.dataset.stationId = stationId || '';
-      row.innerHTML = '<input class="piece-name" value="'+esc(name||'')+'" placeholder="Denumire piesă (ex: stâlp 40x40, 1.2m)"><input class="piece-color" value="'+esc(colorCode||'')+'" placeholder="Cod culoare"><button type="button" class="btn-remove-piece">×</button>';
+      row.innerHTML = '<input class="piece-name" value="'+esc(name||'')+'" placeholder="Denumire piesă (ex: stâlp 40x40, 1.2m)">'+
+        '<input class="piece-qty" type="number" min="1" step="1" value="'+(qty||1)+'" title="Câte bucăți din piesa asta">'+
+        '<input class="piece-color" value="'+esc(colorCode||'')+'" placeholder="Cod culoare"><button type="button" class="btn-remove-piece">×</button>';
       row.querySelector('.btn-remove-piece').addEventListener('click', function(){ row.remove(); });
       piecesEditor.appendChild(row);
       return row;
     }
-    if(editing && proj.pieces && proj.pieces.length) proj.pieces.forEach(function(pc){ addPieceRow(pc.id, pc.name, pc.stationId, pc.colorCode); });
+    if(editing && proj.pieces && proj.pieces.length) proj.pieces.forEach(function(pc){ addPieceRow(pc.id, pc.name, pc.stationId, pc.colorCode, pc.qty); });
     document.getElementById('btn-add-piece').addEventListener('click', function(){ addPieceRow(null,'').querySelector('input').focus(); });
 
     function close(){ root.innerHTML=''; }
@@ -3633,7 +3666,8 @@
         var name = row.querySelector('.piece-name').value.trim();
         if(!name) return;
         var colorCode = row.querySelector('.piece-color').value.trim();
-        pieces.push({id: row.dataset.id, name: name, stationId: row.dataset.stationId || null, colorCode: colorCode});
+        var qty = Math.max(1, parseInt(row.querySelector('.piece-qty').value, 10) || 1);
+        pieces.push({id: row.dataset.id, name: name, stationId: row.dataset.stationId || null, colorCode: colorCode, qty: qty});
       });
 
       if(editing){
