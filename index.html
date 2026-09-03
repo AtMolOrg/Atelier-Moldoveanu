@@ -183,11 +183,9 @@
   }
   .head-add-stage button:hover{ border-color:var(--accent); color:var(--accent); }
 
-  /* ---------- SIDE PANELS — panouri laterale care ies din marginile fiecărui dosar
-     (dreapta: „necesar montaj"; stânga: „comenzi materiale"). Aceleași funcții: mâner, hover,
-     auto-hide, pin sincronizat per proiect. ---------- */
+  /* ---------- SIDE PANEL — „comenzi materiale", iese din marginea stângă a dosarului.
+     Mâner, hover, auto-hide, pin sincronizat per proiect. ---------- */
   .side-panel{ position:absolute; top:28px; z-index:20; display:flex; align-items:flex-start; }
-  .side-panel.side-right{ left:100%; }
   .side-panel.side-left{ right:100%; flex-direction:row-reverse; }
   .side-handle{
     flex:none; writing-mode:vertical-rl; text-orientation:mixed;
@@ -197,7 +195,6 @@
     text-transform:uppercase; color:var(--ink-dim); cursor:pointer; white-space:nowrap;
     box-shadow:var(--shadow);
   }
-  .side-right .side-handle{ border-left:none; border-radius:0 8px 8px 0; }
   .side-left .side-handle{ border-right:none; border-radius:8px 0 0 8px; }
   .side-handle:hover{ color:var(--ink); }
   .side-panel.open .side-handle{ display:none; }
@@ -206,19 +203,12 @@
     background:var(--panel); border:1px solid var(--border);
     padding:12px;
   }
-  .side-right .side-body{ border-left:3px solid var(--accent); border-radius:0 10px 10px 0; box-shadow: 12px 0 30px rgba(0,0,0,0.18); }
   .side-left .side-body{ border-right:3px solid var(--accent); border-radius:10px 0 0 10px; box-shadow: -12px 0 30px rgba(0,0,0,0.18); }
   .side-panel.open .side-body{ display:block; }
   .side-head{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
   .side-title{ flex:1; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-dim); }
   .side-pin.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
   .side-count{ background:var(--panel-3); border-radius:999px; padding:1px 7px; font-size:9px; color:var(--ink-dim); }
-
-  .montaj-notes{
-    width:100%; min-height:180px; resize:vertical; display:block;
-    background:var(--panel-2); border:1px solid var(--border); border-radius:8px; color:var(--ink);
-    padding:8px 10px; font-family:inherit; font-size:12.5px; line-height:1.5;
-  }
 
   /* comenzi materiale — rânduri într-un panou îngust: stare+text+șterge sus, cantitate+furnizor jos */
   .side-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
@@ -831,17 +821,6 @@
   }
   var LOG_LABEL = { 'proiect-nou':'proiect nou', 'finalizat':'finalizat', 'redeschis':'redeschis', 'avansat':'avansat', 'piesa-montaj':'piesă la montaj', 'furnizor-retur':'primit de la furnizor' };
 
-  function layoutStationsGrid(stations){
-    var colWidth = 260, gap = 14, maxCols = 6, rowHeight = 440;
-    var curCol = 0, curRow = 0;
-    stations.forEach(function(s){
-      if(typeof s.x === 'number' && typeof s.y === 'number') return;
-      if(curCol > 0 && curCol + 1 > maxCols){ curCol = 0; curRow++; }
-      s.x = curCol * (colWidth + gap);
-      s.y = curRow * rowHeight;
-      curCol += 1;
-    });
-  }
   function defaultState(){
     var stations = [
         {id:'s1', name:'Ofertare', type:'proiect'},
@@ -852,7 +831,6 @@
         {id:'s6', name:'Finisaj', type:'piesa', lanes:[{id:'l1',name:'Atelier'},{id:'l2',name:'Extern'},{id:'l3',name:'Finalizat'}]},
         {id:'s7', name:'Montaj', type:'proiect'}
     ];
-    layoutStationsGrid(stations);
     return {
       version: DATA_VERSION,
       stations: stations,
@@ -989,7 +967,6 @@
     return parsed;
   }
   function migrateV7toV8(parsed){
-    layoutStationsGrid(parsed.stations||[]);
     parsed.version = 8;
     return parsed;
   }
@@ -1012,6 +989,7 @@
           : '';
       }
       delete p.montajNeeds;
+      delete p.montajPinned; // panoul „necesar montaj" a devenit câmp în modal — nu mai are pin
       // each project now carries its own flow stages — seed from the shared list on first load
       if(!Array.isArray(p.stations) || !p.stations.length){
         p.stations = JSON.parse(JSON.stringify(parsed.stations || []));
@@ -1275,7 +1253,7 @@
     var orders = p.orders || [];
     if(orders.length){
       var missing = orders.filter(function(o){ return o.status !== 'primit'; }).length;
-      if(missing) w.push('📦 ' + missing + (missing === 1 ? ' comandă neprimită' : ' comenzi neprimite'));
+      if(missing) w.push('📋 ' + missing + (missing === 1 ? ' comandă neprimită' : ' comenzi neprimite'));
     }
     var a = stationsFor(p);
     var curIdx = p.stationId ? a.findIndex(function(s){ return s.id === p.stationId; }) : -1;
@@ -1352,9 +1330,11 @@
     state.assignments.push(a);
     return true;
   }
-  // eticheta de timp pe cip-ul unui furnizor: cât e plecată piesa / după câte zile a venit
+  // eticheta de timp pe cip-ul unui furnizor: cât e plecată piesa / după câte zile a venit.
+  // Doar pe atribuiri la nivel de piesă — la nivel de proiect / echipă montaj nu are sens.
   function supplierTimeChip(a, w){
     if(!w || w.kind !== 'furnizor' || !a.sentAt) return '';
+    if(!a.pieceId || a.pieceId === MONTAJ_TEAM) return '';
     if(a.receivedAt){
       var d = daysBetweenIso(a.sentAt, a.receivedAt);
       return '<span class="furn-time done" title="Primit după ' + d + ' zile">✓ ' + d + 'z</span>';

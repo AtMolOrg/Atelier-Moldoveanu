@@ -4,6 +4,12 @@ Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca 
 
 ## 2026-09-03
 
+- **Coadă de curățenie (B7/B8 + cod mort rămas).**
+  - **B8**: cronometrul de furnizor (🚚 Nz) apare acum doar pe atribuiri la nivel de piesă — nu la nivel de proiect / echipă montaj (guard `!a.pieceId || a.pieceId === MONTAJ_TEAM` în `supplierTimeChip`).
+  - **B7**: 📦 înseamnă acum consecvent „montaj" (butonul de trimis piesa + linia de pe card); avertismentul de comenzi neprimite a trecut pe 📋, ca restul referințelor la materiale.
+  - Scos CSS-ul inert după C2: `.montaj-notes`, regulile `.side-right` (panoul lateral din dreapta nu mai există). `delete p.montajPinned` în `normalizeState`.
+  - Scos `layoutStationsGrid` (+ apelurile din `defaultState` / `migrateV7toV8`) — poziționa etapele într-un grid pentru vederea cu coloane care nu mai există; `s.x`/`s.y` nu se mai citesc nicăieri.
+  - `index.html`: 4053 → 3640 linii pe tot arcul auditului.
 - **Pasul 6 — B1 + mărunt.**
   - **B1**: un proiect cu flux doar de etape de proiect (fără etape de piesă) rămânea blocat pe ultima etapă, fără buton de finalizare. Acum, pe ultima etapă a unui astfel de flux (`!next && piesaStationsFor(p).length === 0`), apare „Finalizează proiect ✓" (`data-close-project`). Fluxul implicit (cu Montaj după piese) nu e afectat.
   - **B5**: adăugat listener de `resize` (debounced 150ms) care re-cheamă `updateSidebarForTab()` pe tab-urile non-hartă, ca `paddingTop`-ul de sub bara fixă să se remăsoare când butoanele se rup pe alt număr de rânduri.
