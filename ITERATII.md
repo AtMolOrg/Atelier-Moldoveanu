@@ -2,6 +2,10 @@
 
 Jurnal al schimbărilor majore de design/arhitectură făcute pe aplicație, ca istoric de decizii — separat de [TODO.md](TODO.md), care e lista de lucruri de făcut.
 
+## 2026-09-03
+
+- **Tab „Reparații" readăugat** în bara de tab-uri (fusese scos pe 2026-08-24, codul rămăsese intact). Nicio schimbare de cod în afară de butonul din `#tabs` — `renderReparatii`, `openRepairModal`, `REPAIR_STATUSES`, dispatch-ul din `render()` și `setAddButton` (relabel „+ Reparație nouă") erau deja acolo. E un board kanban cu 3 coloane (Deschisă / În lucru / Rezolvată), card cu cod proiect original + client + descriere problemă + dată, mutare prin drag&drop sau butoane ‹ înapoi / înainte ›, Editează / Șterge. Modalul „+ Reparație nouă" cere codul proiectului original (autocomplete din codurile existente → completează automat clientul). Reparațiile stau în `state.repairs`, se sincronizează ca restul.
+
 ## 2026-08-31
 
 - **Încercare eșuată: listă verticală grupată pe fază, în locul canvas-ului liber** (revenit la canvas). Motiv de pornire: la 20-50 proiecte active, canvas-ul cu pan/zoom liber devine greu de folosit (nu găsești rapid un proiect, dosare suprapuse, mult zoom manual). S-a construit o variantă cu scroll vertical normal, proiecte grupate automat pe fază (Proiectare/Execuție/Montaj, din `currentStageInfo`), reordonare prin drag doar în cadrul grupei, buton de restrângere pe dosar, scalare automată (`zoom` CSS) ca să încapă lățimea ecranului, și listele libere ("+ Listă") mutate într-un sidebar nou în dreapta. **Bug găsit abia după deploy**: panourile laterale (Comenzi materiale / Necesar montaj), poziționate `position:absolute` relativ la `.proj-wrap`, nu s-au comportat corect în noul context (scroll real + `zoom` CSS) — apăreau rupte de card, suprapuse. Nu fusese testat cu panourile deschise înainte de deploy. Revenit la canvas-ul liber (commit revert). Dacă se reia ideea: de testat explicit cu Comenzi materiale/Necesar montaj deschise înainte de orice deploy.

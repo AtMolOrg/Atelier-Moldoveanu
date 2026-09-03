@@ -7,7 +7,6 @@
 - [ ] Tab "Cronologie" (Gantt) — scos din bara de tab-uri pe 2026-08-24, de reevaluat/redesenat ulterior
 - [ ] View-ul "Etape comune" din Hartă atelier (board-ul liber cu coloane trase manual) — scos din UI pe 2026-08-24, a rămas doar "Pe proiecte"
 - [ ] Tab "Proiecte" (tabelul cu Traseu/Tabel, filtrul "arată și proiectele finalizate") — scos din bara de tab-uri pe 2026-08-24
-- [ ] Tab "Reparații" (board-ul de reparații) — scos din bara de tab-uri pe 2026-08-24
 
 Istoricul lucrurilor rezolvate s-a mutat în [ITERATII.md](ITERATII.md), ca să rămână TODO-ul curat, doar cu ce mai e de făcut.
 
