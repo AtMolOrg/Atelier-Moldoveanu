@@ -1543,17 +1543,6 @@
     return h;
   }
 
-  /* ---------------- "necesar montaj" — panou lateral per proiect ---------------- */
-  // Pin is per-project and lives in shared state (p.montajPinned) — pin it once, everyone sees it pinned.
-  function renderMontajPanel(p){
-    var notes = typeof p.montajNotes === 'string' ? p.montajNotes : '';
-    var b = '<textarea class="montaj-notes" data-montaj-notes="' + p.id + '" placeholder="Ce trebuie pregătit / dus la montaj…">' + esc(notes) + '</textarea>';
-    return renderSidePanel({
-      projectId: p.id, kind: 'montaj', side: 'right', pinField: 'montajPinned',
-      label: '📦 necesar montaj' + (notes.trim() ? ' •' : ''), title: 'Necesar montaj', count: '',
-      pinned: !!p.montajPinned, bodyHtml: b
-    });
-  }
 
   /* ---------------- canvas pan/zoom (Hartă tab) ---------------- */
   function applyCanvasTransform(){
@@ -1871,7 +1860,6 @@
       });
       out += '</div></div>'; // close .proj-cluster-stages, .proj-cluster
       out += renderOrdersPanel(p);   // left edge
-      out += renderMontajPanel(p);   // right edge
       out += '</div>'; // close .proj-wrap
     });
     checklists.forEach(function(cl){ out += renderChecklistCard(cl); });
@@ -1932,6 +1920,7 @@
       html += '<div class="card-orders-line">📋 Materiale ' + recvCount + '/' + p.orders.length +
         (complete ? ' <span style="color:#3d7a52;">· complet</span>' : ' <span style="color:#a8483a;">· incomplet</span>') + '</div>';
     }
+    if((p.montajNotes || '').trim()) html += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
     if(p.notite) html += '<div class="card-notes">' + esc(p.notite) + '</div>';
     html += renderAssignedPeople(p.id);
     if(p.pieces && p.pieces.length){
@@ -2638,16 +2627,6 @@
         saveState(); render();
       });
     });
-    document.querySelectorAll('[data-montaj-notes]').forEach(function(ta){
-      ta.addEventListener('mousedown', function(e){ e.stopPropagation(); });
-      ta.addEventListener('change', function(){
-        var p = projectById(ta.dataset.montajNotes);
-        if(!p) return;
-        p.montajNotes = ta.value;
-        saveState(); // on blur; no re-render so the caret stays put
-      });
-    });
-
     // drop zones — station bodies (projects/pieces/workers) and the unassigned-people pool (workers only)
     document.querySelectorAll('.col-body').forEach(function(zone){
       zone.addEventListener('dragover', function(e){
@@ -3352,6 +3331,7 @@
     html += '<div class="field"><label>Tip lucrare</label><input id="f-tip" value="'+esc(editing?(proj.tip||''):'')+'" placeholder="ex: Balustradă, Poartă, Tâmplărie ușă…"></div>';
 
     html += '<div class="field"><label>Notițe</label><textarea id="f-notite" placeholder="Detalii, cotă, observații…">'+esc(editing?(proj.notite||''):'')+'</textarea></div>';
+    html += '<div class="field"><label>Necesar montaj</label><textarea id="f-montaj" placeholder="Ce se pregătește / se duce pentru ziua montajului (șuruburi, scule, dibluri…)">'+esc(editing?(proj.montajNotes||''):'')+'</textarea></div>';
     html += '<div class="field"><label>Listă piese</label><div class="pieces-editor" id="pieces-editor"></div>';
     html += '<button type="button" class="btn btn-sm btn-ghost" id="btn-add-piece" style="margin-top:8px;">+ Adaugă piesă</button>';
     html += '<div class="field-hint">Piesele pornesc „La proiectare" — le trimiți individual în producție din sublista de pe cardul proiectului, când sunt gata.</div>';
@@ -3391,6 +3371,7 @@
       if(!cod || !client || !termen){ alert('Completează cod, client și termen limită.'); return; }
       var tip = document.getElementById('f-tip').value.trim();
       var notite = document.getElementById('f-notite').value.trim();
+      var montajNotes = document.getElementById('f-montaj').value.trim();
 
       var pieces = [];
       piecesEditor.querySelectorAll('.piece-row').forEach(function(row){
@@ -3402,7 +3383,7 @@
 
       if(editing){
         proj.cod=cod; proj.client=client; proj.termen=termen; proj.tip=tip;
-        proj.notite=notite; proj.pieces=pieces;
+        proj.notite=notite; proj.montajNotes=montajNotes; proj.pieces=pieces;
         var stageSel = document.getElementById('f-stage');
         if(stageSel){ proj.stationId = stageSel.value; proj.lane = null; }
       } else {
@@ -3413,7 +3394,7 @@
           id: uid(), cod:cod, client:client, termen:termen, tip:tip,
           stations: newStations,
           stationId: stageSelNew ? stageSelNew.value : (firstProiect ? firstProiect.id : null),
-          finalizat:false, notite:notite, pieces:pieces, orders:[], montajNotes:'', createdAt: isoToday()
+          finalizat:false, notite:notite, pieces:pieces, orders:[], montajNotes:montajNotes, createdAt: isoToday()
         });
         logEvent('proiect-nou', cod + ' · ' + client);
       }
