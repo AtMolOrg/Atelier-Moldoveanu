@@ -552,24 +552,43 @@
   .traseu-pieces{ display:flex; flex-direction:column; gap:3px; }
   .traseu-piece-chip{ background:var(--panel-3); border-radius:5px; padding:2px 6px; font-size:10.5px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
 
-  /* ---------- GANTT ---------- */
-  .gantt-wrap{ overflow:auto; height:100%; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); }
+  /* ---------- GANTT / CRONOLOGIE ---------- */
+  .gantt-toolbar{ display:flex; align-items:center; gap:10px; padding:0 2px 10px; flex-wrap:wrap; }
+  .gantt-zoom{ display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .gantt-zoom button{ border:none; background:var(--panel); padding:7px 14px; font-size:12.5px; cursor:pointer; color:var(--ink-dim); }
+  .gantt-zoom button.active{ background:var(--accent); color:var(--accent-ink); }
+  .gantt-hint{ font-size:11.5px; color:var(--ink-faint); }
+  .gantt-wrap{ overflow:auto; height:calc(100% - 44px); max-height:calc(100vh - 150px); background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); }
   .gantt-row{ display:flex; }
+  .gantt-row:nth-child(even) .gantt-track{ background-color: rgba(0,0,0,0.015); }
   .gantt-row-header{ position:sticky; top:0; z-index:3; background:var(--panel); }
-  .gantt-label{ position:sticky; left:0; z-index:2; width:230px; min-width:230px; background:var(--panel); border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:10px 12px; display:flex; flex-direction:column; justify-content:center; gap:2px; }
-  .gantt-row-header .gantt-label{ z-index:4; }
+  .gantt-label{ position:sticky; left:0; z-index:2; width:210px; min-width:210px; background:var(--panel); border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:2px; cursor:pointer; }
+  .gantt-label:hover{ background:var(--panel-2); }
+  .gantt-row-header .gantt-label{ z-index:4; cursor:default; }
+  .gantt-row-header .gantt-label:hover{ background:var(--panel); }
   .gantt-label .g-code{ font-family:'Raleway', sans-serif; font-size:11.5px; color:var(--accent); font-weight:600; }
   .gantt-label .g-client{ font-size:12.5px; font-weight:600; }
+  .gantt-label .g-slip{ font-size:10.5px; font-weight:700; margin-top:1px; }
   .gantt-track{ position:relative; border-bottom:1px solid var(--border); }
   .gantt-header-days{ display:flex; border-bottom:1px solid var(--border); }
-  .gantt-daycell{ flex:none; text-align:center; font-family:'Raleway', sans-serif; font-size:10.5px; color:var(--ink-faint); padding:10px 0 6px; border-right:1px solid rgba(0,0,0,0.07); }
-  .gantt-daycell .g-month{ display:block; color:var(--accent); font-weight:700; font-size:9.5px; text-transform:uppercase; margin-top:1px; }
-  .gantt-bar{ position:absolute; top:9px; height:22px; border-radius:5px; display:flex; align-items:center; padding:0 8px; overflow:hidden; font-size:11px; font-weight:600; color:rgba(0,0,0,0.65); white-space:nowrap; cursor:pointer; transition: filter var(--dur), transform var(--dur); box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-  .gantt-bar:hover{ filter:brightness(1.1); transform: translateY(-1px); }
-  .bar-ok{ background: var(--ok); }
-  .bar-warn{ background: var(--warn); }
-  .bar-overdue{ background: var(--danger); color:#4a1c14; }
-  .bar-done{ background: var(--steel); }
+  .gantt-daycell{ flex:none; text-align:center; font-family:'Raleway', sans-serif; font-size:10px; color:var(--ink-faint); padding:9px 0 5px; border-right:1px solid rgba(0,0,0,0.06); }
+  .gantt-daycell.is-today{ color:#b3402f; font-weight:800; }
+  .gantt-daycell .g-month{ display:block; color:var(--accent); font-weight:700; font-size:9px; text-transform:uppercase; margin-top:1px; }
+  .gantt-today-line{ position:absolute; top:0; bottom:0; width:2px; background:#c0392b; z-index:2; pointer-events:none; }
+  .gantt-bar{ position:absolute; top:9px; height:22px; border-radius:5px; display:flex; align-items:center; padding:0 8px; overflow:visible; font-size:11px; font-weight:700; color:#fff; white-space:nowrap; cursor:pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+  .gantt-bar span{ overflow:hidden; text-overflow:ellipsis; }
+  .gantt-bar:hover{ filter:brightness(1.06); }
+  .gantt-bar.phase-proiect{ background:#2f80c0; }
+  .gantt-bar.phase-piesa{ background:#e0842a; }
+  .gantt-bar.phase-montaj{ background:#c0392b; }
+  .gantt-bar.is-done{ background:var(--steel); color:rgba(0,0,0,0.55); }
+  .gantt-overshoot{ position:absolute; top:9px; height:22px; background:repeating-linear-gradient(45deg, rgba(192,57,43,0.85), rgba(192,57,43,0.85) 6px, rgba(192,57,43,0.6) 6px, rgba(192,57,43,0.6) 12px); border-radius:0 5px 5px 0; z-index:1; display:flex; align-items:center; padding-left:6px; font-size:10px; font-weight:800; color:#fff; white-space:nowrap; pointer-events:none; }
+  .gantt-handle{ position:absolute; top:5px; height:30px; width:12px; margin-left:-6px; cursor:ew-resize; z-index:4; display:flex; align-items:center; justify-content:center; }
+  .gantt-handle::after{ content:''; width:4px; height:18px; border-radius:2px; background:rgba(0,0,0,0.35); }
+  .gantt-handle:hover::after{ background:rgba(0,0,0,0.6); }
+  .gantt-deadline{ position:absolute; top:3px; bottom:3px; width:0; border-left:2px dashed #7a2018; z-index:3; pointer-events:none; }
+  .gantt-deadline::after{ content:'⚑'; position:absolute; top:-2px; left:1px; font-size:11px; color:#7a2018; }
+  .gantt-drag-tip{ position:fixed; z-index:99; background:#2a2a2a; color:#fff; font-size:11.5px; font-weight:600; padding:6px 9px; border-radius:6px; pointer-events:none; white-space:nowrap; box-shadow:0 4px 14px rgba(0,0,0,0.3); }
   .gantt-empty{ margin:auto; }
 
   /* ---------- REPARATII ---------- */
@@ -710,6 +729,7 @@
     </div>
     <div class="tabs" id="tabs">
       <button data-tab="hala" class="active">Hartă atelier</button>
+      <button data-tab="gantt">Cronologie</button>
       <button data-tab="comenzi">Comenzi</button>
       <button data-tab="reparatii">Reparații</button>
       <button data-tab="finalizate">Finalizate</button>
@@ -755,6 +775,9 @@
   var state = null;
   var tab = 'hala';
   var searchQuery = '';
+  var ganttZoom = 'week';   // 'day' | 'week' | 'month' — pixel scale of the Cronologie tab
+  var ganttDrag = null;     // active drag of a bar's estimated-finish handle
+  var ganttDragCtx = null;  // { minDate, dayW } for the currently rendered Cronologie
   var recentLocalSigs = [];     // stableStringify of states we recently pushed — to ignore our own echoes
   var remoteDirty = false;      // a remote change arrived while the user was mid-edit — re-fetch & apply once idle
   var liveSyncAttached = false;
@@ -806,6 +829,8 @@
   }
   function todayDate(){ var d = new Date(); d.setHours(0,0,0,0); return d; }
   function isoToday(){ var d = todayDate(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+  function isoOf(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+  function addDays(d, n){ return new Date(d.getTime() + n*86400000); }
   function parseDate(iso){ if(!iso) return null; var p = iso.split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); }
   function daysBetween(a,b){ return Math.round((b-a)/86400000); }
   function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
@@ -2919,70 +2944,170 @@
     });
   }
 
-  /* ================= GANTT ================= */
+  /* ================= CRONOLOGIE (Gantt) ================= */
+  function ganttDayWidth(){ return ganttZoom === 'day' ? 40 : (ganttZoom === 'month' ? 6 : 15); }
+  // estimated finish date of a project: the user's dragged value, else the termen, else a week out
+  function ganttEnd(p, start){
+    return parseDate(p.gataEstimat) || parseDate(p.termen) || addDays(start, 7);
+  }
   function renderGantt(){
     var board = document.getElementById('board');
-    var visibleProjects = state.projects.filter(function(p){ return matchesSearch(p.cod,p.client); })
+    board.className = ''; board.style.display = 'block'; board.style.height = '100%';
+
+    var projects = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod, p.client); })
       .slice().sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
 
-    board.className = ''; board.style.display='block'; board.style.height='100%';
-
-    if(state.projects.length === 0){
-      board.innerHTML = '<div class="empty-state gantt-empty"><h2>Nimic de programat</h2><p>Adaugă un proiect cu termen limită ca să apară pe cronologie.</p><button class="btn btn-primary" id="empty-add-g">+ Adaugă primul proiect</button></div>';
-      document.getElementById('empty-add-g').onclick = function(){ openProjectModal(null); };
+    if(projects.length === 0){
+      board.innerHTML = '<div class="empty-state gantt-empty"><h2>Nimic pe cronologie</h2><p>Proiectele active apar aici ca bare pe timp, de la deschidere până la data estimată de gata.</p></div>';
       return;
     }
 
     var today = todayDate();
-    var minDate = today, maxDate = new Date(today.getTime() + 13*86400000);
-    visibleProjects.forEach(function(p){
-      var c = parseDate(p.createdAt), t = parseDate(p.termen);
-      if(c && c < minDate) minDate = c;
-      if(t && t > maxDate) maxDate = t;
+    var dayW = ganttDayWidth();
+
+    var minDate = today, maxDate = addDays(today, 14);
+    projects.forEach(function(p){
+      var s = parseDate(p.createdAt) || today;
+      var e = ganttEnd(p, s);
+      if(s < minDate) minDate = s;
+      if(e > maxDate) maxDate = e;
     });
-    minDate = new Date(minDate.getTime() - 2*86400000);
-    maxDate = new Date(maxDate.getTime() + 3*86400000);
+    minDate = addDays(minDate, -3);
+    maxDate = addDays(maxDate, ganttZoom === 'month' ? 21 : 7);
     var numDays = Math.max(14, daysBetween(minDate, maxDate));
-    var dayWidth = 34;
+    var trackW = numDays * dayW;
+    function x(d){ return daysBetween(minDate, d) * dayW; }
+    var todayX = x(today);
 
-    function dayBg(){
-      var stops = [];
+    // ---- time header ----
+    var headCells = '';
+    if(ganttZoom === 'day'){
       for(var i=0;i<numDays;i++){
-        var d = new Date(minDate.getTime() + i*86400000);
-        var isWeekend = d.getDay()===0 || d.getDay()===6;
-        var isToday = sameDay(d, today);
-        var color = isToday ? 'rgba(0,0,0,0.12)' : (isWeekend ? 'rgba(0,0,0,0.06)' : 'transparent');
-        var from = i*dayWidth, to=(i+1)*dayWidth;
-        stops.push(color+' '+from+'px', color+' '+to+'px');
+        var d = addDays(minDate, i);
+        headCells += '<div class="gantt-daycell'+(sameDay(d,today)?' is-today':'')+'" style="width:'+dayW+'px">'+d.getDate()+
+          ((d.getDate()===1||i===0)?'<span class="g-month">'+MONTHS[d.getMonth()]+'</span>':'')+'</div>';
       }
-      return 'linear-gradient(to right, '+stops.join(',')+')';
+    } else if(ganttZoom === 'week'){
+      for(var w=0; w<numDays; w+=7){
+        var d0 = addDays(minDate, w);
+        var ww = Math.min(7, numDays - w);
+        headCells += '<div class="gantt-daycell" style="width:'+(ww*dayW)+'px">'+d0.getDate()+' '+MONTHS[d0.getMonth()]+'</div>';
+      }
+    } else {
+      var cur = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+      while(cur < maxDate){
+        var nx = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+        var from = Math.max(0, x(cur)), to = Math.min(trackW, x(nx));
+        headCells += '<div class="gantt-daycell" style="width:'+Math.max(0,(to-from))+'px">'+MONTHS[cur.getMonth()]+' '+cur.getFullYear()+'</div>';
+        cur = nx;
+      }
     }
-    var bg = dayBg();
-    var trackWidth = numDays*dayWidth;
 
-    var html = '<div class="gantt-wrap"><div style="min-width:'+(230+trackWidth)+'px;">';
-    html += '<div class="gantt-row gantt-row-header"><div class="gantt-label"><span class="g-code">Proiect</span></div>';
-    html += '<div class="gantt-header-days" style="width:'+trackWidth+'px; background-image:'+bg+'">';
-    for(var i=0;i<numDays;i++){
-      var d = new Date(minDate.getTime()+i*86400000);
-      html += '<div class="gantt-daycell" style="width:'+dayWidth+'px">'+d.getDate()+(d.getDate()===1||i===0?'<span class="g-month">'+MONTHS[d.getMonth()]+'</span>':'')+'</div>';
-    }
-    html += '</div></div>';
-    visibleProjects.forEach(function(p){
-      var c = parseDate(p.createdAt) || today;
-      var t = parseDate(p.termen) || c;
-      var offsetDays = Math.max(0, daysBetween(minDate, c));
-      var spanDays = Math.max(1, daysBetween(c, t));
-      var urg = p.finalizat ? 'done' : urgencyOf(p);
-      html += '<div class="gantt-row"><div class="gantt-label"><span class="g-code">'+esc(p.cod)+'</span><span class="g-client">'+esc(p.client)+'</span></div>';
-      html += '<div class="gantt-track" style="width:'+trackWidth+'px; height:40px; background-image:'+bg+'">';
-      html += '<div class="gantt-bar bar-'+urg+'" data-edit="'+p.id+'" style="left:'+(offsetDays*dayWidth)+'px; width:'+(spanDays*dayWidth-4)+'px" title="'+esc(p.cod)+' — '+esc(p.client)+' — termen '+esc(p.termen)+'">'+esc(p.cod)+'</div>';
-      html += '</div></div>';
+    // ---- rows ----
+    var rows = '';
+    projects.forEach(function(p){
+      var start = parseDate(p.createdAt) || today;
+      var termen = parseDate(p.termen);
+      var est = ganttEnd(p, start);
+      if(est < start) est = addDays(start, 1);
+      // a project that isn't done can't realistically finish in the past — floor the estimate at today
+      if(!p.finalizat && est < today) est = today;
+      var stg = currentStageInfo(p) || { cls: 'phase-proiect' };
+
+      var slipTxt = '', slipCol = '';
+      if(termen){
+        var slip = daysBetween(termen, est);
+        if(slip > 0){ slipTxt = '+'+slip+(slip===1?' zi':' zile')+' peste termen'; slipCol = '#a8483a'; }
+        else if(slip === 0){ slipTxt = 'fix pe termen'; slipCol = '#3d7a52'; }
+        else { slipTxt = (-slip)+(slip===-1?' zi':' zile')+' în avans'; slipCol = '#3d7a52'; }
+      }
+
+      var left = x(start);
+      var overshoot = termen && est > termen;
+      var barEndX = overshoot ? x(termen) : x(est);
+      var barW = Math.max(dayW*0.7, barEndX - left);
+
+      rows += '<div class="gantt-row">';
+      rows += '<div class="gantt-label" data-open="'+p.id+'"><span class="g-code">'+esc(p.cod)+'</span><span class="g-client">'+esc(p.client)+'</span>'+
+        (slipTxt ? '<span class="g-slip" style="color:'+slipCol+'">'+slipTxt+'</span>' : '')+'</div>';
+      rows += '<div class="gantt-track" style="width:'+trackW+'px; height:40px;">';
+      rows += '<div class="gantt-today-line" style="left:'+todayX+'px"></div>';
+      rows += '<div class="gantt-bar '+stg.cls+'" data-open="'+p.id+'" style="left:'+left+'px; width:'+barW+'px"><span>'+esc(p.cod)+' · '+esc(p.client)+'</span></div>';
+      if(overshoot){
+        rows += '<div class="gantt-overshoot" style="left:'+x(termen)+'px; width:'+(x(est)-x(termen))+'px">+'+daysBetween(termen,est)+'z</div>';
+      }
+      if(termen) rows += '<div class="gantt-deadline" style="left:'+x(termen)+'px"></div>';
+      rows += '<div class="gantt-handle" data-handle="'+p.id+'" style="left:'+x(est)+'px" title="Trage ca să muți data estimată de gata"></div>';
+      rows += '</div></div>';
     });
-    html += '</div></div>';
+
+    var toolbar = '<div class="gantt-toolbar"><div class="gantt-zoom">'+
+      '<button data-gz="day" class="'+(ganttZoom==='day'?'active':'')+'">Zi</button>'+
+      '<button data-gz="week" class="'+(ganttZoom==='week'?'active':'')+'">Săptămână</button>'+
+      '<button data-gz="month" class="'+(ganttZoom==='month'?'active':'')+'">Lună</button>'+
+      '</div><span class="gantt-hint">Bara = de la deschidere până la data estimată de gata · ⚑ termen · linia roșie = azi. Trage mânerul din dreapta ca să vezi întârzierea.</span></div>';
+
+    var html = toolbar + '<div class="gantt-wrap"><div style="min-width:'+(210+trackW)+'px;">';
+    html += '<div class="gantt-row gantt-row-header"><div class="gantt-label"><span class="g-code">Proiect</span></div>';
+    html += '<div class="gantt-header-days" style="width:'+trackW+'px;">'+headCells+'</div></div>';
+    html += rows + '</div></div>';
     board.innerHTML = html;
-    document.querySelectorAll('.gantt-bar').forEach(function(bar){ bar.addEventListener('click', function(){ openProjectModal(bar.dataset.edit); }); });
+
+    ganttDragCtx = { minDate: minDate, dayW: dayW };
+    document.querySelectorAll('[data-gz]').forEach(function(b){
+      b.addEventListener('click', function(){ ganttZoom = b.dataset.gz; render(); });
+    });
+    document.querySelectorAll('.gantt-label[data-open], .gantt-bar[data-open]').forEach(function(el){
+      el.addEventListener('click', function(e){ if(e.target.closest('.gantt-handle')) return; openProjectModal(el.dataset.open); });
+    });
+    document.querySelectorAll('.gantt-handle[data-handle]').forEach(function(h){
+      h.addEventListener('mousedown', function(e){
+        e.preventDefault();
+        ganttDrag = { id: h.dataset.handle, el: h, startX: e.clientX, origLeft: parseFloat(h.style.left) || 0 };
+        var tip = document.createElement('div'); tip.className = 'gantt-drag-tip'; tip.id = 'gantt-drag-tip';
+        document.body.appendChild(tip);
+        document.body.style.userSelect = 'none';
+        ganttDragMove(e);
+      });
+    });
   }
+  function ganttDragIso(px){
+    var days = Math.max(0, Math.round(px / ganttDragCtx.dayW));
+    return isoOf(addDays(ganttDragCtx.minDate, days));
+  }
+  function ganttDragMove(e){
+    if(!ganttDrag || !ganttDragCtx) return;
+    var p = state.projects.find(function(x){ return x.id === ganttDrag.id; });
+    if(!p) return;
+    var newLeft = Math.max(0, ganttDrag.origLeft + (e.clientX - ganttDrag.startX));
+    ganttDrag.el.style.left = newLeft + 'px';
+    var iso = ganttDragIso(newLeft);
+    var est = parseDate(iso), termen = parseDate(p.termen);
+    var label = 'Gata estimat: ' + est.getDate() + ' ' + MONTHS[est.getMonth()];
+    if(termen){
+      var slip = daysBetween(termen, est);
+      label += slip > 0 ? '  ·  +' + slip + 'z peste termen' : (slip === 0 ? '  ·  pe termen' : '  ·  ' + (-slip) + 'z în avans');
+    }
+    var tip = document.getElementById('gantt-drag-tip');
+    if(tip){ tip.textContent = label; tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY - 12) + 'px'; }
+  }
+  window.addEventListener('mousemove', ganttDragMove);
+  window.addEventListener('mouseup', function(e){
+    if(!ganttDrag) return;
+    var p = state.projects.find(function(x){ return x.id === ganttDrag.id; });
+    var newLeft = parseFloat(ganttDrag.el.style.left) || 0;
+    var iso = ganttDragIso(newLeft);
+    if(p){
+      var startIso = p.createdAt || isoToday();
+      if(parseDate(iso) <= parseDate(startIso)) iso = isoOf(addDays(parseDate(startIso), 1));
+      p.gataEstimat = iso;
+      saveState();
+    }
+    var tip = document.getElementById('gantt-drag-tip'); if(tip) tip.remove();
+    document.body.style.userSelect = '';
+    ganttDrag = null;
+    render();
+  });
 
   /* ================= PROIECTE (table / traseu) ================= */
   var showFinalizate = false;
