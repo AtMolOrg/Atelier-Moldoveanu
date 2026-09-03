@@ -1016,6 +1016,12 @@
       if(!Array.isArray(p.stations) || !p.stations.length){
         p.stations = JSON.parse(JSON.stringify(parsed.stations || []));
       }
+      // sămânță pentru faza Gantt: proiectele vechi n-au phaseKind — o punem aici, o singură dată,
+      // cu phaseSince ancorat pe createdAt (nu pe "acum"), ca să nu apară un diff mare la prima salvare
+      if(!p.finalizat && !p.phaseKind){
+        p.phaseKind = currentPhaseKind(p);
+        if(!p.phaseSince) p.phaseSince = (p.createdAt ? p.createdAt + 'T00:00:00.000Z' : new Date().toISOString());
+      }
     });
     parsed.checklists.forEach(function(c){ if(!Array.isArray(c.items)) c.items = []; });
     return parsed;
@@ -1247,15 +1253,18 @@
     if(!s) return 'ante';
     return s.cls === 'phase-piesa' ? 'exec' : (s.cls === 'phase-montaj' ? 'montaj' : 'ante');
   }
-  // stampilează momentul intrării în faza curentă, la fiecare tranziție de fază (o singură dată/fază).
-  // p.phaseKind = faza la ultima verificare, p.phaseSince = când a intrat în ea. Rulează din saveState.
+  // stampilează momentul intrării în faza curentă, DOAR la tranziții reale. Rulează din saveState.
+  // Sămânța pentru proiectele vechi se pune în normalizeState (cu phaseSince = createdAt).
+  // În timpul unui undo/redo (suppressUndoPush) nu re-stampilăm — ar strica phaseSince restaurat.
   function refreshPhaseStamps(){
+    if(suppressUndoPush) return;
     if(!state || !Array.isArray(state.projects)) return;
     var now = new Date().toISOString();
     state.projects.forEach(function(p){
       if(p.finalizat) return;
       var k = currentPhaseKind(p);
-      if(p.phaseKind !== k){ p.phaseKind = k; p.phaseSince = now; }
+      if(p.phaseKind && p.phaseKind !== k){ p.phaseKind = k; p.phaseSince = now; }   // tranziție reală
+      else if(!p.phaseKind){ p.phaseKind = k; if(!p.phaseSince) p.phaseSince = now; } // proiect nou-nouț
     });
   }
 
