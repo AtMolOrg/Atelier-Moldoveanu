@@ -994,6 +994,14 @@
       if(!Array.isArray(p.stations) || !p.stations.length){
         p.stations = JSON.parse(JSON.stringify(parsed.stations || []));
       }
+      // no more "null" piece state — a piece with no station starts at the first flow stage
+      (p.pieces||[]).forEach(function(pc){
+        if(pc.stationId == null){
+          var a = Array.isArray(p.stations) ? p.stations : (parsed.stations||[]);
+          pc.stationId = a[0] ? a[0].id : null;
+          pc.lane = null;
+        }
+      });
       // sămânță pentru faza Gantt: proiectele vechi n-au phaseKind — o punem aici, o singură dată,
       // cu phaseSince ancorat pe createdAt (nu pe "acum"), ca să nu apară un diff mare la prima salvare
       if(!p.finalizat && !p.phaseKind){
@@ -1115,6 +1123,21 @@
   function stationsFor(p){ return (p && Array.isArray(p.stations)) ? p.stations : state.stations; }
   function stationByIdFor(p, id){ return stationsFor(p).find(function(s){ return s.id === id; }); }
   function piesaStationsFor(p){ return stationsFor(p).filter(function(s){ return s.type === 'piesa'; }); }
+  function bucketFor(p, stationId){
+    if(stationId === PIECE_MONTAJ) return 'montaj';
+    var st = stationByIdFor(p, stationId);
+    return (st && st.type === 'piesa') ? 'exec' : 'pregatire';
+  }
+  function pieceFlowFor(p){
+    var a = stationsFor(p);
+    var fp = firstPiesaIndexFor(p);
+    var pre = fp === -1 ? [] : a.slice(0, fp).filter(function(s){ return s.type === 'proiect'; });
+    return pre.concat(piesaStationsFor(p));
+  }
+  function firstStationIdOf(proj){
+    var a = stationsFor(proj);
+    return a[0] ? a[0].id : null;
+  }
   function lastPiesaIndexFor(p){ var a = stationsFor(p); for(var i=a.length-1;i>=0;i--){ if(a[i].type==='piesa') return i; } return -1; }
   function firstPiesaIndexFor(p){ return stationsFor(p).findIndex(function(s){ return s.type === 'piesa'; }); }
   function nextProiectStationFor(p, stationId){
@@ -1821,6 +1844,7 @@
             var items = [];
             if(station.type === 'proiect'){
               if(p.stationId === station.id && (p.lane || defaultLaneId(projLanes)) === lane.id) items.push(p);
+              (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
             } else {
               (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
             }
@@ -1828,7 +1852,10 @@
             out += '<div class="lane-head"><input class="lane-title" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" value="' + esc(lane.name) + '"><span class="col-count">' + items.length + '</span><button class="lane-del" data-act="lanedel" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" title="Șterge partiția">✕</button></div>';
             out += '<div class="col-body lane-body" data-station="' + station.id + '" data-kind="' + station.type + '" data-lane="' + lane.id + '">';
             if(items.length === 0) out += '<div class="col-empty">—</div>';
-            else if(station.type === 'proiect') out += renderProjectCard(p, station);
+            else if(station.type === 'proiect'){
+              if(p.stationId === station.id && (p.lane || defaultLaneId(projLanes)) === lane.id) out += renderProjectCard(p, station);
+              (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) out += renderPieceCard(pc, p); });
+            }
             else items.forEach(function(pc){ out += renderPieceCard(pc, p); });
             out += '</div></div>';
           });
@@ -1836,8 +1863,10 @@
         } else {
         out += '<div class="col-body" data-station="' + station.id + '" data-kind="' + station.type + '">';
         if(station.type === 'proiect'){
+          var parked = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
           if(p.stationId === station.id) out += renderProjectCard(p, station);
-          else out += '<div class="col-empty">—</div>';
+          parked.forEach(function(pc){ out += renderPieceCard(pc, p); });
+          if(p.stationId !== station.id && !parked.length) out += '<div class="col-empty">—</div>';
         } else {
           var pieces = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
           if(pieces.length) pieces.forEach(function(pc){ out += renderPieceCard(pc, p); });
@@ -1924,7 +1953,12 @@
           html += '<button type="button" class="sub-piece-btn" data-piece-demote="' + p.id + '::' + pc.id + '" title="Scoate de la montaj, înapoi la proiectare">↺</button>';
         } else if(st){
           html += '<span class="sub-piece-status">' + esc(st.name) + '</span>';
-          html += '<button type="button" class="sub-piece-btn" data-piece-demote="' + p.id + '::' + pc.id + '" title="Scoate din producție, înapoi la proiectare">↺</button>';
+          html += '<button type="button" class="sub-piece-btn" data-piece-demote="' + p.id + '::' + pc.id + '" title="Un pas înapoi în flux">↺</button>';
+          if(st.type === 'proiect'){
+            var pflow = pieceFlowFor(p);
+            var pfi = pflow.findIndex(function(s){ return s.id === pc.stationId; });
+            if(pfi > -1 && pfi < pflow.length - 1) html += '<button type="button" class="sub-piece-btn send" data-piece-move="' + p.id + '::' + pc.id + '" data-dir="next" title="Trimite mai departe">→</button>';
+          }
         } else {
           html += '<span class="sub-piece-status pending">La proiectare</span>';
           if(piesaStationsFor(p).length > 0) html += '<button type="button" class="sub-piece-btn send" data-piece-move="' + p.id + '::' + pc.id + '" data-dir="next" title="Trimite în producție">→</button>';
@@ -1960,25 +1994,32 @@
   }
 
   function renderPieceCard(piece, project){
-    var ps = piesaStationsFor(project);
-    var psIdx = ps.findIndex(function(s){ return s.id === piece.stationId; });
-    var isBack = psIdx === -1;
+    var flow = pieceFlowFor(project);
+    var flowIdx = flow.findIndex(function(s){ return s.id === piece.stationId; });
+    var curStation = stationByIdFor(project, piece.stationId);
+    var inProiectStage = !!(curStation && curStation.type === 'proiect');
+    var isBack = flowIdx === 0 && inProiectStage; // la prima etapă din flux, etapă de proiect
+    var hasNext = flowIdx > -1 && flowIdx < flow.length - 1;
     var grad = urgencyGradient(project);
-    var cardStyle = grad ? ' style="border-left:3px solid ' + grad.border + '; background:' + grad.tint + ';"' : '';
+    var repStyle = piece.rep ? ' border-left:3px solid #d64545;' : '';
+    var cardStyle = grad ? ' style="border-left:3px solid ' + grad.border + '; background:' + grad.tint + ';' + repStyle + '"' : (repStyle ? ' style="' + repStyle + '"' : '');
     var html = '<div class="piece-card' + (isBack ? ' back-to-design' : '') + '" draggable="true" data-piece="' + project.id + '::' + piece.id + '"' + cardStyle + '>';
     html += '<div class="p-code">' + esc(project.cod) + '</div>';
-    html += '<div class="p-name">' + esc(piece.name) + '</div>';
+    html += '<div class="p-name">' + esc(piece.name) + (piece.rep ? ' <span class="badge" style="background:#d64545;color:#fff;">rep</span>' : '') + '</div>';
     if(piece.colorCode) html += '<div class="p-color">' + esc(piece.colorCode) + '</div>';
     html += '<div class="p-client">' + esc(project.client) + '</div>';
-    if(isBack) html += '<div class="badge badge-done" style="margin:4px 0;">La proiectare</div>';
+    if(inProiectStage) html += '<div class="badge badge-done" style="margin:4px 0;">' + esc(curStation.name) + '</div>';
     html += renderAssignedPeople(project.id, piece.id);
-    if(!isBack){
+    if(inProiectStage){
+      html += '<div class="piece-btn-row">';
+      if(flowIdx > 0) html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Un pas înapoi în flux">↺</button>';
+      if(hasNext) html += '<button class="btn btn-xs btn-primary" data-piece-move="' + project.id + '::' + piece.id + '" data-dir="next" title="Trimite mai departe">→</button>';
+      html += '</div>';
+    } else {
       html += '<div class="piece-btn-row">';
       html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Scoate doar această piesă din execuție, înapoi la proiectare">↺</button>';
       html += '<button class="btn btn-xs sub-piece-btn send" data-piece-to-montaj="' + project.id + '::' + piece.id + '" title="Trimite piesa la montaj">📦</button>';
       html += '</div>';
-    } else {
-      html += '<button class="btn btn-xs btn-primary" style="width:100%; margin-top:6px;" data-piece-move="' + project.id + '::' + piece.id + '" data-dir="next">La execuție →</button>';
     }
     html += '</div>';
     return html;
@@ -2228,11 +2269,11 @@
         if(!p) return;
         var pc = p.pieces.find(function(x){ return x.id===parts[1]; });
         if(!pc) return;
-        var ps = piesaStationsFor(p);
-        var idx = ps.findIndex(function(s){ return s.id===pc.stationId; });
+        var flow = pieceFlowFor(p);
+        var idx = flow.findIndex(function(s){ return s.id===pc.stationId; });
         var newIdx = btn.dataset.dir==='next' ? idx+1 : idx-1;
-        if(newIdx>=0 && newIdx<ps.length){
-          pc.stationId = ps[newIdx].id; pc.lane = null;
+        if(newIdx>=0 && newIdx<flow.length){
+          pc.stationId = flow[newIdx].id; pc.lane = null;
 
           saveState(); render();
         }
@@ -2245,9 +2286,16 @@
         if(!p) return;
         var pc = p.pieces.find(function(x){ return x.id===parts[1]; });
         if(pc){
-          pc.stationId = null; pc.lane = null;
-
-          saveState(); render();
+          var dflow = pieceFlowFor(p);
+          var didx = dflow.findIndex(function(s){ return s.id===pc.stationId; });
+          if(didx === -1 && pc.stationId === PIECE_MONTAJ && dflow.length){
+            // from montaj, one step back = re-enter the flow at its last stage
+            pc.stationId = dflow[dflow.length-1].id; pc.lane = null;
+            saveState(); render();
+          } else if(didx > 0){
+            pc.stationId = dflow[didx-1].id; pc.lane = null;
+            saveState(); render();
+          }
         }
       });
     });
@@ -2649,11 +2697,20 @@
             pc.stationId = zone.dataset.station; pc.lane = zone.dataset.lane || null;
 
             saveState(); render();
-          } else if(kind === 'proiect' && isPostExecStationFor(p, zone.dataset.station)){
-            // dropping a piece onto Montaj (or any post-execution stage) sends the whole project there
-            p.stationId = zone.dataset.station; p.lane = zone.dataset.lane || null;
+          } else if(kind === 'proiect'){
+            var fp = firstPiesaIndexFor(p);
+            var stIdx = stationsFor(p).findIndex(function(s){ return s.id === zone.dataset.station; });
+            if(isPostExecStationFor(p, zone.dataset.station)){
+              // dropping a piece onto Montaj (or any post-execution stage) sends the whole project there
+              p.stationId = zone.dataset.station; p.lane = zone.dataset.lane || null;
 
-            saveState(); render();
+              saveState(); render();
+            } else if(fp === -1 || stIdx < fp){
+              // parking a piece in an early proiect-type stage
+              pc.stationId = zone.dataset.station; pc.lane = zone.dataset.lane || null;
+
+              saveState(); render();
+            }
           }
         } else if(data.indexOf('PRJ::') === 0){
           if(kind !== 'proiect') return;
@@ -3371,12 +3428,15 @@
       var notite = document.getElementById('f-notite').value.trim();
       var montajNotes = document.getElementById('f-montaj').value.trim();
 
+      var fallbackStationId = editing
+        ? firstStationIdOf(proj)
+        : ((state.stations && state.stations[0]) ? state.stations[0].id : null);
       var pieces = [];
       piecesEditor.querySelectorAll('.piece-row').forEach(function(row){
         var name = row.querySelector('.piece-name').value.trim();
         if(!name) return;
         var colorCode = row.querySelector('.piece-color').value.trim();
-        pieces.push({id: row.dataset.id, name: name, stationId: row.dataset.stationId || null, colorCode: colorCode});
+        pieces.push({id: row.dataset.id, name: name, stationId: row.dataset.stationId || fallbackStationId, colorCode: colorCode});
       });
 
       if(editing){
