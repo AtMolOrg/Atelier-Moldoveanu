@@ -38,6 +38,7 @@
     *{ animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
   }
   *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; } /* altfel .furn-panel-body / .reg-more-body (display:flex) ignoră atributul hidden și panoul nu se mai închide */
   html,body{ height:100%; }
   body{
     margin:0;
