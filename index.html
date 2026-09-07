@@ -185,9 +185,6 @@
   .head-add-stage button:hover{ border-color:var(--accent); color:var(--accent); }
 
   /* ---------- REGISTRU — listă verticală de proiecte, rânduri pliabile (înlocuiește harta canvas) ---------- */
-  .reg-toolbar{ display:flex; gap:6px; align-items:center; margin:0 0 12px; font-size:12px; color:var(--ink-dim); }
-  .reg-toolbar button{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink-dim); border-radius:999px; padding:4px 10px; font-size:12px; }
-  .reg-toolbar button[aria-pressed="true"]{ color:var(--ink); border-color:var(--ink); }
   .reg{ border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--panel); }
   .reg-row{ display:flex; align-items:center; gap:11px; width:100%; text-align:left; background:none; border:0; border-top:1px solid var(--border); padding:9px 12px; }
   .reg-row:first-child{ border-top:0; }
@@ -196,7 +193,7 @@
   .reg-row.phase-piesa{   box-shadow:inset 3px 0 0 #e0842a; }
   .reg-row.phase-montaj{   box-shadow:inset 3px 0 0 #c0392b; }
   .reg-row.has-warn{ box-shadow:inset 4px 0 0 #c0392b; background:rgba(192,57,43,0.05); }
-  .reg-row .rr-cod{ font-family:monospace; font-weight:700; font-size:12.5px; }
+  .reg-row .rr-cod{ font-weight:700; font-size:12.5px; font-variant-numeric: tabular-nums; }
   .mono{ font-family:monospace; }
   .reg-row .rr-cli{ font-weight:600; min-width:90px; }
   .reg-bar{ display:flex; height:7px; width:120px; border-radius:4px; overflow:hidden; background:var(--panel-3); flex:none; }
@@ -320,19 +317,13 @@
   .card-body{ padding:10px 12px 12px; }
   .card-client{ font-weight:600; font-size:14px; margin-bottom:6px; padding:0 12px; }
   .card-meta{ display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
-  .urgency-slider-row{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
-  .urgency-slider{ flex:1; -webkit-appearance:none; appearance:none; height:6px; border-radius:999px; cursor:pointer; background: linear-gradient(to right, hsl(130,55%,60%), hsl(50,55%,60%), hsl(5,55%,55%)); }
-  .urgency-slider::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:15px; height:15px; border-radius:50%; background:var(--panel); border:2px solid var(--ink); cursor:grab; box-shadow:0 1px 3px rgba(0,0,0,0.4); }
-  .urgency-slider::-moz-range-thumb{ width:15px; height:15px; border-radius:50%; background:var(--panel); border:2px solid var(--ink); cursor:grab; box-shadow:0 1px 3px rgba(0,0,0,0.4); }
-  .urgency-slider::-moz-range-track{ height:6px; border-radius:999px; background:transparent; }
-  .urgency-reset{ flex:none; background:transparent; border:1px solid var(--border); border-radius:6px; width:24px; height:24px; color:var(--ink-faint); font-size:12px; }
-  .urgency-reset:hover{ color:var(--accent); border-color:var(--accent); }
   .badge{ font-family:'Raleway', sans-serif; font-size:11px; font-weight:600; padding:2.5px 8px; border-radius:999px; display:inline-flex; align-items:center; gap:5px; }
   .badge::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
   .badge-ok{ background: rgba(168,217,184,0.35); color:#3d7a52; }
   .badge-warn{ background: rgba(240,221,154,0.4); color:#8a7020; }
   .badge-overdue{ background: rgba(232,168,160,0.4); color:#a8483a; }
   .badge-none{ background: rgba(0,0,0,0.08); color:var(--ink-faint); }
+  .badge-late{ background:#f7e0dd; color:#b2402f; font-weight:700; }
   .badge-done{ background: rgba(168,200,220,0.4); color:#3d6d85; }
   .card-notes{ font-size:12.5px; color:var(--ink-dim); margin-bottom:8px; line-height:1.4; }
   .sub-piece-btn{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:5px; width:22px; height:22px; font-size:11px; padding:0; }
@@ -847,6 +838,7 @@
       }
       delete p.montajNeeds;
       delete p.montajPinned; // panoul „necesar montaj" a devenit câmp în modal — nu mai are pin
+      delete p.urgencyFloor; // sistemul de urgență (slider manual) a fost scos
       // each project now carries its own flow stages — seed from the shared list on first load
       if(!Array.isArray(p.stations) || !p.stations.length){
         p.stations = JSON.parse(JSON.stringify(parsed.stations || []));
@@ -869,7 +861,7 @@
       }
     });
     parsed.checklists.forEach(function(c){ if(!Array.isArray(c.items)) c.items = []; });
-    if(parsed.registrySort !== 'termen' && parsed.registrySort !== 'urgenta') parsed.registrySort = 'termen';
+    delete parsed.registrySort; // comutatorul de sortare a fost scos — mereu după termen
     (parsed.projects||[]).forEach(function(p){ delete p.x; delete p.y; });
     (parsed.checklists||[]).forEach(function(c){ delete c.x; delete c.y; }); // datele listelor rămân
     return parsed;
@@ -1056,27 +1048,6 @@
   }
 
   /* ---------------- derived helpers ---------------- */
-  function autoUrgencyValue(project){
-    if(!project.termen) return 0;
-    var d = daysBetween(todayDate(), parseDate(project.termen));
-    if(d >= 7) return 0;
-    if(d >= 4) return ((7-d)/3) * 40;
-    if(d >= 2) return 40 + ((4-d)/2) * 30;
-    if(d >= 0) return 70 + ((2-d)/2) * 15;
-    return 100;
-  }
-  function urgencyValue(project){
-    var auto = autoUrgencyValue(project);
-    if(typeof project.urgencyFloor === 'number') return Math.max(auto, project.urgencyFloor);
-    return auto;
-  }
-  function urgencyOf(project){
-    if(!project.termen) return 'none';
-    var v = urgencyValue(project);
-    if(v >= 70) return 'overdue';
-    if(v >= 40) return 'warn';
-    return 'ok';
-  }
   function urgencyLabel(project){
     if(!project.termen) return 'Fără termen';
     var d = daysBetween(todayDate(), parseDate(project.termen));
@@ -1084,19 +1055,6 @@
     if(d === 0) return 'Termen azi';
     if(d === 1) return 'Termen mâine';
     return 'În ' + d + ' zile';
-  }
-  function hueFromUrgencyValue(v){
-    if(v <= 40) return 130 - (v/40)*80;
-    if(v <= 70) return 50 - ((v-40)/30)*45;
-    return 5;
-  }
-  function urgencyGradient(project){
-    if(!project || project.finalizat || !project.termen) return null;
-    var v = Math.max(0, Math.min(100, urgencyValue(project)));
-    var hue = Math.round(hueFromUrgencyValue(v));
-    var sat = 58, light = 56, tintLight = 90;
-    if(v > 85){ var extra = v - 85; sat = Math.min(75, 58 + extra*0.8); light = Math.max(42, 56 - extra*0.5); tintLight = Math.max(80, 90 - extra*0.4); }
-    return { border: 'hsl(' + hue + ',' + sat + '%,' + light + '%)', tint: 'hsl(' + hue + ',' + Math.round(sat*0.75) + '%,' + tintLight + '%)' };
   }
   function matchesSearch(codOrClient1, codOrClient2){
     if(!searchQuery) return true;
@@ -1250,10 +1208,6 @@
 
     var html = '';
 
-    html += '<div class="reg-toolbar">Sortare: ';
-    html += '<button type="button" data-regsort="termen" aria-pressed="' + (state.registrySort !== 'urgenta') + '">după termen</button>';
-    html += '<button type="button" data-regsort="urgenta" aria-pressed="' + (state.registrySort === 'urgenta') + '">după urgență</button>';
-    html += '</div>';
     html += '<div class="reg">' + renderRegistru() + '</div>';
 
     board.innerHTML = html;
@@ -1262,11 +1216,7 @@
   // Registru desfășurător — înlocuiește harta canvas: o listă verticală de rânduri pliabile.
   function renderRegistru(){
     var list = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod, p.client); });
-    if(state.registrySort === 'urgenta'){
-      list.sort(function(a,b){ return (urgencyValue(b) - urgencyValue(a)) || ((a.termen||'9999') < (b.termen||'9999') ? -1 : 1); });
-    } else {
-      list.sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
-    }
+    list.sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
     if(!list.length) return '<div class="empty-state" style="margin:20px;"><p>Niciun proiect activ.</p></div>';
     var out = '';
     list.forEach(function(p){
@@ -1292,15 +1242,8 @@
        + '<i class="exec" style="width:' + (100*nE/tot) + '%"></i>'
        + '<i class="montaj" style="width:' + (100*nM/tot) + '%"></i></span>';
     h += '<span class="reg-count">' + nE + '/' + (nP+nE+nM) + ' exec · ' + nM + ' mtj</span>';
-    var termTxt = '';
-    if(td){
-      termTxt = fmtShortDate(p.termen);
-      if(late) termTxt += ' ⚠';
-      else {
-        var dz = daysBetween(todayDate(), td);
-        if(dz <= 3) termTxt += ' (' + dz + 'z)';
-      }
-    }
+    var termTxt = td ? fmtShortDate(p.termen) : '';
+    if(late) termTxt += ' · întârziat ' + Math.abs(daysBetween(todayDate(), td)) + 'z';
     h += '<span class="reg-term' + (late ? ' late' : '') + '">' + esc(termTxt) + '</span>';
     if(warns.length) h += '<span class="reg-warn" title="' + esc(warns.join(' · ')) + '"></span>';
     h += '<span class="reg-chev">▸</span>';
@@ -1308,28 +1251,19 @@
     return h;
   }
 
-  // Antetul de proiect din rândul desfăcut al registrului: slider urgență, badge,
+  // Antetul de proiect din rândul desfăcut al registrului: badge de termen,
   // comenzi materiale, necesar montaj, acțiuni.
   function renderRegHead(p){
-    var grad = urgencyGradient(p);
     var h = '<div class="reg-detail-head">';
 
-    // 1. slider-ul de urgență
-    if(!p.finalizat && p.termen){
-      var hasFloor = typeof p.urgencyFloor === 'number';
-      var autoMin = Math.round(autoUrgencyValue(p));
-      var sliderVal = Math.round(urgencyValue(p));
-      h += '<div class="urgency-slider-row">';
-      h += '<input type="range" min="0" max="100" value="' + sliderVal + '" draggable="false" class="urgency-slider" data-project="' + p.id + '" data-automin="' + autoMin + '" title="Cât de urgent arată — rămâne cel puțin atât, chiar dacă termenul e departe">';
-      if(hasFloor) h += '<button type="button" draggable="false" class="urgency-reset" data-urgency-reset="' + p.id + '" title="Anulează ajustarea manuală">↺</button>';
-      h += '</div>';
-    }
-
-    // 2. badge-ul de urgență (reutilizează .card-meta)
+    // 1. badge-ul de termen (reutilizează .card-meta)
     h += '<div class="card-meta">';
     if(p.finalizat) h += '<span class="badge badge-done">Finalizat</span>';
-    else if(grad) h += '<span class="badge" style="background:' + grad.tint + '; color:' + grad.border + ';">' + esc(urgencyLabel(p)) + '</span>';
-    else h += '<span class="badge badge-none">' + esc(urgencyLabel(p)) + '</span>';
+    else if(p.termen){
+      var td = parseDate(p.termen);
+      var late = td && td.getTime() < todayDate().getTime();
+      h += '<span class="badge ' + (late ? 'badge-late' : 'badge-none') + '">' + esc(urgencyLabel(p)) + '</span>';
+    }
     h += '</div>';
 
     // 2b. notițele proiectului
@@ -1431,8 +1365,7 @@
     var isBack = flowIdx === 0 && inProiectStage; // la prima etapă din flux, etapă de proiect
     var hasNext = flowIdx > -1 && flowIdx < flow.length - 1;
     var atMontaj = piece.stationId === PIECE_MONTAJ;
-    var grad = urgencyGradient(project);
-    var cardStyle = grad ? ' style="border-left:3px solid ' + grad.border + '; background:' + grad.tint + ';"' : '';
+    var cardStyle = '';
     var html = '<div class="piece-card' + (isBack ? ' back-to-design' : '') + '" draggable="true" data-piece="' + project.id + '::' + piece.id + '"' + cardStyle + '>';
     html += '<div class="p-code">' + esc(project.cod) + '</div>';
     html += '<div class="p-name">' + esc(piece.name) + '</div>';
@@ -1609,35 +1542,6 @@
       btn.addEventListener('click', function(){
         var p = state.projects.find(function(x){ return x.id===btn.dataset.closeProject; });
         if(p){ p.finalizat = true; p.finalizatAt = new Date().toISOString(); logEvent('finalizat', p.cod + ' · ' + p.client); saveState(); render(); }
-      });
-    });
-    document.querySelectorAll('.urgency-slider').forEach(function(sl){
-      sl.addEventListener('mousedown', function(e){ e.stopPropagation(); });
-      sl.addEventListener('dragstart', function(e){ e.preventDefault(); e.stopPropagation(); });
-      sl.addEventListener('input', function(){
-        var p = state.projects.find(function(x){ return x.id===sl.dataset.project; });
-        if(!p) return;
-        var autoMin = parseInt(sl.dataset.automin, 10) || 0;
-        var v = Math.max(parseInt(sl.value, 10), autoMin);
-        if(v !== parseInt(sl.value, 10)) sl.value = v;
-        p.urgencyFloor = v;
-        var grad = urgencyGradient(p);
-        var card = sl.closest('.card');
-        if(card && grad){ card.style.borderLeftColor = grad.border; card.style.background = grad.tint; }
-        var badge = card ? card.querySelector('.card-meta .badge') : null;
-        if(badge && grad){ badge.style.background = grad.tint; badge.style.color = grad.border; }
-      });
-      sl.addEventListener('change', function(){
-        var p = state.projects.find(function(x){ return x.id===sl.dataset.project; });
-        if(p) { saveState(); render(); }
-      });
-    });
-    document.querySelectorAll('[data-urgency-reset]').forEach(function(btn){
-      btn.addEventListener('mousedown', function(e){ e.stopPropagation(); });
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var p = state.projects.find(function(x){ return x.id===btn.dataset.urgencyReset; });
-        if(p){ delete p.urgencyFloor; saveState(); render(); }
       });
     });
     document.querySelectorAll('[data-edit]').forEach(function(btn){
@@ -1819,13 +1723,7 @@
       });
     });
 
-    // registru — toolbar sortare + toggle rând pliat
-    document.querySelectorAll('[data-regsort]').forEach(function(b){
-      b.addEventListener('click', function(){
-        state.registrySort = b.dataset.regsort;
-        saveState(); render();
-      });
-    });
+    // registru — toggle rând pliat
     document.querySelectorAll('[data-toggle-reg]').forEach(function(b){
       b.addEventListener('click', function(){
         var id = b.dataset.toggleReg;
