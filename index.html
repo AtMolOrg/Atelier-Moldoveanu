@@ -208,10 +208,25 @@
   .reg-chev{ color:var(--ink-dim); transition:transform .15s; flex:none; }
   .reg-row[aria-expanded="true"] .reg-chev{ transform:rotate(90deg); }
   .reg-detail{ border-top:1px solid var(--border); background:var(--panel-2); padding:12px; }
-  .reg-detail-head{ display:flex; flex-direction:column; gap:10px; }
+  .reg-detail-head{ display:flex; flex-direction:column; gap:8px; }
   .reg-detail-head .card-actions{ display:flex; flex-wrap:wrap; gap:6px; }
   .reg-orders-toggle{ align-self:flex-start; background:var(--panel-3); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:4px 9px; font-size:12px; cursor:pointer; }
   .reg-orders{ margin-top:2px; }
+  .reg-strip{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:7px 11px; font-size:12px; }
+  .reg-strip .rs-k{ display:flex; align-items:center; gap:5px; }
+  .reg-strip .rs-dim{ color:var(--ink-dim); }
+  .reg-strip .rs-term{ font-family:monospace; }
+  .reg-strip .rs-term.late{ color:#c0392b; font-weight:700; }
+  .reg-strip .rs-sep{ width:1px; align-self:stretch; background:var(--border); }
+  .reg-strip .rs-grow{ flex:1 1 20px; }
+  .reg-strip .reg-bar.mini{ width:78px; height:6px; }
+  .reg-strip .reg-orders-toggle{ align-self:auto; padding:3px 8px; }
+  .reg-strip .rs-more{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:2px 9px; cursor:pointer; font-size:14px; line-height:1; }
+  .reg-attn{ display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; background:rgba(192,57,43,0.09); border:1px solid rgba(192,57,43,0.3); color:#a3392c; border-radius:8px; padding:6px 11px; font-size:12px; }
+  .reg-more-body{ display:flex; flex-direction:column; gap:8px; }
+  .reg-detail-pipe .proj-stage-box.thin{ flex:0 0 34px; background:var(--panel-2); }
+  .reg-detail-pipe .proj-stage-box.thin .proj-stage-head{ writing-mode:vertical-rl; text-orientation:mixed; padding:8px 2px; border-bottom:0; justify-content:center; gap:0; }
+  .reg-detail-pipe .proj-stage-box.thin .col-body{ min-height:28px; padding:4px; }
   .reg-detail-pipe{ display:flex; gap:8px; overflow-x:auto; padding-top:10px; }
   .reg-detail-pipe .proj-stage-box{ flex:0 0 150px; }
   .reg-detail-pipe .head-add-stage{ flex:0 0 auto; }
@@ -618,6 +633,7 @@
   var draggingData = null;
   var registryOpen = {}; // "<projectId>" -> true while that registru row is expanded (transient; not persisted)
   var regOrdersOpen = {}; // "<projectId>" -> true while that row's materials box is open (transient; not persisted)
+  var regMoreOpen = {}; // "<projectId>" -> true while that row's ⋯ details/edit box is open (transient; not persisted)
   var PIECE_MONTAJ = '__montaj__'; // pc.stationId sentinel: piece is done on the floor, sent to montaj
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
@@ -1109,6 +1125,9 @@
       var missing = orders.filter(function(o){ return o.status !== 'primit'; }).length;
       if(missing) w.push('📋 ' + missing + (missing === 1 ? ' comandă neprimită' : ' comenzi neprimite'));
     }
+    var nPre = 0, nOther = 0;
+    (p.pieces || []).forEach(function(pc){ if(bucketFor(p, pc.stationId) === 'pregatire') nPre++; else nOther++; });
+    if(nPre > 0 && nOther > 0) w.push('🔧 ' + nPre + (nPre === 1 ? ' piesă neîncepută' : ' piese neîncepute'));
     return w;
   }
 
@@ -1251,47 +1270,84 @@
     return h;
   }
 
-  // Antetul de proiect din rândul desfăcut al registrului: badge de termen,
-  // comenzi materiale, necesar montaj, acțiuni.
+  // Antetul de proiect din rândul desfăcut al registrului: bandă de stare (A),
+  // bandă de atenție (C, doar dacă e cazul), secundar ascuns sub ⋯.
   function renderRegHead(p){
-    var h = '<div class="reg-detail-head">';
-
-    // 1. badge-ul de termen (reutilizează .card-meta)
-    h += '<div class="card-meta">';
-    if(p.finalizat) h += '<span class="badge badge-done">Finalizat</span>';
-    else if(p.termen){
-      var td = parseDate(p.termen);
-      var late = td && td.getTime() < todayDate().getTime();
-      h += '<span class="badge ' + (late ? 'badge-late' : 'badge-none') + '">' + esc(urgencyLabel(p)) + '</span>';
-    }
-    h += '</div>';
-
-    // 2b. notițele proiectului
-    if((p.notite || '').trim()) h += '<div class="card-notes">' + esc(p.notite) + '</div>';
-
-    // 3. linia de materiale, ca buton care deschide rândurile de comandă
+    var stg = currentStageInfo(p);
+    var warns = projectWarnings(p);
+    var nP = 0, nE = 0, nM = 0;
+    (p.pieces||[]).forEach(function(pc){ var b = bucketFor(p, pc.stationId); if(b === 'exec') nE++; else if(b === 'montaj') nM++; else nP++; });
+    var tot = Math.max(1, nP + nE + nM);
+    var td = p.termen ? parseDate(p.termen) : null;
+    var late = !!(td && td.getTime() < todayDate().getTime());
     var orders = Array.isArray(p.orders) ? p.orders : [];
-    var recvCount = orders.filter(function(o){ return o.status === 'primit'; }).length;
-    var complete = orders.length && recvCount >= orders.length;
-    var matLabel = orders.length ? ('📋 Materiale ' + recvCount + '/' + orders.length + ' · ' + (complete ? 'complet' : 'incomplet')) : '📋 Materiale';
-    h += '<button type="button" class="reg-orders-toggle" data-toggle-orders="' + p.id + '">' + matLabel + '</button>';
+    var recv = orders.filter(function(o){ return o.status === 'primit'; }).length;
+    var complete = orders.length && recv >= orders.length;
+    var next = nextProiectStationFor(p, p.stationId);
+    var finalizabil = isPostExecStationFor(p, p.stationId) || (!next && piesaStationsFor(p).length === 0);
+
+    var h = '<div class="reg-detail-head">';
+    h += '<div class="reg-strip">';
+
+    // termen
+    var termTxt;
+    if(td){
+      termTxt = fmtShortDate(p.termen);
+      if(late) termTxt += ' · întârziat ' + Math.abs(daysBetween(todayDate(), td)) + 'z';
+    } else {
+      termTxt = 'Fără termen';
+    }
+    h += '<span class="rs-k rs-term' + (late ? ' late' : '') + '">' + esc(termTxt) + '</span>';
+    h += '<span class="rs-sep"></span>';
+
+    // progres (bara + numărul)
+    h += '<span class="rs-k">'
+       + '<span class="reg-bar mini" title="' + nP + ' pregătire · ' + nE + ' execuție · ' + nM + ' montaj">'
+       + '<i class="pregatire" style="width:' + (100*nP/tot) + '%"></i>'
+       + '<i class="exec" style="width:' + (100*nE/tot) + '%"></i>'
+       + '<i class="montaj" style="width:' + (100*nM/tot) + '%"></i></span> '
+       + '<b>' + tot + ' piese</b> <span class="rs-dim">' + nP + '·' + nE + '·' + nM + '</span>'
+       + '</span>';
+    h += '<span class="rs-sep"></span>';
+
+    // etapa curentă
+    h += '<span class="rs-k rs-dim">etapă: <b style="color:var(--ink)">' + esc(stg ? stg.name : '—') + '</b></span>';
+    h += '<span class="rs-sep"></span>';
+
+    // materiale: ACELAȘI buton toggle ca înainte
+    var matLabel = orders.length ? (recv + '/' + orders.length + (complete ? '' : ' · incomplet')) : 'Materiale';
+    h += '<button type="button" class="rs-k reg-orders-toggle" data-toggle-orders="' + p.id + '">📋 ' + esc(matLabel) + '</button>';
+    h += '<span class="rs-grow"></span>';
+
+    // acțiunea principală
+    if(next){
+      h += '<button class="btn btn-sm" data-advance="' + p.id + '" data-target="' + next.id + '">Avansează → ' + esc(next.name) + '</button>';
+    } else if(finalizabil){
+      h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează ✓</button>';
+    }
+    h += '<button type="button" class="rs-more" data-reg-more="' + p.id + '" title="Detalii / editare">⋯</button>';
+    h += '</div>'; // .reg-strip
+
+    // rândurile de comandă, ascunse până la toggle (neschimbat)
     h += '<div class="reg-orders" id="reg-orders-' + p.id + '"' + (regOrdersOpen[p.id] ? '' : ' hidden') + '>' + renderOrdersRows(p) + '</div>';
 
-    // 4. necesar montaj notat
-    if((p.montajNotes || '').trim()) h += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
-
-    // 5. acțiuni (reutilizează .card-actions, cu p.stationId)
-    h += '<div class="card-actions">';
-    var next = nextProiectStationFor(p, p.stationId);
-    if(next) h += '<button class="btn btn-sm" data-advance="' + p.id + '" data-target="' + next.id + '">Avansează → ' + esc(next.name) + '</button>';
-    if(isPostExecStationFor(p, p.stationId) || (!next && piesaStationsFor(p).length === 0)){
-      h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează proiect ✓</button>';
+    // C: banda de atenție, DOAR dacă projectWarnings(p).length
+    if(warns.length){
+      h += '<div class="reg-attn">⚠ ' + warns.map(function(x){ return esc(x); }).join(' <span style="opacity:.5">·</span> ') + '</div>';
     }
+
+    // secundar, ascuns până la ⋯
+    h += '<div class="reg-more-body" id="reg-more-' + p.id + '"' + (regMoreOpen[p.id] ? '' : ' hidden') + '>';
+    if((p.notite || '').trim()) h += '<div class="card-notes">' + esc(p.notite) + '</div>';
+    if((p.montajNotes || '').trim()) h += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
+    h += '<div class="card-actions">';
+    if(finalizabil && next) h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează ✓</button>';
     h += '<button class="btn btn-sm" data-edit="' + p.id + '">Editează</button>';
     h += '<button class="btn btn-sm btn-danger-outline" data-del="' + p.id + '">Șterge</button>';
     h += '</div>';
+    h += '</div>'; // .reg-more-body
 
-    h += '</div>';
+    h += '</div>'; // .reg-detail-head
     return h;
   }
 
@@ -1307,14 +1363,21 @@
       var isMontajCol = station.type === 'proiect' && isPostExecStationFor(p, station.id);
       var montajPieces = isMontajCol ? (p.pieces||[]).filter(function(pc){ return pc.stationId === PIECE_MONTAJ; }) : [];
       var isHere = (station.type === 'proiect' && p.stationId === station.id);
-      out += '<div class="proj-stage-box ' + station.type + (isHere ? ' is-here' : '') + '">';
-      out += '<div class="proj-stage-head"' + (isHere ? ' draggable="true" data-proj-drag="' + p.id + '"' : '') + '><span>' + esc(station.name) + '</span>' + (isHere ? '<span class="stage-here">● aici</span>' : '') + '<div class="col-actions">';
-      if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la stânga">‹</button>';
-      if(sIdx < pStations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la dreapta">›</button>';
-      out += '<button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button>';
-      out += '<button data-act="del" data-station="' + station.id + '" data-project="' + p.id + '" title="Șterge etapa">✕</button>';
-      out += '</div></div>';
-      if(hasLanes){
+      // coloană „goală" — se subțiază: fără piese aici, fără piese la montaj, nu e etapa curentă
+      var piecesHere = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
+      var thin = !isHere && !piecesHere.length && !montajPieces.length;
+      out += '<div class="proj-stage-box ' + station.type + (isHere ? ' is-here' : '') + (thin ? ' thin' : '') + '">';
+      out += '<div class="proj-stage-head"' + (isHere ? ' draggable="true" data-proj-drag="' + p.id + '"' : '') + '><span>' + esc(station.name) + '</span>' + (isHere ? '<span class="stage-here">● aici</span>' : '');
+      if(!thin){
+        out += '<div class="col-actions">';
+        if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la stânga">‹</button>';
+        if(sIdx < pStations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la dreapta">›</button>';
+        out += '<button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button>';
+        out += '<button data-act="del" data-station="' + station.id + '" data-project="' + p.id + '" title="Șterge etapa">✕</button>';
+        out += '</div>';
+      }
+      out += '</div>';
+      if(hasLanes && !thin){
         out += '<div class="lanes-row">';
         projLanes.forEach(function(lane){
           var items = [];
@@ -1328,7 +1391,7 @@
           out += '<div class="lane">';
           out += '<div class="lane-head"><input class="lane-title" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" value="' + esc(lane.name) + '"><span class="col-count">' + items.length + '</span><button class="lane-del" data-act="lanedel" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" title="Șterge partiția">✕</button></div>';
           out += '<div class="col-body lane-body" data-station="' + station.id + '" data-kind="' + station.type + '" data-lane="' + lane.id + '">';
-          if(items.length === 0) out += '<div class="col-empty">—</div>';
+          if(items.length === 0){ if(!thin) out += '<div class="col-empty">—</div>'; }
           else if(station.type === 'proiect'){
             (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) out += renderPieceCard(pc, p); });
             montajPieces.forEach(function(pc){ if((pc.lane||defaultLaneId(projLanes)) === lane.id) out += renderPieceCard(pc, p); });
@@ -1343,11 +1406,11 @@
         var parked = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
         parked.forEach(function(pc){ out += renderPieceCard(pc, p); });
         montajPieces.forEach(function(pc){ out += renderPieceCard(pc, p); });
-        if(p.stationId !== station.id && !parked.length && !montajPieces.length) out += '<div class="col-empty">—</div>';
+        if(!thin && p.stationId !== station.id && !parked.length && !montajPieces.length) out += '<div class="col-empty">—</div>';
       } else {
         var pieces = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
         if(pieces.length) pieces.forEach(function(pc){ out += renderPieceCard(pc, p); });
-        else out += '<div class="col-empty">—</div>';
+        else if(!thin) out += '<div class="col-empty">—</div>';
       }
       out += '</div>';
       }
@@ -1737,6 +1800,14 @@
         regOrdersOpen[id] = !regOrdersOpen[id];
         var box = document.getElementById('reg-orders-' + id);
         if(box) box.hidden = !regOrdersOpen[id];
+      });
+    });
+    document.querySelectorAll('[data-reg-more]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var id = b.dataset.regMore;
+        regMoreOpen[id] = !regMoreOpen[id];
+        var box = document.getElementById('reg-more-' + id);
+        if(box) box.hidden = !regMoreOpen[id];
       });
     });
   }
