@@ -102,7 +102,6 @@
 
   /* ---------- MAIN / BOARD ---------- */
   main{ flex:1; overflow:auto; padding:18px 20px; }
-  main.canvas-fullbleed{ padding:0; overflow:hidden; }
   .board{ display:flex; gap:14px; align-items:flex-start; height:100%; }
 
   .column{
@@ -442,6 +441,9 @@
   .montaj-team-label{ flex:1 1 100%; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:var(--ink-faint); }
   .montaj-team-empty{ font-size:11px; color:var(--ink-faint); font-style:italic; }
   .montaj-team .assigned-people{ margin-bottom:0; }
+  .proj-token[draggable="true"]{ cursor:grab; }
+  .proj-token[draggable="true"]:active{ cursor:grabbing; }
+  .proj-token.dragging{ opacity:0.35; }
   .worker-token.furnizor{ border-style:dashed; }
   .worker-token.furnizor .worker-avatar{ border-radius:8px; }
   .worker-avatar{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:#3d3020; flex:none; }
@@ -763,6 +765,8 @@
   function addDays(d, n){ return new Date(d.getTime() + n*86400000); }
   function parseDate(iso){ if(!iso) return null; var p = iso.split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); }
   function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+  // „12 sep" — data scurtă a termenului, pentru rândul din registru
+  function fmtShortDate(iso){ var d = parseDate(iso); if(!d) return ''; return d.getDate() + ' ' + ['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','noi','dec'][d.getMonth()]; }
   function daysSinceIso(iso){ if(!iso) return 0; var d = new Date(iso); return isNaN(d) ? 0 : Math.max(0, Math.floor((Date.now() - d.getTime())/86400000)); }
   function daysBetweenIso(a,b){ var x = new Date(a), y = new Date(b); return (isNaN(x)||isNaN(y)) ? 0 : Math.max(0, Math.round((y - x)/86400000)); }
   function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
@@ -948,11 +952,13 @@
       if(!Array.isArray(p.stations) || !p.stations.length){
         p.stations = JSON.parse(JSON.stringify(parsed.stations || []));
       }
-      // no more "null" piece state — a piece with no station starts at the first flow stage
+      // o piesă fără etapă — sau cu o etapă care nu mai există în fluxul proiectului — ar rămâne
+      // invizibilă în pipeline; o aducem înapoi la prima etapă. (PIECE_MONTAJ e sentinel, nu etapă.)
+      var stIds = {};
+      (p.stations || []).forEach(function(s){ stIds[s.id] = true; });
       (p.pieces||[]).forEach(function(pc){
-        if(pc.stationId == null){
-          var a = Array.isArray(p.stations) ? p.stations : (parsed.stations||[]);
-          pc.stationId = a[0] ? a[0].id : null;
+        if(pc.stationId !== PIECE_MONTAJ && !stIds[pc.stationId]){
+          pc.stationId = (p.stations && p.stations[0]) ? p.stations[0].id : null;
           pc.lane = null;
         }
       });
@@ -1181,7 +1187,6 @@
     if(v > 85){ var extra = v - 85; sat = Math.min(75, 58 + extra*0.8); light = Math.max(42, 56 - extra*0.5); tintLight = Math.max(80, 90 - extra*0.4); }
     return { border: 'hsl(' + hue + ',' + sat + '%,' + light + '%)', tint: 'hsl(' + hue + ',' + Math.round(sat*0.75) + '%,' + tintLight + '%)' };
   }
-  function displayTip(project){ return project.tip || ''; }
   function matchesSearch(codOrClient1, codOrClient2){
     if(!searchQuery) return true;
     var q = searchQuery.toLowerCase();
@@ -1250,6 +1255,7 @@
     board.style.flexDirection = '';
     board.style.alignItems = '';
     board.style.height = '100%';
+    board.style.minHeight = '';
     if(tab === 'hala') renderHala();
     else if(tab === 'comenzi') renderComenzi();
     else if(tab === 'finalizate') renderFinalizate();
@@ -1401,6 +1407,10 @@
     board.style.display = 'flex';
     board.style.flexDirection = 'column';
     board.style.alignItems = 'stretch';
+    // registrul e o listă verticală care crește oricât — nu o cutie de înălțimea ecranului,
+    // altfel rândurile de jos ies din board fără ca #main să poată derula
+    board.style.height = 'auto';
+    board.style.minHeight = '100%';
 
     if(state.projects.length === 0 && state.workers.length === 0){
       board.innerHTML = '<div class="empty-state" style="margin-top:60px;"><h2>Atelier gol</h2><p>Adaugă un proiect sau primul om din echipă.</p>' +
@@ -1460,7 +1470,16 @@
        + '<i class="exec" style="width:' + (100*nE/tot) + '%"></i>'
        + '<i class="montaj" style="width:' + (100*nM/tot) + '%"></i></span>';
     h += '<span class="reg-count">' + nE + '/' + (nP+nE+nM) + ' exec · ' + nM + ' mtj</span>';
-    h += '<span class="reg-term' + (late ? ' late' : '') + '">' + esc(urgencyLabel(p)) + '</span>';
+    var termTxt = '';
+    if(td){
+      termTxt = fmtShortDate(p.termen);
+      if(late) termTxt += ' ⚠';
+      else {
+        var dz = daysBetween(todayDate(), td);
+        if(dz <= 3) termTxt += ' (' + dz + 'z)';
+      }
+    }
+    h += '<span class="reg-term' + (late ? ' late' : '') + '">' + esc(termTxt) + '</span>';
     if(warns.length) h += '<span class="reg-warn" title="' + esc(warns.join(' · ')) + '"></span>';
     h += '<span class="reg-chev">▸</span>';
     h += '</button>';
@@ -1491,8 +1510,14 @@
     else h += '<span class="badge badge-none">' + esc(urgencyLabel(p)) + '</span>';
     h += '</div>';
 
-    // 3. oameni legați la nivel de proiect
-    h += renderAssignedPeople(p.id);
+    // 2b. notițele proiectului
+    if((p.notite || '').trim()) h += '<div class="card-notes">' + esc(p.notite) + '</div>';
+
+    // 3. oameni legați la nivel de proiect — cutie mereu vizibilă, ca țintă de drop
+    h += '<div class="assigned-box montaj-team" data-project-people="' + p.id + '">';
+    h += '<span class="montaj-team-label">👤 Oameni pe proiect</span>';
+    h += renderAssignedPeople(p.id) || '<span class="montaj-team-empty">— trage o persoană aici</span>';
+    h += '</div>';
 
     // 4. linia de materiale, ca buton care deschide rândurile de comandă
     var orders = Array.isArray(p.orders) ? p.orders : [];
@@ -1531,7 +1556,7 @@
 
   // Token compact pentru proiectul însuși în coloanele de tip „proiect" din pipeline-ul registrului.
   function renderProjToken(p){
-    return '<div class="proj-token"><span class="mono">' + esc(p.cod) + '</span> proiect</div>';
+    return '<div class="proj-token" draggable="true" data-id="' + p.id + '"><span class="mono">' + esc(p.cod) + '</span> proiect</div>';
   }
 
   // Pipeline-ul de etape din rândul desfăcut al registrului: coloane de etape, lane-uri,
@@ -1660,8 +1685,10 @@
       html += '</div>';
     } else {
       html += '<div class="piece-btn-row">';
-      html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Un pas înapoi în flux">↺</button>';
-      html += '<button class="btn btn-xs sub-piece-btn send" data-piece-to-montaj="' + project.id + '::' + piece.id + '" title="Trimite piesa la montaj">📦</button>';
+      // „un pas înapoi" n-are sens la capul fluxului
+      if(flowIdx > 0) html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Un pas înapoi în flux">↺</button>';
+      // fără o etapă de montaj (proiect după ultima etapă de piesă) piesa n-ar mai avea unde să apară
+      if(firstProiectAfterLastPiesaFor(project)) html += '<button class="btn btn-xs sub-piece-btn send" data-piece-to-montaj="' + project.id + '::' + piece.id + '" title="Trimite piesa la montaj">📦</button>';
       html += '</div>';
     }
     html += '</div>';
@@ -1858,12 +1885,6 @@
         if(p){ p.finalizat = true; p.finalizatAt = new Date().toISOString(); logEvent('finalizat', p.cod + ' · ' + p.client); saveState(); render(); }
       });
     });
-    document.querySelectorAll('[data-reopen]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var p = state.projects.find(function(x){ return x.id===btn.dataset.reopen; });
-        if(p){ p.finalizat = false; logEvent('redeschis', p.cod + ' · ' + p.client); saveState(); render(); }
-      });
-    });
     document.querySelectorAll('.urgency-slider').forEach(function(sl){
       sl.addEventListener('mousedown', function(e){ e.stopPropagation(); });
       sl.addEventListener('dragstart', function(e){ e.preventDefault(); e.stopPropagation(); });
@@ -1973,33 +1994,33 @@
       });
     });
 
-    // drag & drop — project cards (drag only starts from the handle above the dashed line)
-    document.querySelectorAll('.card-drag-handle').forEach(function(handle){
-      handle.addEventListener('dragstart', function(e){
-        var payload = 'PRJ::' + handle.dataset.id;
-        draggingData = payload;
-        var card = handle.closest('.card');
-        if(card) card.classList.add('dragging');
-        e.dataTransfer.setData('text/plain', payload);
+    // drop a person on the "Oameni pe proiect" box to link them to the project as a whole
+    document.querySelectorAll('[data-project-people]').forEach(function(box){
+      box.addEventListener('dragover', function(e){
+        if((draggingData||'').indexOf('WRK::')===0){ e.preventDefault(); e.stopPropagation(); box.classList.add('link-target'); }
       });
-      handle.addEventListener('dragend', function(){
-        var card = handle.closest('.card');
-        if(card) card.classList.remove('dragging');
-        draggingData=null;
-      });
-    });
-    document.querySelectorAll('.card').forEach(function(card){
-      card.addEventListener('dragover', function(e){
-        if((draggingData||'').indexOf('WRK::')===0){ e.preventDefault(); e.stopPropagation(); card.classList.add('link-target'); }
-      });
-      card.addEventListener('dragleave', function(){ card.classList.remove('link-target'); });
-      card.addEventListener('drop', function(e){
+      box.addEventListener('dragleave', function(){ box.classList.remove('link-target'); });
+      box.addEventListener('drop', function(e){
         var data = e.dataTransfer.getData('text/plain') || draggingData;
         if(!data || data.indexOf('WRK::')!==0) return;
         e.preventDefault(); e.stopPropagation();
-        card.classList.remove('link-target');
-        addAssignment(data.slice(5), card.dataset.id, null);
+        box.classList.remove('link-target');
+        addAssignment(data.slice(5), box.dataset.projectPeople, null);
         saveState(); render();
+      });
+    });
+
+    // drag & drop — the project itself, dragged by its token in a "proiect" stage column
+    document.querySelectorAll('.proj-token[draggable="true"]').forEach(function(tok){
+      tok.addEventListener('dragstart', function(e){
+        var payload = 'PRJ::' + tok.dataset.id;
+        draggingData = payload;
+        tok.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', payload);
+      });
+      tok.addEventListener('dragend', function(){
+        tok.classList.remove('dragging');
+        draggingData=null;
       });
     });
     // drag & drop — piece cards
@@ -2250,7 +2271,7 @@
     }
     html += '<div class="field"><label>Task-uri legate</label>';
     if(links.length === 0){
-      html += '<div class="field-hint">Niciunul încă — trage-l direct peste un card de proiect sau piesă, ca să-l legi.</div>';
+      html += '<div class="field-hint">Niciunul încă — trage-l direct peste rândul unui proiect (cutia „Oameni pe proiect") sau peste o piesă, ca să-l legi.</div>';
     } else {
       html += '<div class="pieces-editor">';
       links.forEach(function(a){
@@ -3031,21 +3052,18 @@
     var aside1 = document.getElementById('team-sidebar');
     var aside2 = document.getElementById('supplier-sidebar');
     var main = document.getElementById('main');
+    // the topbar is position:fixed — push the scrollable content clear of it (every tab, registru included)
+    var tb = document.querySelector('.topbar');
+    main.style.paddingTop = ((tb ? tb.offsetHeight : 60) + 12) + 'px';
     if(tab === 'hala'){
       aside1.style.display = 'flex';
       aside2.style.display = 'flex';
       main.classList.add('sidebar-active');
-      main.classList.add('canvas-fullbleed');
-      main.style.paddingTop = '';
       // sidebars stay closed until the user hovers/taps the handle — never auto-open
     } else {
       aside1.style.display = 'none';
       aside2.style.display = 'none';
       main.classList.remove('sidebar-active');
-      main.classList.remove('canvas-fullbleed');
-      // the topbar is position:fixed — push the scrollable content clear of it
-      var tb = document.querySelector('.topbar');
-      main.style.paddingTop = ((tb ? tb.offsetHeight : 60) + 12) + 'px';
       teamSidebarCtrl.clearTimer();
       supplierSidebarCtrl.clearTimer();
     }
@@ -3055,7 +3073,7 @@
   var resizeTimer = null;
   window.addEventListener('resize', function(){
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function(){ if(tab !== 'hala') updateSidebarForTab(); }, 150);
+    resizeTimer = setTimeout(function(){ updateSidebarForTab(); }, 150);
   });
 
   document.getElementById('search').addEventListener('input', function(e){ searchQuery = e.target.value; render(); });
