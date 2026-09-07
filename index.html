@@ -209,6 +209,10 @@
   .reg-detail-head .card-actions{ display:flex; flex-wrap:wrap; gap:6px; }
   .reg-orders-toggle{ align-self:flex-start; background:var(--panel-3); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:4px 9px; font-size:12px; cursor:pointer; }
   .reg-orders{ margin-top:2px; }
+  .reg-detail-pipe{ display:flex; gap:8px; overflow-x:auto; padding-top:10px; }
+  .reg-detail-pipe .proj-stage-box{ flex:0 0 150px; }
+  .reg-detail-pipe .head-add-stage{ flex:0 0 auto; }
+  .proj-token{ display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:7px; background:var(--panel-3); border:1px dashed var(--ink-dim); font-weight:700; font-size:12px; }
 
   /* ---------- SIDE PANEL — „comenzi materiale", iese din marginea stângă a dosarului.
      Mâner, hover, auto-hide, pin sincronizat per proiect. ---------- */
@@ -1924,7 +1928,7 @@
     var out = '';
     list.forEach(function(p){
       out += renderRegRow(p);
-      if(registryOpen[p.id]) out += '<div class="reg-detail">' + renderRegHead(p) + '</div>';
+      if(registryOpen[p.id]) out += '<div class="reg-detail">' + renderRegHead(p) + renderRegPipe(p) + '</div>';
     });
     return out;
   }
@@ -2011,6 +2015,73 @@
 
     h += '</div>';
     return h;
+  }
+
+  // Token compact pentru proiectul însuși în coloanele de tip „proiect" din pipeline-ul registrului.
+  function renderProjToken(p){
+    return '<div class="proj-token"><span class="mono">' + esc(p.cod) + '</span> proiect</div>';
+  }
+
+  // Pipeline-ul de etape din rândul desfăcut al registrului: coloane de etape, lane-uri,
+  // carduri de piesă, drag&drop, controale de etapă. Portat din blocul .proj-cluster-stages
+  // al lui renderHartaPeProiecte (fără wrapper-ul .proj-cluster, badge urgență, side panel).
+  function renderRegPipe(p){
+    var out = '<div class="reg-detail-pipe">';
+    out += '<div class="head-add-stage">' +
+      '<button type="button" data-add-stage="' + p.id + '" data-type="proiect">+ etapă proiectare (anteproiect)</button>' +
+      '<button type="button" data-add-stage="' + p.id + '" data-type="piesa">+ etapă execuție</button>' +
+      '</div>';
+    var pStations = stationsFor(p);
+    pStations.forEach(function(station, sIdx){
+      var projLanes = projectLanesFor(p, station);
+      var hasLanes = projLanes.length > 0;
+      out += '<div class="proj-stage-box ' + station.type + '">';
+      out += '<div class="proj-stage-head"><span>' + esc(station.name) + '</span><div class="col-actions">';
+      if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la stânga">‹</button>';
+      if(sIdx < pStations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la dreapta">›</button>';
+      out += '<button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button>';
+      out += '<button data-act="del" data-station="' + station.id + '" data-project="' + p.id + '" title="Șterge etapa">✕</button>';
+      out += '</div></div>';
+      if(hasLanes){
+        out += '<div class="lanes-row">';
+        projLanes.forEach(function(lane){
+          var items = [];
+          if(station.type === 'proiect'){
+            if(p.stationId === station.id && (p.lane || defaultLaneId(projLanes)) === lane.id) items.push(p);
+            (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
+          } else {
+            (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
+          }
+          out += '<div class="lane">';
+          out += '<div class="lane-head"><input class="lane-title" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" value="' + esc(lane.name) + '"><span class="col-count">' + items.length + '</span><button class="lane-del" data-act="lanedel" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" title="Șterge partiția">✕</button></div>';
+          out += '<div class="col-body lane-body" data-station="' + station.id + '" data-kind="' + station.type + '" data-lane="' + lane.id + '">';
+          if(items.length === 0) out += '<div class="col-empty">—</div>';
+          else if(station.type === 'proiect'){
+            if(p.stationId === station.id && (p.lane || defaultLaneId(projLanes)) === lane.id) out += renderProjToken(p);
+            (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) out += renderPieceCard(pc, p); });
+          }
+          else items.forEach(function(pc){ out += renderPieceCard(pc, p); });
+          out += '</div></div>';
+        });
+        out += '</div>';
+      } else {
+      out += '<div class="col-body" data-station="' + station.id + '" data-kind="' + station.type + '">';
+      if(station.type === 'proiect'){
+        var parked = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
+        if(p.stationId === station.id) out += renderProjToken(p);
+        parked.forEach(function(pc){ out += renderPieceCard(pc, p); });
+        if(p.stationId !== station.id && !parked.length) out += '<div class="col-empty">—</div>';
+      } else {
+        var pieces = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
+        if(pieces.length) pieces.forEach(function(pc){ out += renderPieceCard(pc, p); });
+        else out += '<div class="col-empty">—</div>';
+      }
+      out += '</div>';
+      }
+      out += '</div>';
+    });
+    out += '</div>'; // close .reg-detail-pipe
+    return out;
   }
 
   function renderTeamSidebar(){
