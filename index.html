@@ -183,6 +183,29 @@
   }
   .head-add-stage button:hover{ border-color:var(--accent); color:var(--accent); }
 
+  /* ---------- REGISTRU — listă verticală de proiecte, rânduri pliabile (înlocuiește harta canvas) ---------- */
+  .reg-toolbar{ display:flex; gap:6px; align-items:center; margin:0 0 12px; font-size:12px; color:var(--ink-dim); }
+  .reg-toolbar button{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink-dim); border-radius:999px; padding:4px 10px; font-size:12px; }
+  .reg-toolbar button[aria-pressed="true"]{ color:var(--ink); border-color:var(--ink); }
+  .reg{ border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--panel); }
+  .reg-row{ display:flex; align-items:center; gap:11px; width:100%; text-align:left; background:none; border:0; border-top:1px solid var(--border); padding:9px 12px; }
+  .reg-row:first-child{ border-top:0; }
+  .reg-row:hover{ background:var(--panel-2); }
+  .reg-row .rr-cod{ font-family:monospace; font-weight:700; font-size:12.5px; }
+  .reg-row .rr-cli{ font-weight:600; min-width:90px; }
+  .reg-bar{ display:flex; height:7px; width:120px; border-radius:4px; overflow:hidden; background:var(--panel-3); flex:none; }
+  .reg-bar i{ display:block; }
+  .reg-bar i.pregatire{ background:#2f80c0; }
+  .reg-bar i.exec{ background:#e0842a; }
+  .reg-bar i.montaj{ background:#c0392b; }
+  .reg-count{ font-family:monospace; font-size:11px; color:var(--ink-dim); white-space:nowrap; }
+  .reg-term{ font-family:monospace; font-size:12px; color:var(--ink-dim); white-space:nowrap; margin-left:auto; }
+  .reg-term.late{ color:#c0453a; font-weight:700; }
+  .reg-warn{ width:8px; height:8px; border-radius:50%; background:#c0453a; flex:none; }
+  .reg-chev{ color:var(--ink-dim); transition:transform .15s; flex:none; }
+  .reg-row[aria-expanded="true"] .reg-chev{ transform:rotate(90deg); }
+  .reg-detail{ border-top:1px solid var(--border); background:var(--panel-2); padding:12px; }
+
   /* ---------- SIDE PANEL — „comenzi materiale", iese din marginea stângă a dosarului.
      Mâner, hover, auto-hide, pin sincronizat per proiect. ---------- */
   .side-panel{ position:absolute; top:28px; z-index:20; display:flex; align-items:flex-start; }
@@ -773,6 +796,7 @@
   var nodeDragging = false, nodeDragObj = null, nodeDragEl = null, nodeDragMoved = false;
   var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
   var sideOpen = {}; // "<projectId>|<kind>" -> true while that folder side panel is open on hover (transient; the pin lives in shared state)
+  var registryOpen = {}; // "<projectId>" -> true while that registru row is expanded (transient; not persisted)
   var PIECE_MONTAJ = '__montaj__'; // pc.stationId sentinel: piece is done on the floor, sent to montaj
   var MONTAJ_TEAM = 'MONTAJ_TEAM'; // assignment.pieceId sentinel: worker is on this project's install crew
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
@@ -1783,25 +1807,15 @@
 
     var html = '';
 
-    html += '<div class="canvas-viewport" id="canvas-viewport">';
-    html += '<div class="canvas-content" id="canvas-content">';
-    html += '<div class="harta-grid" id="harta-grid">';
-    html += renderHartaPeProiecte();
-    html += '</div>'; // .harta-grid
-    html += '</div>'; // .canvas-content
-    html += '<div class="canvas-zoom-controls">' +
-      '<button id="zoom-out" title="Micșorează">−</button>' +
-      '<span id="zoom-label">100%</span>' +
-      '<button id="zoom-in" title="Mărește">+</button>' +
-      '<button id="zoom-fit" title="Potrivește totul pe ecran">⤢</button>' +
-      '</div>';
-    html += '</div>'; // .canvas-viewport
+    html += '<div class="reg-toolbar">Sortare: ';
+    html += '<button type="button" data-regsort="termen" aria-pressed="' + (state.registrySort !== 'urgenta') + '">după termen</button>';
+    html += '<button type="button" data-regsort="urgenta" aria-pressed="' + (state.registrySort === 'urgenta') + '">după urgență</button>';
+    html += '</div>';
+    html += '<div class="reg">' + renderRegistru() + '</div>';
 
     board.innerHTML = html;
     renderTeamSidebar();
     attachHalaEvents();
-    attachCanvasEvents();
-    attachCanvasNodeDrag();
   }
   function renderHartaPeProiecte(){
     var list = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod,p.client); })
@@ -1885,6 +1899,45 @@
     });
     checklists.forEach(function(cl){ out += renderChecklistCard(cl); });
     return out;
+  }
+
+  // Registru desfășurător — înlocuiește harta canvas: o listă verticală de rânduri pliabile.
+  function renderRegistru(){
+    var list = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod, p.client); });
+    if(state.registrySort === 'urgenta'){
+      list.sort(function(a,b){ return (urgencyValue(b) - urgencyValue(a)) || ((a.termen||'9999') < (b.termen||'9999') ? -1 : 1); });
+    } else {
+      list.sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
+    }
+    if(!list.length) return '<div class="empty-state" style="margin:20px;"><p>Niciun proiect activ.</p></div>';
+    var out = '';
+    list.forEach(function(p){
+      out += renderRegRow(p);
+      if(registryOpen[p.id]) out += '<div class="reg-detail">(desfășurătorul vine în Task 5–6)</div>';
+    });
+    return out;
+  }
+  function renderRegRow(p){
+    var stg = currentStageInfo(p);
+    var warns = projectWarnings(p);
+    var nP = 0, nE = 0, nM = 0;
+    (p.pieces||[]).forEach(function(pc){ var b = bucketFor(p, pc.stationId); if(b === 'exec') nE++; else if(b === 'montaj') nM++; else nP++; });
+    var tot = Math.max(1, nP + nE + nM);
+    var late = !!(p.termen && parseDate(p.termen) && parseDate(p.termen).getTime() < todayDate().getTime());
+    var h = '<button type="button" class="reg-row" data-toggle-reg="' + p.id + '" aria-expanded="' + (!!registryOpen[p.id]) + '">';
+    h += '<span class="rr-cod">' + esc(p.cod) + '</span>';
+    h += '<span class="rr-cli">' + esc(p.client) + '</span>';
+    if(stg) h += '<span class="pct-stage ' + stg.cls + '">' + esc(stg.name) + '</span>';
+    h += '<span class="reg-bar" title="' + nP + ' pregătire · ' + nE + ' execuție · ' + nM + ' montaj">'
+       + '<i class="pregatire" style="width:' + (100*nP/tot) + '%"></i>'
+       + '<i class="exec" style="width:' + (100*nE/tot) + '%"></i>'
+       + '<i class="montaj" style="width:' + (100*nM/tot) + '%"></i></span>';
+    h += '<span class="reg-count">' + nE + '/' + (nP+nE+nM) + ' exec · ' + nM + ' mtj</span>';
+    h += '<span class="reg-term' + (late ? ' late' : '') + '">' + esc(urgencyLabel(p)) + '</span>';
+    if(warns.length) h += '<span class="reg-warn" title="' + esc(warns.join(' · ')) + '"></span>';
+    h += '<span class="reg-chev">▸</span>';
+    h += '</button>';
+    return h;
   }
 
   function renderTeamSidebar(){
@@ -2724,6 +2777,21 @@
             saveState(); render();
           }
         }
+      });
+    });
+
+    // registru — toolbar sortare + toggle rând pliat
+    document.querySelectorAll('[data-regsort]').forEach(function(b){
+      b.addEventListener('click', function(){
+        state.registrySort = b.dataset.regsort;
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-toggle-reg]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var id = b.dataset.toggleReg;
+        if(registryOpen[id]) delete registryOpen[id]; else registryOpen[id] = true;
+        render();
       });
     });
   }
