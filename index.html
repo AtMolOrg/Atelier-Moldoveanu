@@ -1595,7 +1595,7 @@
         projLanes.forEach(function(lane){
           var items = [];
           if(station.type === 'proiect'){
-            if(p.stationId === station.id && (p.lane || defaultLaneId(projLanes)) === lane.id) items.push(p);
+            // proiectul „e aici" e marcat în antetul coloanei (● aici), nu ca item în lane — nu-l numărăm
             (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
             montajPieces.forEach(function(pc){ if((pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
           } else {
@@ -2945,7 +2945,8 @@
       document.getElementById('btn-add-stage-piesa').addEventListener('click', function(){ addProjectStage(proj.id, 'piesa'); renderModalStages(); });
     }
 
-    function close(){ root.innerHTML=''; }
+    // render() la închidere: o etapă adăugată din modal se vede în pipeline chiar dacă ieși cu Anulează/✕
+    function close(){ root.innerHTML=''; render(); }
     document.getElementById('modal-close').addEventListener('click', close);
     document.getElementById('btn-cancel').addEventListener('click', close);
     // clicul pe fundal NU închide modalul (ca să nu pierzi ce ai completat) — închizi cu ✕ sau Anulează
