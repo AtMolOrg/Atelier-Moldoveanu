@@ -228,11 +228,18 @@
   .reg-strip .rs-more{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:2px 9px; cursor:pointer; font-size:14px; line-height:1; }
   .reg-attn{ display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; background:var(--danger-wash); border:1px solid var(--danger-line); color:var(--montaj-ink); border-radius:8px; padding:6px 11px; font-size:12px; }
   .reg-more-body{ display:flex; flex-direction:column; gap:8px; }
-  .reg-detail-pipe .proj-stage-box.thin{ flex:0 0 34px; background:var(--panel-2); }
+  .reg-detail-pipe{ display:flex; gap:8px; overflow-x:auto; padding-top:10px; }
+  .reg-detail-pipe .proj-stage-box{ flex:0 1 150px; min-width:150px; }
+  .reg-detail-pipe .proj-stage-box.thin{ flex:0 0 34px; min-width:34px; background:var(--panel-2); }
   .reg-detail-pipe .proj-stage-box.thin .proj-stage-head{ writing-mode:vertical-rl; text-orientation:mixed; padding:8px 2px; border-bottom:0; justify-content:center; gap:0; }
   .reg-detail-pipe .proj-stage-box.thin .col-body{ min-height:28px; padding:4px; }
-  .reg-detail-pipe{ display:flex; gap:8px; overflow-x:auto; padding-top:10px; }
-  .reg-detail-pipe .proj-stage-box{ flex:0 0 150px; }
+  /* coloana cu piese: grilă de carduri slim. Cu multe piese se lățește și curg pe rânduri — folosește spațiul, nu crește pe verticală */
+  .reg-detail-pipe .proj-stage-box.has-pieces{ flex:0 1 320px; }
+  .reg-detail-pipe .proj-stage-box.has-many{ flex:1 1 auto; }
+  .reg-detail-pipe .proj-stage-box.has-pieces .col-body{ display:grid; grid-template-columns:repeat(auto-fill,minmax(144px,1fr)); gap:8px; align-content:start; }
+  .reg-detail-pipe .piece-card{ padding:6px 9px; border-radius:6px; }
+  .reg-detail-pipe .piece-card .p-name{ font-size:12.5px; margin:0; line-height:1.25; }
+  .reg-detail-pipe .piece-card .p-color{ font-size:10.5px; margin:1px 0 0; }
   .reg-detail-pipe .head-add-stage{ flex:0 0 auto; }
   .reg-detail-pipe .proj-stage-box.is-here{ box-shadow: inset 0 3px 0 var(--accent); }
   .reg-detail-pipe .proj-stage-head[draggable="true"]{ cursor:grab; }
@@ -346,10 +353,8 @@
   .piece-card.back-to-design{ border-left-color: var(--accent); }
   .piece-card:hover{ box-shadow: var(--shadow); }
   .piece-card.dragging{ opacity:0.35; transform: rotate(-1.5deg) scale(0.98); }
-  .piece-card .p-code{ font-family:'Raleway', sans-serif; font-size:11px; color:var(--accent); font-weight:600; }
-  .piece-card .p-name{ font-size:13px; font-weight:600; margin:2px 0 1px; }
-  .piece-card .p-color{ font-size:11px; color:var(--ink-dim); font-weight:600; margin-bottom:2px; }
-  .piece-card .p-client{ font-size:11.5px; color:var(--ink-faint); }
+  .piece-card .p-name{ font-size:13px; font-weight:600; }
+  .piece-card .p-color{ font-size:11px; color:var(--ink-dim); font-weight:600; margin-top:2px; }
   .piece-nav{ display:flex; justify-content:space-between; gap:6px; margin-top:8px; }
   .piece-nav button{ flex:1; background:var(--panel-3); border:1px solid var(--border); color:var(--ink-dim); border-radius:6px; padding:4px 0; font-size:12px; }
   .piece-nav button:hover{ color:var(--ink); border-color: var(--steel); }

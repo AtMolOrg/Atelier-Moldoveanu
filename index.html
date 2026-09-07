@@ -737,8 +737,10 @@
       var isHere = (station.type === 'proiect' && p.stationId === station.id);
       // coloană „goală" — se subțiază: fără piese aici, fără piese la montaj, nu e etapa curentă
       var piecesHere = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
-      var thin = !isHere && !piecesHere.length && !montajPieces.length;
-      out += '<div class="proj-stage-box ' + station.type + (isHere ? ' is-here' : '') + (thin ? ' thin' : '') + '">';
+      var pieceCount = piecesHere.length + montajPieces.length;
+      var hasPieces = pieceCount > 0;
+      var thin = !isHere && !hasPieces;
+      out += '<div class="proj-stage-box ' + station.type + (isHere ? ' is-here' : '') + (thin ? ' thin' : '') + (hasPieces ? ' has-pieces' : '') + (pieceCount >= 4 ? ' has-many' : '') + '">';
       out += '<div class="proj-stage-head"' + (isHere ? ' draggable="true" data-proj-drag="' + p.id + '" title="Trage ca să muți proiectul în altă etapă"' : '') + '><span>' + esc(station.name) + '</span>';
       if(!thin){
         out += '<div class="col-actions">';
@@ -798,15 +800,11 @@
     var curStation = stationByIdFor(project, piece.stationId);
     var inProiectStage = !!(curStation && curStation.type === 'proiect');
     var isBack = flowIdx === 0 && inProiectStage; // la prima etapă din flux, etapă de proiect
-    var atMontaj = piece.stationId === PIECE_MONTAJ;
+    // card slim: doar nume + cod culoare — codul/clientul proiectului sunt deja în antetul rândului.
+    // Poziția (coloana) + culoarea marginii spun etapa. Se mută doar prin drag.
     var html = '<div class="piece-card' + (isBack ? ' back-to-design' : '') + '" draggable="true" data-piece="' + project.id + '::' + piece.id + '">';
-    html += '<div class="p-code">' + esc(project.cod) + '</div>';
     html += '<div class="p-name">' + esc(piece.name) + '</div>';
     if(piece.colorCode) html += '<div class="p-color">' + esc(piece.colorCode) + '</div>';
-    html += '<div class="p-client">' + esc(project.client) + '</div>';
-    // etichetă informativă — piesele se mută doar prin drag
-    if(atMontaj) html += '<div class="badge badge-done" style="margin:4px 0 0;">Montaj</div>';
-    else if(inProiectStage) html += '<div class="badge badge-done" style="margin:4px 0 0;">' + esc(curStation.name) + '</div>';
     html += '</div>';
     return html;
   }
