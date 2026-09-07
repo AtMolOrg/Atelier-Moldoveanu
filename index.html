@@ -339,18 +339,6 @@
   .sub-piece-btn:hover{ color:var(--ink); border-color:var(--ink-faint); }
   .sub-piece-btn.send{ color:#333333; border-color:rgba(0,0,0,0.45); }
   .sub-piece-btn.send:hover{ background:var(--accent); color:var(--accent-ink); }
-  .assigned-people{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
-  .assigned-chip{ display:flex; align-items:center; gap:5px; background:var(--panel-3); border:1px solid var(--border); border-radius:999px; padding:2px 4px 2px 2px; cursor:pointer; transition: background var(--dur); }
-  .assigned-chip:hover{ background:var(--panel); }
-  .assigned-name{ font-size:11px; font-weight:600; color:var(--ink-dim); }
-  .assigned-remove{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:12px; line-height:1; padding:2px 4px; border-radius:50%; }
-  .assigned-remove:hover{ color:#4a1c14; background:var(--danger); }
-  .mini-avatar{ flex:none; width:19px; height:19px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:8.5px; font-weight:700; color:#3d3020; }
-  .assigned-chip.furnizor .mini-avatar{ border-radius:6px; }
-  .furn-time{ font-size:10px; font-weight:800; color:#7a5320; background:rgba(224,132,42,0.18); border-radius:999px; padding:1px 6px; white-space:nowrap; }
-  .furn-time.done{ color:#3d7a52; background:rgba(61,122,82,0.16); }
-  .furn-recv{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); font-size:10px; line-height:1; padding:2px 5px; border-radius:999px; cursor:pointer; }
-  .furn-recv:hover{ color:#3d7a52; border-color:#3d7a52; background:rgba(61,122,82,0.1); }
   .card-actions{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
   .card-actions button{ flex:1; }
 
@@ -382,7 +370,7 @@
   .empty-state h2{ font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.04em; font-size:18px; margin:0 0 8px; }
   .empty-state p{ color:var(--ink-dim); font-size:13.5px; line-height:1.5; margin:0 0 18px; }
 
-  .col-body.drag-over, .people-row.drag-over{ box-shadow: 0 0 0 2px rgba(0,0,0,0.45) inset; border-radius:8px; }
+  .col-body.drag-over{ box-shadow: 0 0 0 2px rgba(0,0,0,0.45) inset; border-radius:8px; }
 
   .lanes-row{ display:flex; flex-direction:column; }
   .lane{ min-width:0; display:flex; flex-direction:column; border-bottom:1px dashed var(--border); }
@@ -393,70 +381,6 @@
   .lane-del{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:11px; padding:2px 4px; border-radius:5px; text-transform:none; letter-spacing:0; }
   .lane-del:hover{ color:var(--danger); background:var(--panel-3); }
   .lane .col-body{ padding:8px; gap:8px; min-height:50px; }
-
-  .people-pool{ width:100%; background:var(--panel); border:1px dashed var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:14px; }
-  .people-pool-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  .people-pool-title{ font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.04em; font-size:12px; color:var(--ink-dim); }
-  .people-row{ display:flex; flex-wrap:wrap; gap:10px; min-height:24px; padding:2px; }
-
-  /* ---------- team sidebar: fixed, vertical, auto-hides — split into Echipă (top) + Furnizori (bottom) ---------- */
-  .team-sidebar{
-    position:fixed; left:0; top:0; bottom:50%; width:222px; z-index:30;
-    display:none; flex-direction:column;
-    transform:translateX(-100%);
-    transition: transform 260ms ease;
-  }
-  .team-sidebar.supplier-sidebar{ top:50%; bottom:0; }
-  .team-sidebar.visible{ transform:translateX(0); }
-  .team-sidebar-handle{
-    position:absolute; left:100%; top:78px;
-    writing-mode:vertical-rl; text-orientation:mixed;
-    background:var(--panel-2); border:1px solid var(--border); border-left:none;
-    padding:14px 7px; border-radius:0 10px 10px 0;
-    font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.06em; font-size:11px;
-    color:var(--ink-dim); cursor:pointer; box-shadow: var(--shadow);
-    transition: opacity 180ms ease;
-  }
-  .supplier-sidebar .team-sidebar-handle{ top:18px; }
-  .team-sidebar.visible .team-sidebar-handle{ opacity:0; pointer-events:none; }
-  .team-sidebar-body{
-    width:100%; height:100%; overflow-y:auto;
-    background:var(--panel); border-right:1px solid var(--border);
-    padding:64px 14px 16px;
-    box-shadow: 10px 0 28px rgba(0,0,0,0.2);
-  }
-  .supplier-sidebar .team-sidebar-body{ padding:26px 14px 16px; border-top:1px solid var(--border); }
-  .team-sidebar .people-pool{ margin-bottom:16px; }
-  .team-sidebar .people-row{ flex-direction:row; flex-wrap:wrap; }
-  .team-sidebar .worker-token{ width:calc(50% - 5px); }
-  main.sidebar-active{ padding-left:0; }
-  .team-sidebar-close{ display:none; }
-  .sidebar-backdrop{ display:none; }
-  .pin-btn.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-  .team-sidebar.pinned .team-sidebar-body{ box-shadow: 10px 0 28px rgba(0,0,0,0.2), inset 3px 0 0 var(--accent); }
-
-  .worker-token{ position:relative; display:flex; flex-direction:column; align-items:center; gap:4px; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:8px 9px; cursor:grab; width:136px; text-align:center; transition: box-shadow var(--dur), transform var(--dur), opacity var(--dur); }
-  .worker-token:hover{ box-shadow: var(--shadow); transform: translateY(-1px); }
-  .worker-token.dragging{ opacity:0.35; transform: rotate(-3deg) scale(0.95); }
-  .worker-token.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; background: var(--panel-3); }
-  .worker-token.reorder-target{ box-shadow: 0 0 0 2px var(--accent) inset; }
-  .card.link-target, .piece-card.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; }
-  .montaj-team{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:8px; padding:7px 8px; background:var(--panel-3); border:1px dashed var(--border); border-radius:7px; }
-  .montaj-team.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; }
-  .montaj-team-label{ flex:1 1 100%; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:var(--ink-faint); }
-  .montaj-team-empty{ font-size:11px; color:var(--ink-faint); font-style:italic; }
-  .montaj-team .assigned-people{ margin-bottom:0; }
-  .worker-token.furnizor{ border-style:dashed; }
-  .worker-token.furnizor .worker-avatar{ border-radius:8px; }
-  .worker-avatar{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:#3d3020; flex:none; }
-  .worker-name{ font-size:10.5px; font-weight:700; line-height:1.25; }
-  .worker-kind{ font-size:8px; color:var(--steel); text-transform:uppercase; letter-spacing:0.04em; font-weight:700; margin-top:-2px; }
-  .worker-task{ font-size:9px; color:var(--ink-faint); line-height:1.25; }
-  .worker-tasks{ display:flex; flex-direction:column; gap:3px; width:100%; margin-top:1px; }
-  .worker-task-chip{ display:flex; align-items:center; gap:4px; background:var(--panel-3); border-radius:5px; padding:2px 4px 2px 6px; }
-  .worker-task-chip span{ flex:1; font-size:9px; color:var(--ink-dim); text-align:left; line-height:1.3; word-break:break-word; }
-  .worker-task-chip button{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:11px; line-height:1; padding:1px 3px; }
-  .worker-task-chip button:hover{ color:var(--danger); }
 
   /* ---------- TABLE (Proiecte) ---------- */
   .table-wrap{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); overflow:auto; height:100%; }
@@ -613,11 +537,6 @@
     table.proj-table{ font-size:14px; }
     table.proj-table th{ font-size:11.5px; padding:12px 10px; }
     table.proj-table td{ padding:13px 10px; }
-    .worker-token{ padding:10px 12px; }
-    .worker-name{ font-size:12px; max-width:none; }
-    .worker-kind{ font-size:9.5px; }
-    .worker-task{ font-size:10.5px; max-width:none; }
-    .worker-task-chip button{ padding:4px 7px; font-size:13px; }
     .view-toggle-mini button{ padding:9px 14px; font-size:12.5px; }
     /* 16px prevents iOS Safari from auto-zooming the page on focus */
     .field input, .field select, .field textarea{ font-size:16px; padding:12px 13px; }
@@ -630,32 +549,6 @@
     .order-text{ flex:1 1 100%; order:-1; }
     .order-supplier{ flex:1 1 auto; }
     .order-status,.order-qty,.order-supplier{ font-size:12px; }
-
-    /* sidebars become fullscreen overlays instead of split top/bottom slivers */
-    .team-sidebar{
-      top:0 !important; bottom:0 !important; width:88vw; max-width:340px;
-      z-index:200; box-shadow: 0 0 40px rgba(0,0,0,0.35);
-    }
-    .team-sidebar-body{ width:100%; padding-top:20px; }
-    .supplier-sidebar .team-sidebar-body{ padding-top:20px; border-top:none; }
-    .team-sidebar-close{
-      display:flex; align-items:center; justify-content:center;
-      position:absolute; top:10px; right:10px; width:38px; height:38px;
-      background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
-      color:var(--ink-dim); font-size:20px; line-height:1; z-index:1;
-    }
-    .team-sidebar-handle{
-      position:fixed; left:auto; top:auto; writing-mode:horizontal-tb;
-      text-orientation:unset; border-radius:999px; padding:12px 18px;
-      right:14px; bottom:14px;
-    }
-    .supplier-sidebar .team-sidebar-handle{ bottom:72px; top:auto; }
-    .sidebar-backdrop{
-      display:none; position:fixed; inset:0; background:rgba(20,15,8,0.45);
-      z-index:190;
-    }
-    .sidebar-backdrop.show{ display:block; }
-    main.sidebar-active{ padding-left:0; }
   }
 </style>
 </head>
@@ -698,18 +591,6 @@
   <main id="main">
     <div class="board" id="board"></div>
   </main>
-
-  <aside class="team-sidebar" id="team-sidebar">
-    <div class="team-sidebar-handle" id="sidebar-handle">Echipă</div>
-    <button class="team-sidebar-close" id="sidebar-close" aria-label="Închide">×</button>
-    <div class="team-sidebar-body" id="team-sidebar-body"></div>
-  </aside>
-  <aside class="team-sidebar supplier-sidebar" id="supplier-sidebar">
-    <div class="team-sidebar-handle" id="supplier-handle">Furnizori</div>
-    <button class="team-sidebar-close" id="supplier-close" aria-label="Închide">×</button>
-    <div class="team-sidebar-body" id="supplier-sidebar-body"></div>
-  </aside>
-  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 </div>
 
 <div id="modal-root"></div>
@@ -731,11 +612,9 @@
   var liveSyncAttached = false;
   function noteLocalWrite(sig){ recentLocalSigs.push(sig); if(recentLocalSigs.length > 10) recentLocalSigs.shift(); }
   var draggingData = null;
-  var suppressWorkerClick = false;
   var registryOpen = {}; // "<projectId>" -> true while that registru row is expanded (transient; not persisted)
   var regOrdersOpen = {}; // "<projectId>" -> true while that row's materials box is open (transient; not persisted)
   var PIECE_MONTAJ = '__montaj__'; // pc.stationId sentinel: piece is done on the floor, sent to montaj
-  var MONTAJ_TEAM = 'MONTAJ_TEAM'; // assignment.pieceId sentinel: worker is on this project's install crew
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
 
@@ -939,7 +818,9 @@
     if(!Array.isArray(parsed.projects)) parsed.projects = [];
     if(!Array.isArray(parsed.repairs)) parsed.repairs = [];
     if(!Array.isArray(parsed.workers)) parsed.workers = [];
-    if(!Array.isArray(parsed.assignments)) parsed.assignments = [];
+    // funcția de echipă/oameni a fost scoasă — păstrăm doar furnizorii, aruncăm restul
+    parsed.workers = (parsed.workers || []).filter(function(w){ return w.kind === 'furnizor'; });
+    parsed.assignments = []; // legăturile persoană↔proiect nu mai există; ținem cheia ca să nu crape cod vechi
     if(!Array.isArray(parsed.colorHistory)) parsed.colorHistory = [];
     if(!Array.isArray(parsed.checklists)) parsed.checklists = [];
     parsed.projects.forEach(function(p){
@@ -1257,10 +1138,6 @@
       var missing = orders.filter(function(o){ return o.status !== 'primit'; }).length;
       if(missing) w.push('📋 ' + missing + (missing === 1 ? ' comandă neprimită' : ' comenzi neprimite'));
     }
-    var montajStation = firstProiectAfterLastPiesaFor(p);
-    if(montajStation && p.stationId === montajStation.id && !assignmentsForTask(p.id, MONTAJ_TEAM).length){
-      w.push('👷 fără echipă montaj');
-    }
     return w;
   }
 
@@ -1301,85 +1178,6 @@
     var s = parts[0][0];
     if(parts[1]) s += parts[1][0];
     return s.toUpperCase();
-  }
-  function workerAssignments(workerId){
-    return state.assignments.filter(function(a){ return a.workerId === workerId; });
-  }
-  function assignmentLabel(a){
-    var p = state.projects.find(function(x){ return x.id === a.projectId; });
-    if(!p) return '(proiect șters)';
-    if(a.pieceId === MONTAJ_TEAM) return p.cod + ' · echipă montaj';
-    if(a.pieceId){
-      var pc = (p.pieces||[]).find(function(x){ return x.id === a.pieceId; });
-      if(pc) return p.cod + ' · ' + pc.name;
-    }
-    return p.cod;
-  }
-  function addAssignment(workerId, projectId, pieceId){
-    var pid = pieceId || null;
-    var exists = state.assignments.some(function(a){ return a.workerId===workerId && a.projectId===projectId && (a.pieceId||null)===pid; });
-    if(exists) return false;
-    var w = state.workers.find(function(x){ return x.id === workerId; });
-    var a = {id: uid(), workerId: workerId, projectId: projectId, pieceId: pid};
-    if(w && w.kind === 'furnizor') a.sentAt = new Date().toISOString(); // pornim cronometrul pentru lucrul la furnizor
-    state.assignments.push(a);
-    return true;
-  }
-  // eticheta de timp pe cip-ul unui furnizor: cât e plecată piesa / după câte zile a venit.
-  // Doar pe atribuiri la nivel de piesă — la nivel de proiect / echipă montaj nu are sens.
-  function supplierTimeChip(a, w){
-    if(!w || w.kind !== 'furnizor' || !a.sentAt) return '';
-    if(!a.pieceId || a.pieceId === MONTAJ_TEAM) return '';
-    if(a.receivedAt){
-      var d = daysBetweenIso(a.sentAt, a.receivedAt);
-      return '<span class="furn-time done" title="Primit după ' + d + ' zile">✓ ' + d + 'z</span>';
-    }
-    var n = daysSinceIso(a.sentAt);
-    return '<span class="furn-time" title="Trimis de ' + n + ' zile — apasă ✓ când l-ai primit">🚚 ' + n + 'z</span>' +
-      '<button type="button" class="furn-recv" data-received="' + a.id + '" title="Am primit piesa de la furnizor">✓</button>';
-  }
-  function reorderWorker(draggedId, targetId){
-    if(draggedId === targetId) return;
-    var list = state.workers;
-    var fromIdx = list.findIndex(function(w){ return w.id === draggedId; });
-    if(fromIdx === -1) return;
-    var item = list.splice(fromIdx, 1)[0];
-    var toIdx = list.findIndex(function(w){ return w.id === targetId; });
-    if(toIdx === -1) toIdx = list.length;
-    list.splice(toIdx, 0, item);
-  }
-  function assignmentsForTask(projectId, pieceId){
-    // project-level and piece-level assignments are independent:
-    // a project's people stay on the project card, each piece has its own.
-    return state.assignments.filter(function(a){
-      if(a.projectId !== projectId) return false;
-      return pieceId ? a.pieceId === pieceId : !a.pieceId;
-    });
-  }
-  function renderAssignedPeople(projectId, pieceId){
-    var links = assignmentsForTask(projectId, pieceId);
-    if(!links.length) return '';
-    var html = '<div class="assigned-people">';
-    links.forEach(function(a){
-      var w = state.workers.find(function(x){ return x.id === a.workerId; });
-      if(!w) return;
-      html += '<div class="assigned-chip' + (w.kind==='furnizor'?' furnizor':'') + '" data-open-worker="' + w.id + '" title="' + esc(w.name) + '">' +
-        '<span class="mini-avatar" style="background:' + workerColor(w) + '">' + esc(initials(w.name)) + '</span>' +
-        '<span class="assigned-name">' + esc(w.name) + '</span>' + supplierTimeChip(a, w) +
-        '<button type="button" class="assigned-remove" data-unlink="' + a.id + '" title="Scoate legătura">×</button></div>';
-    });
-    html += '</div>';
-    return html;
-  }
-  function renderWorkerToken(w){
-    var isFurnizor = w.kind === 'furnizor';
-    var html = '<div class="worker-token' + (isFurnizor?' furnizor':'') + '" draggable="true" data-worker="' + w.id + '" title="' + esc(w.name) + '">';
-    html += '<div class="worker-avatar" style="background:' + workerColor(w) + '">' + esc(initials(w.name)) + '</div>';
-    html += '<div class="worker-name">' + esc(w.name) + '</div>';
-    if(isFurnizor) html += '<div class="worker-kind">furnizor</div>';
-    if(w.taskNote) html += '<div class="worker-task">' + esc(w.taskNote) + '</div>';
-    html += '</div>';
-    return html;
   }
 
   /* ---------------- project orders (materiale de comandat) ---------------- */
@@ -1429,15 +1227,10 @@
     board.style.height = 'auto';
     board.style.minHeight = '100%';
 
-    if(state.projects.length === 0 && state.workers.length === 0){
-      board.innerHTML = '<div class="empty-state" style="margin-top:60px;"><h2>Atelier gol</h2><p>Adaugă un proiect sau primul om din echipă.</p>' +
-        '<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;"><button class="btn btn-primary" id="empty-add">+ Proiect nou</button><button class="btn" id="empty-add-worker">+ Persoană nouă</button></div></div>';
+    if(state.projects.length === 0){
+      board.innerHTML = '<div class="empty-state" style="margin-top:60px;"><h2>Atelier gol</h2><p>Adaugă primul proiect ca să începi.</p>' +
+        '<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;"><button class="btn btn-primary" id="empty-add">+ Proiect nou</button></div></div>';
       document.getElementById('empty-add').onclick = function(){ openProjectModal(null); };
-      document.getElementById('empty-add-worker').onclick = function(){
-        var name = prompt('Numele persoanei:');
-        if(name && name.trim()){ state.workers.push({id:uid(), name:name.trim(), kind:'intern', taskNote:''}); saveState(); render(); }
-      };
-      renderTeamSidebar();
       attachHalaEvents();
       return;
     }
@@ -1451,7 +1244,6 @@
     html += '<div class="reg">' + renderRegistru() + '</div>';
 
     board.innerHTML = html;
-    renderTeamSidebar();
     attachHalaEvents();
   }
   // Registru desfășurător — înlocuiește harta canvas: o listă verticală de rânduri pliabile.
@@ -1504,7 +1296,7 @@
   }
 
   // Antetul de proiect din rândul desfăcut al registrului: slider urgență, badge,
-  // oameni la nivel de proiect, comenzi materiale, necesar montaj, echipă montaj, acțiuni.
+  // comenzi materiale, necesar montaj, acțiuni.
   function renderRegHead(p){
     var grad = urgencyGradient(p);
     var h = '<div class="reg-detail-head">';
@@ -1530,13 +1322,7 @@
     // 2b. notițele proiectului
     if((p.notite || '').trim()) h += '<div class="card-notes">' + esc(p.notite) + '</div>';
 
-    // 3. oameni legați la nivel de proiect — cutie mereu vizibilă, ca țintă de drop
-    h += '<div class="assigned-box montaj-team" data-project-people="' + p.id + '">';
-    h += '<span class="montaj-team-label">👤 Oameni pe proiect</span>';
-    h += renderAssignedPeople(p.id) || '<span class="montaj-team-empty">— trage o persoană aici</span>';
-    h += '</div>';
-
-    // 4. linia de materiale, ca buton care deschide rândurile de comandă
+    // 3. linia de materiale, ca buton care deschide rândurile de comandă
     var orders = Array.isArray(p.orders) ? p.orders : [];
     var recvCount = orders.filter(function(o){ return o.status === 'primit'; }).length;
     var complete = orders.length && recvCount >= orders.length;
@@ -1544,19 +1330,10 @@
     h += '<button type="button" class="reg-orders-toggle" data-toggle-orders="' + p.id + '">' + matLabel + '</button>';
     h += '<div class="reg-orders" id="reg-orders-' + p.id + '"' + (regOrdersOpen[p.id] ? '' : ' hidden') + '>' + renderOrdersRows(p) + '</div>';
 
-    // 5. necesar montaj notat
+    // 4. necesar montaj notat
     if((p.montajNotes || '').trim()) h += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
 
-    // 6. cutia „Echipă montaj"
-    var teamChips = renderAssignedPeople(p.id, MONTAJ_TEAM);
-    if(firstProiectAfterLastPiesaFor(p) || teamChips){
-      h += '<div class="montaj-team" data-montaj-team="' + p.id + '">';
-      h += '<span class="montaj-team-label">🔧 Echipă montaj</span>';
-      h += teamChips || '<span class="montaj-team-empty">— trage o persoană aici</span>';
-      h += '</div>';
-    }
-
-    // 7. acțiuni (reutilizează .card-actions, cu p.stationId)
+    // 5. acțiuni (reutilizează .card-actions, cu p.stationId)
     h += '<div class="card-actions">';
     var next = nextProiectStationFor(p, p.stationId);
     if(next) h += '<button class="btn btn-sm" data-advance="' + p.id + '" data-target="' + next.id + '">Avansează → ' + esc(next.name) + '</button>';
@@ -1633,31 +1410,6 @@
     return out;
   }
 
-  function renderTeamSidebar(){
-    var teamList = state.workers.filter(function(w){ return w.kind !== 'furnizor' && matchesSearch(w.name,''); });
-    var supplierList = state.workers.filter(function(w){ return w.kind === 'furnizor' && matchesSearch(w.name,''); });
-    var teamPinned = teamSidebarCtrl.isPinned();
-    var supPinned = supplierSidebarCtrl.isPinned();
-
-    var teamHtml = '<div class="people-pool"><div class="people-pool-head" style="justify-content:flex-end;">' +
-      '<button class="btn btn-xs pin-btn' + (teamPinned?' pinned':'') + '" id="team-pin-btn" title="' + (teamPinned?'Anulează fixarea':'Fixează, nu se mai ascunde') + '">📌</button>' +
-      '<button class="btn btn-xs" id="btn-add-worker" title="Persoană nouă">+</button></div>';
-    teamHtml += '<div class="people-row">';
-    if(teamList.length === 0) teamHtml += '<div class="col-empty" style="padding:2px 0;">Nimeni în echipă încă.</div>';
-    else teamList.forEach(function(w){ teamHtml += renderWorkerToken(w); });
-    teamHtml += '</div></div>';
-    document.getElementById('team-sidebar-body').innerHTML = teamHtml;
-
-    var supHtml = '<div class="people-pool"><div class="people-pool-head" style="justify-content:flex-end;">' +
-      '<button class="btn btn-xs pin-btn' + (supPinned?' pinned':'') + '" id="supplier-pin-btn" title="' + (supPinned?'Anulează fixarea':'Fixează, nu se mai ascunde') + '">📌</button>' +
-      '<button class="btn btn-xs btn-ghost" id="btn-add-supplier" title="Furnizor nou">+</button></div>';
-    supHtml += '<div class="people-row">';
-    if(supplierList.length === 0) supHtml += '<div class="col-empty" style="padding:2px 0;">Niciun furnizor încă.</div>';
-    else supplierList.forEach(function(w){ supHtml += renderWorkerToken(w); });
-    supHtml += '</div></div>';
-    document.getElementById('supplier-sidebar-body').innerHTML = supHtml;
-  }
-
   function renderPieceCard(piece, project){
     var flow = pieceFlowFor(project);
     var flowIdx = flow.findIndex(function(s){ return s.id === piece.stationId; });
@@ -1676,7 +1428,6 @@
     if(atMontaj){
       // piesă trimisă la montaj (sentinel PIECE_MONTAJ) — nu se potrivește cu nicio etapă din flux
       html += '<div class="badge badge-done" style="margin:4px 0;">Montaj</div>';
-      html += renderAssignedPeople(project.id, piece.id);
       html += '<div class="piece-btn-row">';
       html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Scoate de la montaj, înapoi în flux">↺</button>';
       html += '</div>';
@@ -1684,7 +1435,6 @@
       return html;
     }
     if(inProiectStage) html += '<div class="badge badge-done" style="margin:4px 0;">' + esc(curStation.name) + '</div>';
-    html += renderAssignedPeople(project.id, piece.id);
     if(inProiectStage){
       html += '<div class="piece-btn-row">';
       if(flowIdx > 0) html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Un pas înapoi în flux">↺</button>';
@@ -1819,31 +1569,6 @@
         }
       });
     });
-    var addWk = document.getElementById('btn-add-worker');
-    if(addWk) addWk.addEventListener('click', function(){
-      var name = prompt('Numele persoanei:');
-      if(!name || !name.trim()) return;
-      state.workers.push({id: uid(), name: name.trim(), kind: 'intern', taskNote: ''});
-      saveState(); render();
-    });
-    var addSup = document.getElementById('btn-add-supplier');
-    if(addSup) addSup.addEventListener('click', function(){
-      var name = prompt('Numele furnizorului:');
-      if(!name || !name.trim()) return;
-      state.workers.push({id: uid(), name: name.trim(), kind: 'furnizor', taskNote: ''});
-      saveState(); render();
-    });
-    var teamPinBtn = document.getElementById('team-pin-btn');
-    if(teamPinBtn) teamPinBtn.addEventListener('click', function(){
-      teamSidebarCtrl.setPinned(!teamSidebarCtrl.isPinned());
-      render();
-    });
-    var supPinBtn = document.getElementById('supplier-pin-btn');
-    if(supPinBtn) supPinBtn.addEventListener('click', function(){
-      supplierSidebarCtrl.setPinned(!supplierSidebarCtrl.isPinned());
-      render();
-    });
-
     document.querySelectorAll('[data-advance]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var p = state.projects.find(function(x){ return x.id===btn.dataset.advance; });
@@ -1966,38 +1691,6 @@
       });
     });
 
-    // drop a person on the "Echipă montaj" box to add them to this project's install crew
-    document.querySelectorAll('[data-montaj-team]').forEach(function(box){
-      box.addEventListener('dragover', function(e){
-        if((draggingData||'').indexOf('WRK::')===0){ e.preventDefault(); e.stopPropagation(); box.classList.add('link-target'); }
-      });
-      box.addEventListener('dragleave', function(){ box.classList.remove('link-target'); });
-      box.addEventListener('drop', function(e){
-        var data = e.dataTransfer.getData('text/plain') || draggingData;
-        if(!data || data.indexOf('WRK::')!==0) return;
-        e.preventDefault(); e.stopPropagation();
-        box.classList.remove('link-target');
-        addAssignment(data.slice(5), box.dataset.montajTeam, MONTAJ_TEAM);
-        saveState(); render();
-      });
-    });
-
-    // drop a person on the "Oameni pe proiect" box to link them to the project as a whole
-    document.querySelectorAll('[data-project-people]').forEach(function(box){
-      box.addEventListener('dragover', function(e){
-        if((draggingData||'').indexOf('WRK::')===0){ e.preventDefault(); e.stopPropagation(); box.classList.add('link-target'); }
-      });
-      box.addEventListener('dragleave', function(){ box.classList.remove('link-target'); });
-      box.addEventListener('drop', function(e){
-        var data = e.dataTransfer.getData('text/plain') || draggingData;
-        if(!data || data.indexOf('WRK::')!==0) return;
-        e.preventDefault(); e.stopPropagation();
-        box.classList.remove('link-target');
-        addAssignment(data.slice(5), box.dataset.projectPeople, null);
-        saveState(); render();
-      });
-    });
-
     // drag & drop — the project itself, dragged by the head of its current "proiect" stage column
     document.querySelectorAll('[data-proj-drag]').forEach(function(el){
       el.addEventListener('dragstart', function(e){
@@ -2020,107 +1713,6 @@
         e.dataTransfer.setData('text/plain', payload);
       });
       card.addEventListener('dragend', function(){ card.classList.remove('dragging'); draggingData=null; });
-      card.addEventListener('dragover', function(e){
-        if((draggingData||'').indexOf('WRK::')===0){ e.preventDefault(); e.stopPropagation(); card.classList.add('link-target'); }
-      });
-      card.addEventListener('dragleave', function(){ card.classList.remove('link-target'); });
-      card.addEventListener('drop', function(e){
-        var data = e.dataTransfer.getData('text/plain') || draggingData;
-        if(!data || data.indexOf('WRK::')!==0) return;
-        e.preventDefault(); e.stopPropagation();
-        card.classList.remove('link-target');
-        var parts = card.dataset.piece.split('::');
-        addAssignment(data.slice(5), parts[0], parts[1]);
-        saveState(); render();
-      });
-    });
-    // drag & click — worker tokens
-    document.querySelectorAll('.worker-token[draggable="true"]').forEach(function(card){
-      card.addEventListener('dragstart', function(e){
-        suppressWorkerClick = true;
-        var payload = 'WRK::' + card.dataset.worker;
-        draggingData = payload;
-        card.classList.add('dragging');
-        e.dataTransfer.setData('text/plain', payload);
-      });
-      card.addEventListener('dragend', function(){
-        card.classList.remove('dragging'); draggingData=null;
-        setTimeout(function(){ suppressWorkerClick = false; }, 60);
-      });
-      card.addEventListener('click', function(){
-        if(suppressWorkerClick) return;
-        openWorkerModal(card.dataset.worker);
-      });
-      // dropping a project/piece card directly onto a person links it as one of their tasks;
-      // dropping another person onto them reorders the roster
-      card.addEventListener('dragover', function(e){
-        var d = draggingData || '';
-        if(d.indexOf('PC::')===0 || d.indexOf('PRJ::')===0){
-          e.preventDefault(); e.stopPropagation();
-          card.classList.add('link-target');
-        } else if(d.indexOf('WRK::')===0 && d.slice(5) !== card.dataset.worker){
-          e.preventDefault(); e.stopPropagation();
-          card.classList.add('reorder-target');
-        }
-      });
-      card.addEventListener('dragleave', function(){ card.classList.remove('link-target'); card.classList.remove('reorder-target'); });
-      card.addEventListener('drop', function(e){
-        var data = e.dataTransfer.getData('text/plain') || draggingData;
-        if(!data) return;
-        if(data.indexOf('PC::')===0 || data.indexOf('PRJ::')===0){
-          e.preventDefault(); e.stopPropagation();
-          card.classList.remove('link-target');
-          if(data.indexOf('PC::')===0){
-            var parts = data.slice(4).split('::');
-            addAssignment(card.dataset.worker, parts[0], parts[1]);
-          } else {
-            addAssignment(card.dataset.worker, data.slice(5), null);
-          }
-          saveState(); render();
-        } else if(data.indexOf('WRK::')===0){
-          var draggedId = data.slice(5);
-          if(draggedId !== card.dataset.worker){
-            e.preventDefault(); e.stopPropagation();
-            card.classList.remove('reorder-target');
-            reorderWorker(draggedId, card.dataset.worker);
-            saveState(); render();
-          }
-        }
-      });
-    });
-    document.querySelectorAll('[data-open-worker]').forEach(function(chip){
-      chip.addEventListener('click', function(e){
-        e.stopPropagation();
-        openWorkerModal(chip.dataset.openWorker);
-      });
-    });
-    document.querySelectorAll('[data-unlink]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var a = state.assignments.find(function(x){ return x.id === btn.dataset.unlink; });
-        // dacă scoți un furnizor plecat cu piesa fără să fi apăsat „✓ primit", notează totuși cât a stat
-        if(a && a.sentAt && !a.receivedAt){
-          var w = state.workers.find(function(x){ return x.id === a.workerId; });
-          var pp = projectById(a.projectId);
-          var pc = (pp && a.pieceId) ? (pp.pieces || []).find(function(x){ return x.id === a.pieceId; }) : null;
-          logEvent('furnizor-retur', (pp ? pp.cod + ' · ' : '') + (pc ? pc.name + ' · ' : '') + (w ? w.name : '?') + ' · ' + daysSinceIso(a.sentAt) + ' zile (scos, fără confirmare)');
-        }
-        state.assignments = state.assignments.filter(function(x){ return x.id !== btn.dataset.unlink; });
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-received]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var a = state.assignments.find(function(x){ return x.id === btn.dataset.received; });
-        if(!a || a.receivedAt) return;
-        a.receivedAt = new Date().toISOString();
-        var w = state.workers.find(function(x){ return x.id === a.workerId; });
-        var p = projectById(a.projectId);
-        var pc = (p && a.pieceId) ? (p.pieces || []).find(function(x){ return x.id === a.pieceId; }) : null;
-        logEvent('furnizor-retur', (p ? p.cod + ' · ' : '') + (pc ? pc.name + ' · ' : '') + (w ? w.name : '?') + ' · ' + daysBetweenIso(a.sentAt, a.receivedAt) + ' zile');
-        saveState(); render();
-      });
     });
 
     // project orders panel — materiale de comandat
@@ -2165,17 +1757,15 @@
       });
     });
 
-    // drop zones — station bodies (projects/pieces/workers) and the unassigned-people pool (workers only)
+    // drop zones — station bodies (projects/pieces)
     document.querySelectorAll('.col-body').forEach(function(zone){
       zone.addEventListener('dragover', function(e){
-        var d = draggingData || '';
-        if(d.indexOf('WRK::')===0) return; // people are never dropped directly on a bench
         e.preventDefault(); zone.classList.add('drag-over');
       });
       zone.addEventListener('dragleave', function(){ zone.classList.remove('drag-over'); });
       zone.addEventListener('drop', function(e){
         var data = e.dataTransfer.getData('text/plain') || draggingData;
-        if(!data || data.indexOf('WRK::') === 0) return;
+        if(!data) return;
         e.preventDefault();
         zone.classList.remove('drag-over');
         var kind = zone.dataset.kind;
@@ -2237,74 +1827,6 @@
         var box = document.getElementById('reg-orders-' + id);
         if(box) box.hidden = !regOrdersOpen[id];
       });
-    });
-  }
-
-  function openWorkerModal(workerId){
-    var w = state.workers.find(function(x){ return x.id === workerId; });
-    if(!w) return;
-    var root = document.getElementById('modal-root');
-    var links = workerAssignments(w.id);
-
-    var html = '<div class="modal-overlay" id="modal-overlay"><div class="modal">';
-    html += '<div class="modal-head"><h3>' + (w.kind==='furnizor' ? 'Furnizor' : 'Persoană') + '</h3><button class="modal-close" id="modal-close">✕</button></div>';
-    html += '<div class="modal-body">';
-    html += '<div class="field"><label>Nume</label><input id="wf-name" value="'+esc(w.name)+'"></div>';
-    html += '<div class="field-row"><div class="field" style="flex:0 0 90px;"><label>Culoare</label><input type="color" id="wf-color" value="'+esc(workerColor(w))+'" style="height:40px; padding:4px; cursor:pointer;"></div>';
-    html += '<div class="field" style="flex:1; justify-content:flex-end; display:flex; flex-direction:column;"><label style="display:flex; align-items:center; gap:8px; text-transform:none; font-size:13px; margin-bottom:0;"><input type="checkbox" id="wf-furnizor" style="width:auto;" '+(w.kind==='furnizor'?'checked':'')+'> Furnizor extern (nu angajat)</label></div></div>';
-    if((state.colorHistory||[]).length){
-      html += '<div class="field"><label>Culori folosite</label><div class="color-history">' + state.colorHistory.map(function(c){
-        return '<button type="button" class="color-swatch" data-pick-color="'+esc(c)+'" style="background:'+esc(c)+'" title="'+esc(c)+'"></button>';
-      }).join('') + '</div></div>';
-    }
-    html += '<div class="field"><label>Task-uri legate</label>';
-    if(links.length === 0){
-      html += '<div class="field-hint">Niciunul încă — trage-l direct peste rândul unui proiect (cutia „Oameni pe proiect") sau peste o piesă, ca să-l legi.</div>';
-    } else {
-      html += '<div class="pieces-editor">';
-      links.forEach(function(a){
-        html += '<div class="piece-row"><input class="piece-name" disabled value="'+esc(assignmentLabel(a))+'"><button type="button" class="btn-remove-piece" data-unlink-modal="'+a.id+'">×</button></div>';
-      });
-      html += '</div>';
-    }
-    html += '</div>';
-    html += '<div class="field"><label>Notă generală</label><input id="wf-note" value="'+esc(w.taskNote||'')+'" placeholder="ex: liber după ora 14"></div>';
-    html += '</div>';
-    html += '<div class="modal-foot"><div class="left"><button class="btn btn-danger-outline" id="btn-del-worker">Șterge</button></div>';
-    html += '<div><button class="btn btn-ghost" id="btn-cancel">Anulează</button> <button class="btn btn-primary" id="btn-save-worker">Salvează</button></div></div>';
-    html += '</div></div>';
-    root.innerHTML = html;
-
-    document.querySelectorAll('[data-unlink-modal]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        state.assignments = state.assignments.filter(function(a){ return a.id !== btn.dataset.unlinkModal; });
-        saveState(); openWorkerModal(workerId);
-      });
-    });
-    document.querySelectorAll('[data-pick-color]').forEach(function(sw){
-      sw.addEventListener('click', function(){ document.getElementById('wf-color').value = sw.dataset.pickColor; });
-    });
-
-    function close(){ root.innerHTML = ''; }
-    document.getElementById('modal-close').addEventListener('click', close);
-    document.getElementById('btn-cancel').addEventListener('click', close);
-    // clicul pe fundal NU închide modalul (ca să nu pierzi ce ai completat) — închizi cu ✕ sau Anulează
-    document.getElementById('btn-del-worker').addEventListener('click', function(){
-      if(confirm('Ștergi pe '+w.name+'?')){
-        state.workers = state.workers.filter(function(x){ return x.id !== w.id; });
-        state.assignments = state.assignments.filter(function(a){ return a.workerId !== w.id; });
-        saveState(); close(); render();
-      }
-    });
-    document.getElementById('btn-save-worker').addEventListener('click', function(){
-      var name = document.getElementById('wf-name').value.trim();
-      if(!name){ alert('Adaugă un nume.'); return; }
-      w.name = name;
-      w.kind = document.getElementById('wf-furnizor').checked ? 'furnizor' : 'intern';
-      w.color = document.getElementById('wf-color').value;
-      addToColorHistory(w.color);
-      w.taskNote = document.getElementById('wf-note').value.trim();
-      saveState(); close(); render();
     });
   }
 
@@ -2604,10 +2126,6 @@
         return esc(pc.name) + (pc.colorCode ? ' (' + esc(pc.colorCode) + ')' : '') + ' — ' + esc(loc);
       }).join(' · ') + '</div>';
     }
-    var team = assignmentsForTask(p.id, MONTAJ_TEAM).map(function(a){
-      var w = state.workers.find(function(x){ return x.id === a.workerId; }); return w ? w.name : null;
-    }).filter(Boolean);
-    if(team.length) h += '<div class="fin-sec"><b>Echipă montaj:</b> ' + esc(team.join(', ')) + '</div>';
     if((p.orders||[]).length){
       h += '<div class="fin-sec"><b>Comenzi:</b> ' + (p.orders||[]).map(function(o){
         var s = state.workers.find(function(x){ return x.id === o.supplierId; });
@@ -3002,79 +2520,11 @@
     else { btn.textContent = '+ Proiect nou'; btn.onclick = function(){ openProjectModal(null); }; }
   }
 
-  function isMobile(){ return window.matchMedia('(max-width: 640px)').matches; }
-
-  var sidebarBackdrop = document.getElementById('sidebar-backdrop');
-  var openMobileSidebars = 0;
-  function updateBackdrop(delta){
-    openMobileSidebars = Math.max(0, openMobileSidebars + delta);
-    sidebarBackdrop.classList.toggle('show', openMobileSidebars > 0);
-  }
-
-  function makeSidebarController(asideId, handleId, closeId, hideDelay, pinStorageKey){
-    var timer = null;
-    var aside = document.getElementById(asideId);
-    var handle = document.getElementById(handleId);
-    var closeBtn = document.getElementById(closeId);
-    var pinned = false;
-    var wasVisible = false;
-    try { pinned = localStorage.getItem(pinStorageKey) === '1'; } catch(e){ /* ignore */ }
-    function trackMobileVisibility(){
-      var visible = aside.classList.contains('visible');
-      if(isMobile() && visible !== wasVisible) updateBackdrop(visible ? 1 : -1);
-      wasVisible = visible;
-    }
-    function show(){
-      aside.classList.add('visible');
-      trackMobileVisibility();
-      clearTimeout(timer);
-      // on mobile there's no hover-out to trigger auto-hide, so it must stay open until explicitly closed
-      if(!pinned && !isMobile()) timer = setTimeout(hide, hideDelay);
-    }
-    function hide(){
-      if(pinned) return;
-      aside.classList.remove('visible');
-      trackMobileVisibility();
-    }
-    function isPinned(){ return pinned; }
-    function setPinned(val){
-      pinned = val;
-      try { localStorage.setItem(pinStorageKey, pinned ? '1' : '0'); } catch(e){ /* ignore */ }
-      aside.classList.toggle('pinned', pinned);
-      if(pinned){ clearTimeout(timer); aside.classList.add('visible'); trackMobileVisibility(); }
-      else { timer = setTimeout(hide, hideDelay); }
-    }
-    aside.classList.toggle('pinned', pinned);
-    aside.addEventListener('mouseenter', function(){ clearTimeout(timer); aside.classList.add('visible'); trackMobileVisibility(); });
-    aside.addEventListener('mouseleave', function(){ if(!pinned) timer = setTimeout(hide, 1200); });
-    handle.addEventListener('mouseenter', show);
-    handle.addEventListener('click', show);
-    if(closeBtn) closeBtn.addEventListener('click', hide);
-    return { show: show, hide: hide, clearTimer: function(){ clearTimeout(timer); }, isPinned: isPinned, setPinned: setPinned };
-  }
-  var teamSidebarCtrl = makeSidebarController('team-sidebar', 'sidebar-handle', 'sidebar-close', 3000, 'panou-pin-echipa');
-  var supplierSidebarCtrl = makeSidebarController('supplier-sidebar', 'supplier-handle', 'supplier-close', 3000, 'panou-pin-furnizori');
-  sidebarBackdrop.addEventListener('click', function(){ teamSidebarCtrl.hide(); supplierSidebarCtrl.hide(); });
-
   function updateSidebarForTab(){
-    var aside1 = document.getElementById('team-sidebar');
-    var aside2 = document.getElementById('supplier-sidebar');
     var main = document.getElementById('main');
     // the topbar is position:fixed — push the scrollable content clear of it (every tab, registru included)
     var tb = document.querySelector('.topbar');
     main.style.paddingTop = ((tb ? tb.offsetHeight : 60) + 12) + 'px';
-    if(tab === 'hala'){
-      aside1.style.display = 'flex';
-      aside2.style.display = 'flex';
-      main.classList.add('sidebar-active');
-      // sidebars stay closed until the user hovers/taps the handle — never auto-open
-    } else {
-      aside1.style.display = 'none';
-      aside2.style.display = 'none';
-      main.classList.remove('sidebar-active');
-      teamSidebarCtrl.clearTimer();
-      supplierSidebarCtrl.clearTimer();
-    }
   }
   // bara de sus e position:fixed și îi măsurăm înălțimea o dată — dacă fereastra se
   // redimensionează și butoanele se rup pe alt număr de rânduri, remăsurăm.
@@ -3141,7 +2591,7 @@
     var a = document.activeElement;
     if(!a || (a.tagName !== 'INPUT' && a.tagName !== 'TEXTAREA' && a.tagName !== 'SELECT')) return false;
     // the top-bar search box is a filter, not data entry — it must not block live sync
-    return !!(a.closest && a.closest('#board, .team-sidebar'));
+    return !!(a.closest && a.closest('#board'));
   }
   function applyRemote(incoming){
     if(stableStringify(incoming) === stableStringify(state)) return;
