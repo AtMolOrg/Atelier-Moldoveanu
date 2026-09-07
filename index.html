@@ -32,7 +32,6 @@
     </div>
     <div class="tabs" id="tabs">
       <button data-tab="hala" class="active">Hartă atelier</button>
-      <button data-tab="gantt">Gantt</button>
       <button data-tab="comenzi">Comenzi</button>
       <button data-tab="reparatii">Reparații</button>
       <button data-tab="finalizate">Finalizate</button>
@@ -65,7 +64,6 @@
   var state = null;
   var tab = 'hala';
   var searchQuery = '';
-  var ganttZoom = 'week';   // 'day' | 'week' | 'month' — pixel scale of the Cronologie tab
   var recentLocalSigs = [];     // stableStringify of states we recently pushed — to ignore our own echoes
   var remoteDirty = false;      // a remote change arrived while the user was mid-edit — re-fetch & apply once idle
   var liveSyncAttached = false;
@@ -285,7 +283,7 @@
     if(!Array.isArray(parsed.checklists)) parsed.checklists = [];
     parsed.projects.forEach(function(p){
       if(!Array.isArray(p.orders)) p.orders = [];
-      delete p.gataEstimat; delete p.faze; // Gantt-ul e acum 100% derivat — nu mai reține date planificate manual
+      delete p.gataEstimat; delete p.faze; delete p.phaseKind; delete p.phaseSince; // graficul Gantt a fost scos
       if(typeof p.montajNotes !== 'string'){
         // the short-lived structured "necesar montaj" list is now just a free-text note
         p.montajNotes = (Array.isArray(p.montajNeeds) && p.montajNeeds.length)
@@ -309,12 +307,6 @@
           pc.lane = null;
         }
       });
-      // sămânță pentru faza Gantt: proiectele vechi n-au phaseKind — o punem aici, o singură dată,
-      // cu phaseSince ancorat pe createdAt (nu pe "acum"), ca să nu apară un diff mare la prima salvare
-      if(!p.finalizat && !p.phaseKind){
-        p.phaseKind = currentPhaseKind(p);
-        if(!p.phaseSince) p.phaseSince = (p.createdAt ? p.createdAt + 'T00:00:00.000Z' : new Date().toISOString());
-      }
     });
     parsed.checklists.forEach(function(c){ if(!Array.isArray(c.items)) c.items = []; });
     delete parsed.registrySort; // comutatorul de sortare a fost scos — mereu după termen
@@ -373,7 +365,6 @@
   }
 
   function saveState(){
-    refreshPhaseStamps();
     noteUndoPoint();
     prevStateJson = JSON.stringify(state);
     if(hasRtdb){
@@ -535,27 +526,6 @@
       return { cls:'phase-piesa', name:'Execuție' };                            // piese pe podea, desi cartonasul e la proiectare -> portocaliu
     return { cls:'phase-proiect', name: cur.name };                            // proiectare / anteproiect -> albastru
   }
-  // faza curentă ca 'ante' | 'exec' | 'montaj' (pentru Gantt)
-  function currentPhaseKind(p){
-    var s = currentStageInfo(p);
-    if(!s) return 'ante';
-    return s.cls === 'phase-piesa' ? 'exec' : (s.cls === 'phase-montaj' ? 'montaj' : 'ante');
-  }
-  // stampilează momentul intrării în faza curentă, DOAR la tranziții reale. Rulează din saveState.
-  // Sămânța pentru proiectele vechi se pune în normalizeState (cu phaseSince = createdAt).
-  // În timpul unui undo/redo (suppressUndoPush) nu re-stampilăm — ar strica phaseSince restaurat.
-  function refreshPhaseStamps(){
-    if(suppressUndoPush) return;
-    if(!state || !Array.isArray(state.projects)) return;
-    var now = new Date().toISOString();
-    state.projects.forEach(function(p){
-      if(p.finalizat) return;
-      var k = currentPhaseKind(p);
-      if(p.phaseKind && p.phaseKind !== k){ p.phaseKind = k; p.phaseSince = now; }   // tranziție reală
-      else if(!p.phaseKind){ p.phaseKind = k; if(!p.phaseSince) p.phaseSince = now; } // proiect nou-nouț
-    });
-  }
-
   /* things that are "missing" on a project — surfaced as a loud warning on the folder */
   function projectWarnings(p){
     if(!p || p.finalizat) return [];
@@ -583,7 +553,6 @@
     if(tab === 'hala') renderHala();
     else if(tab === 'comenzi') renderComenzi();
     else if(tab === 'finalizate') renderFinalizate();
-    else if(tab === 'gantt') renderGantt();
     else if(tab === 'reparatii') renderReparatii();
     updateUndoButtons();
   }
@@ -1249,196 +1218,6 @@
         var box = document.getElementById('reg-more-' + id);
         if(box) box.hidden = !regMoreOpen[id];
       });
-    });
-  }
-
-  /* ================= GANTT ================= */
-  // Vedere 100% derivată din hartă: bară per proiect activ, de la deschidere până la
-  // max(termen, azi), împărțită în Anteproiect / Execuție / Montaj proporțional cu numărul
-  // de etape. Faza terminată / în lucru / viitoare se ia din poziția reală de pe hartă
-  // (currentPhaseKind + phaseSince). Fără drag, fără date planificate manual.
-  function ganttDayWidth(){ return ganttZoom === 'day' ? 40 : (ganttZoom === 'month' ? 6 : 15); }
-  var GANTT_PHASE_ORDER = ['ante', 'exec', 'montaj'];
-  var GANTT_PHASE_LABEL = { ante:'Anteproiect', exec:'Execuție', montaj:'Montaj' };
-  // câte etape are fiecare fază: anteproiect = etapele de proiect dinaintea pieselor (include
-  // proiectarea); execuție = etapele de piesă; montaj = etapele de proiect de după piese.
-  function ganttPhaseSpans(p){
-    var a = stationsFor(p);
-    var fp = a.findIndex(function(s){ return s.type === 'piesa'; });
-    var lp = -1; for(var i=a.length-1;i>=0;i--){ if(a[i].type==='piesa'){ lp=i; break; } }
-    var ante = (fp === -1) ? a.length : fp;
-    var exec = (fp === -1) ? 0 : (lp - fp + 1);
-    var montaj = (lp === -1) ? 0 : (a.length - lp - 1);
-    return { ante: ante, exec: exec, montaj: montaj, total: Math.max(1, ante + exec + montaj) };
-  }
-  // fazele proiectului ca [{kind, start:Date, end:Date, status}] — capete derivate proporțional,
-  // status ('done'|'current'|'future') din realitate, capătul done→current lipit de phaseSince.
-  function ganttPhases(p, today){
-    var sp = ganttPhaseSpans(p);
-    var nBy = { ante: sp.ante, exec: sp.exec, montaj: sp.montaj };
-    var kinds = GANTT_PHASE_ORDER.filter(function(k){ return nBy[k] > 0; });
-    if(!kinds.length) kinds = ['ante'];
-
-    var start = parseDate(p.createdAt) || today;
-    var termen = parseDate(p.termen);
-    var endRef = (termen && termen > start) ? termen : addDays(start, 14);
-    if(endRef < addDays(today, 1)) endRef = addDays(today, 1);   // un proiect neterminat nu se termină în trecut
-    var totalDays = Math.max(kinds.length, daysBetween(start, endRef));
-
-    var curKind = currentPhaseKind(p);
-    var curIdx = kinds.indexOf(curKind); if(curIdx === -1) curIdx = 0;
-
-    var sinceD = p.phaseSince ? new Date(p.phaseSince) : null;
-    if(sinceD && !isNaN(sinceD)) sinceD.setHours(0,0,0,0); else sinceD = null;
-    var curStart = (curIdx === 0) ? start : ((sinceD && sinceD > start) ? sinceD : null);
-
-    // capetele implicite (proporție pe zile), bounds[i] = start-ul lui kinds[i], bounds[len] = endRef
-    var bounds = [start], acc = 0;
-    kinds.forEach(function(k, i){
-      acc += nBy[k];
-      bounds.push(i === kinds.length - 1 ? endRef : addDays(start, Math.round(totalDays * acc / sp.total)));
-    });
-
-    // lipește granița done→current de momentul real în care a început faza curentă
-    if(curIdx > 0 && curStart){
-      bounds[curIdx] = curStart;
-      var doneSpan = Math.max(0, daysBetween(start, curStart));
-      var dtot = 0; for(var q=0;q<curIdx;q++) dtot += nBy[kinds[q]];
-      var dacc = 0;
-      for(var r=1;r<curIdx;r++){ dacc += nBy[kinds[r-1]]; bounds[r] = addDays(start, Math.round(doneSpan * dacc / Math.max(1, dtot))); }
-    }
-    // capete strict crescătoare
-    for(var m=1;m<bounds.length;m++){ if(bounds[m] <= bounds[m-1]) bounds[m] = addDays(bounds[m-1], 1); }
-    // faza curentă se întinde măcar până azi
-    if(bounds[curIdx+1] < today){ bounds[curIdx+1] = today; }
-    for(var n=curIdx+2;n<bounds.length;n++){ if(bounds[n] <= bounds[n-1]) bounds[n] = addDays(bounds[n-1], 1); }
-
-    return kinds.map(function(k, i){
-      return { kind: k, start: bounds[i], end: bounds[i+1],
-        status: i < curIdx ? 'done' : (i === curIdx ? 'current' : 'future') };
-    });
-  }
-  function renderGantt(){
-    var board = document.getElementById('board');
-    board.className = ''; board.style.display = 'block'; board.style.height = '100%';
-
-    var projects = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod, p.client); })
-      .slice().sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
-
-    if(projects.length === 0){
-      board.innerHTML = '<div class="empty-state gantt-empty"><h2>Nimic pe Gantt</h2><p>Proiectele active apar aici ca bare pe timp, de la deschidere până la termen.</p></div>';
-      return;
-    }
-
-    var today = todayDate();
-    var dayW = ganttDayWidth();
-
-    var phasesBy = {};
-    var minDate = today, maxDate = addDays(today, 14);
-    projects.forEach(function(p){
-      var ph = ganttPhases(p, today);
-      phasesBy[p.id] = ph;
-      var s = ph[0] ? ph[0].start : today;
-      var e = ph.length ? ph[ph.length - 1].end : addDays(today, 14);
-      if(s < minDate) minDate = s;
-      if(e > maxDate) maxDate = e;
-    });
-    minDate = addDays(minDate, -3);
-    maxDate = addDays(maxDate, ganttZoom === 'month' ? 21 : 7);
-    var numDays = Math.max(14, daysBetween(minDate, maxDate));
-    var trackW = numDays * dayW;
-    function x(d){ return daysBetween(minDate, d) * dayW; }
-    var todayX = x(today);
-
-    // ---- time header ----
-    var headCells = '';
-    if(ganttZoom === 'day'){
-      for(var i=0;i<numDays;i++){
-        var d = addDays(minDate, i);
-        headCells += '<div class="gantt-daycell'+(sameDay(d,today)?' is-today':'')+'" style="width:'+dayW+'px">'+d.getDate()+
-          ((d.getDate()===1||i===0)?'<span class="g-month">'+MONTHS[d.getMonth()]+'</span>':'')+'</div>';
-      }
-    } else if(ganttZoom === 'week'){
-      for(var w=0; w<numDays; w+=7){
-        var d0 = addDays(minDate, w);
-        var ww = Math.min(7, numDays - w);
-        headCells += '<div class="gantt-daycell" style="width:'+(ww*dayW)+'px">'+d0.getDate()+' '+MONTHS[d0.getMonth()]+'</div>';
-      }
-    } else {
-      var cur = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-      while(cur < maxDate){
-        var nx = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
-        var from = Math.max(0, x(cur)), to = Math.min(trackW, x(nx));
-        headCells += '<div class="gantt-daycell" style="width:'+Math.max(0,(to-from))+'px">'+MONTHS[cur.getMonth()]+' '+cur.getFullYear()+'</div>';
-        cur = nx;
-      }
-    }
-
-    // ---- rows ----
-    var rows = '';
-    projects.forEach(function(p){
-      var termen = parseDate(p.termen);
-      var real = phasesBy[p.id];
-      var projEnd = real.length ? real[real.length - 1].end : today;
-      var effEnd = (projEnd < today) ? today : projEnd;
-      var curPh = null; real.forEach(function(ph){ if(ph.status === 'current') curPh = ph; });
-
-      var slipTxt = '', slipCol = '';
-      if(termen){
-        var slip = daysBetween(termen, effEnd);
-        if(slip > 0){ slipTxt = '+'+slip+(slip===1?' zi':' zile')+' peste termen'; slipCol = '#a8483a'; }
-        else if(slip === 0){ slipTxt = 'fix pe termen'; slipCol = '#3d7a52'; }
-        else { slipTxt = (-slip)+(slip===-1?' zi':' zile')+' în avans'; slipCol = '#3d7a52'; }
-      }
-
-      var segHtml = '';
-      real.forEach(function(ph, i){
-        var l = x(ph.start), w = Math.max(3, x(ph.end) - l);
-        var shape = real.length === 1 ? ' seg-only' : (i === 0 ? ' seg-first' : (i === real.length - 1 ? ' seg-last' : ''));
-        var cls = 'gantt-seg seg-'+ph.kind+shape + (ph.status==='current' ? ' is-current' : '') + (ph.status==='done' ? ' seg-done' : '');
-        var inner = (w > 56 ? GANTT_PHASE_LABEL[ph.kind] : '');
-        if(ph.status === 'current' && today > ph.start && today < ph.end){
-          // spală partea care n-a fost făcută încă (azi → capătul fazei)
-          var doneW = Math.min(w, Math.max(0, x(today) - l));
-          inner += '<span class="gantt-seg-remain" style="left:'+doneW+'px; right:0"></span>';
-        }
-        segHtml += '<div class="'+cls+'" data-open="'+p.id+'" style="left:'+l+'px; width:'+w+'px" title="'+
-          esc(GANTT_PHASE_LABEL[ph.kind]+' · '+(ph.status==='done'?'gata':ph.status==='current'?'în lucru':'de făcut')+' · '+isoOf(ph.start)+' → '+isoOf(ph.end))+'">'+inner+'</div>';
-      });
-
-      rows += '<div class="gantt-row">';
-      rows += '<div class="gantt-label" data-open="'+p.id+'"><span class="g-code">'+esc(p.cod)+'</span><span class="g-client">'+esc(p.client)+'</span>'+
-        (slipTxt ? '<span class="g-slip" style="color:'+slipCol+'">'+slipTxt+'</span>' : '')+'</div>';
-      rows += '<div class="gantt-track" style="width:'+trackW+'px; height:40px;">';
-      rows += '<div class="gantt-today-line" style="left:'+todayX+'px"></div>';
-      rows += segHtml;
-      if(curPh && today > curPh.end){
-        rows += '<div class="gantt-overdue" style="left:'+x(curPh.end)+'px; width:'+Math.max(3,(x(today)-x(curPh.end)))+'px" title="Faza curentă a depășit azi cu '+daysBetween(curPh.end,today)+' zile"></div>';
-      }
-      if(termen && effEnd > termen){
-        rows += '<div class="gantt-overshoot" style="left:'+x(termen)+'px; width:'+(x(effEnd)-x(termen))+'px">+'+daysBetween(termen,effEnd)+'z</div>';
-      }
-      if(termen) rows += '<div class="gantt-deadline" style="left:'+x(termen)+'px"></div>';
-      rows += '</div></div>';
-    });
-
-    var toolbar = '<div class="gantt-toolbar"><div class="gantt-zoom">'+
-      '<button data-gz="day" class="'+(ganttZoom==='day'?'active':'')+'">Zi</button>'+
-      '<button data-gz="week" class="'+(ganttZoom==='week'?'active':'')+'">Săptămână</button>'+
-      '<button data-gz="month" class="'+(ganttZoom==='month'?'active':'')+'">Lună</button>'+
-      '</div><span class="gantt-hint">Bară = deschidere → termen, împărțită pe faze proporțional cu numărul de etape. Hașurat = fază terminată · alb spălat = ce a rămas din faza curentă · dungă roșie = faza curentă a depășit azi · ⚑ termen · linia roșie = azi. Totul se ia din hartă.</span></div>';
-
-    var html = toolbar + '<div class="gantt-wrap"><div style="min-width:'+(210+trackW)+'px;">';
-    html += '<div class="gantt-row gantt-row-header"><div class="gantt-label"><span class="g-code">Proiect</span></div>';
-    html += '<div class="gantt-header-days" style="width:'+trackW+'px;">'+headCells+'</div></div>';
-    html += rows + '</div></div>';
-    board.innerHTML = html;
-
-    document.querySelectorAll('[data-gz]').forEach(function(b){
-      b.addEventListener('click', function(){ ganttZoom = b.dataset.gz; render(); });
-    });
-    document.querySelectorAll('.gantt-label[data-open], .gantt-seg[data-open]').forEach(function(el){
-      el.addEventListener('click', function(){ openProjectModal(el.dataset.open); });
     });
   }
 

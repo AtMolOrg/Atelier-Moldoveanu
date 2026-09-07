@@ -428,48 +428,6 @@
   .traseu-pieces{ display:flex; flex-direction:column; gap:3px; }
   .traseu-piece-chip{ background:var(--panel-3); border-radius:5px; padding:2px 6px; font-size:10.5px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
 
-  /* ---------- GANTT / CRONOLOGIE ---------- */
-  .gantt-toolbar{ display:flex; align-items:center; gap:10px; padding:0 2px 10px; flex-wrap:wrap; }
-  .gantt-zoom{ display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-  .gantt-zoom button{ border:none; background:var(--panel); padding:7px 14px; font-size:12.5px; cursor:pointer; color:var(--ink-dim); }
-  .gantt-zoom button.active{ background:var(--accent); color:var(--accent-ink); }
-  .gantt-hint{ font-size:11.5px; color:var(--ink-faint); }
-  .gantt-wrap{ overflow:auto; height:calc(100% - 44px); max-height:calc(100vh - 150px); background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); }
-  .gantt-row{ display:flex; }
-  .gantt-row:nth-child(even) .gantt-track{ background-color: rgba(0,0,0,0.015); }
-  .gantt-row-header{ position:sticky; top:0; z-index:3; background:var(--panel); }
-  .gantt-label{ position:sticky; left:0; z-index:2; width:210px; min-width:210px; background:var(--panel); border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:8px 12px; display:flex; flex-direction:column; justify-content:center; gap:2px; cursor:pointer; }
-  .gantt-label:hover{ background:var(--panel-2); }
-  .gantt-row-header .gantt-label{ z-index:4; cursor:default; }
-  .gantt-row-header .gantt-label:hover{ background:var(--panel); }
-  .gantt-label .g-code{ font-family:'Raleway', sans-serif; font-size:11.5px; color:var(--accent); font-weight:600; }
-  .gantt-label .g-client{ font-size:12.5px; font-weight:600; }
-  .gantt-label .g-slip{ font-size:10.5px; font-weight:700; margin-top:1px; }
-  .gantt-track{ position:relative; border-bottom:1px solid var(--border); }
-  .gantt-header-days{ display:flex; border-bottom:1px solid var(--border); }
-  .gantt-daycell{ flex:none; text-align:center; font-family:'Raleway', sans-serif; font-size:10px; color:var(--ink-faint); padding:9px 0 5px; border-right:1px solid rgba(0,0,0,0.06); }
-  .gantt-daycell.is-today{ color:#b3402f; font-weight:800; }
-  .gantt-daycell .g-month{ display:block; color:var(--accent); font-weight:700; font-size:9px; text-transform:uppercase; margin-top:1px; }
-  .gantt-today-line{ position:absolute; top:0; bottom:0; width:2px; background:#c0392b; z-index:2; pointer-events:none; }
-  .gantt-seg{ position:absolute; top:9px; height:22px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap; overflow:hidden; opacity:0.5; cursor:pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.22); }
-  .gantt-seg:hover{ filter:brightness(1.07); }
-  .gantt-seg.is-current{ opacity:1; }
-  .gantt-seg.seg-first{ border-radius:5px 0 0 5px; }
-  .gantt-seg.seg-last{ border-radius:0 5px 5px 0; }
-  .gantt-seg.seg-only{ border-radius:5px; }
-  .gantt-seg:not(.seg-last):not(.seg-only){ border-right:1px solid rgba(255,255,255,0.6); }
-  .gantt-seg.seg-ante{ background:#2f80c0; }
-  .gantt-seg.seg-exec{ background:#e0842a; }
-  .gantt-seg.seg-montaj{ background:#c0392b; }
-  .gantt-seg.seg-done{ opacity:0.4; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.28) 0 4px, rgba(255,255,255,0) 4px 8px); }
-  .gantt-seg.is-current{ opacity:1; box-shadow: 0 1px 4px rgba(0,0,0,0.22), 0 0 0 2px rgba(0,0,0,0.18); }
-  .gantt-seg-remain{ position:absolute; top:0; bottom:0; background: rgba(255,255,255,0.5); }
-  .gantt-overdue{ position:absolute; top:9px; height:22px; z-index:2; border-radius:0 4px 4px 0; pointer-events:none; background: repeating-linear-gradient(45deg, rgba(192,57,43,0.92) 0 5px, rgba(192,57,43,0.5) 5px 10px); }
-  .gantt-overshoot{ position:absolute; top:9px; height:22px; background:repeating-linear-gradient(45deg, rgba(192,57,43,0.85), rgba(192,57,43,0.85) 6px, rgba(192,57,43,0.6) 6px, rgba(192,57,43,0.6) 12px); border-radius:0 5px 5px 0; z-index:3; display:flex; align-items:center; padding-left:6px; font-size:10px; font-weight:800; color:#fff; white-space:nowrap; pointer-events:none; }
-  .gantt-deadline{ position:absolute; top:3px; bottom:3px; width:0; border-left:2px dashed #7a2018; z-index:3; pointer-events:none; }
-  .gantt-deadline::after{ content:'⚑'; position:absolute; top:-2px; left:1px; font-size:11px; color:#7a2018; }
-  .gantt-empty{ margin:auto; }
-
   /* ---------- REPARATII ---------- */
   .repair-card{ background: var(--panel-2); border:1px solid var(--border); border-left:3px solid var(--warn); border-radius:8px; padding:11px 12px; cursor:grab; transition: box-shadow var(--dur), transform var(--dur), opacity var(--dur); }
   .repair-card:hover{ box-shadow: var(--shadow); }
