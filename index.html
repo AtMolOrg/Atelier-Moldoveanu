@@ -1971,7 +1971,7 @@
         var v = inp.value.trim();
         if(inp.dataset.field === 'name' && !v){ inp.value = w.name; return; }
         w[inp.dataset.field] = v;
-        saveState();
+        saveState(); render(); // re-randăm ca numele să apară în meniul de furnizor + anteturile de grup din tabelul de comenzi
       });
     });
     document.querySelectorAll('[data-furn-add]').forEach(function(b){
