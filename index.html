@@ -438,12 +438,6 @@
     var next = a[a.findIndex(function(s){ return s.id === stationId; }) + 1];
     return (next && next.type === 'proiect') ? next : null;
   }
-  function firstProiectAfterLastPiesaFor(p){
-    var a = stationsFor(p), lp = lastPiesaIndexFor(p);
-    if(lp === -1) return null;
-    for(var i=lp+1;i<a.length;i++){ if(a[i].type === 'proiect') return a[i]; }
-    return null;
-  }
   function lastProiectBeforeFirstPiesaFor(p){
     var a = stationsFor(p), fp = firstPiesaIndexFor(p);
     if(fp === -1) return null;
@@ -700,10 +694,8 @@
     h += '<button type="button" class="rs-k reg-orders-toggle" data-toggle-orders="' + p.id + '">📋 ' + esc(matLabel) + '</button>';
     h += '<span class="rs-grow"></span>';
 
-    // acțiunea principală
-    if(next){
-      h += '<button class="btn btn-sm" data-advance="' + p.id + '" data-target="' + next.id + '">Avansează → ' + esc(next.name) + '</button>';
-    } else if(finalizabil){
+    // acțiunea principală — avansul e doar prin drag; aici rămâne doar finalizarea
+    if(finalizabil){
       h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează ✓</button>';
     }
     h += '<button type="button" class="rs-more" data-reg-more="' + p.id + '" title="Detalii / editare">⋯</button>';
@@ -722,7 +714,6 @@
     if((p.notite || '').trim()) h += '<div class="card-notes">' + esc(p.notite) + '</div>';
     if((p.montajNotes || '').trim()) h += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
     h += '<div class="card-actions">';
-    if(finalizabil && next) h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează ✓</button>';
     h += '<button class="btn btn-sm" data-edit="' + p.id + '">Editează</button>';
     h += '<button class="btn btn-sm btn-danger-outline" data-del="' + p.id + '">Șterge</button>';
     h += '</div>';
@@ -807,37 +798,15 @@
     var curStation = stationByIdFor(project, piece.stationId);
     var inProiectStage = !!(curStation && curStation.type === 'proiect');
     var isBack = flowIdx === 0 && inProiectStage; // la prima etapă din flux, etapă de proiect
-    var hasNext = flowIdx > -1 && flowIdx < flow.length - 1;
     var atMontaj = piece.stationId === PIECE_MONTAJ;
-    var cardStyle = '';
-    var html = '<div class="piece-card' + (isBack ? ' back-to-design' : '') + '" draggable="true" data-piece="' + project.id + '::' + piece.id + '"' + cardStyle + '>';
+    var html = '<div class="piece-card' + (isBack ? ' back-to-design' : '') + '" draggable="true" data-piece="' + project.id + '::' + piece.id + '">';
     html += '<div class="p-code">' + esc(project.cod) + '</div>';
     html += '<div class="p-name">' + esc(piece.name) + '</div>';
     if(piece.colorCode) html += '<div class="p-color">' + esc(piece.colorCode) + '</div>';
     html += '<div class="p-client">' + esc(project.client) + '</div>';
-    if(atMontaj){
-      // piesă trimisă la montaj (sentinel PIECE_MONTAJ) — nu se potrivește cu nicio etapă din flux
-      html += '<div class="badge badge-done" style="margin:4px 0;">Montaj</div>';
-      html += '<div class="piece-btn-row">';
-      html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Scoate de la montaj, înapoi în flux">↺</button>';
-      html += '</div>';
-      html += '</div>';
-      return html;
-    }
-    if(inProiectStage) html += '<div class="badge badge-done" style="margin:4px 0;">' + esc(curStation.name) + '</div>';
-    if(inProiectStage){
-      html += '<div class="piece-btn-row">';
-      if(flowIdx > 0) html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Un pas înapoi în flux">↺</button>';
-      if(hasNext) html += '<button class="btn btn-xs btn-primary" data-piece-move="' + project.id + '::' + piece.id + '" data-dir="next" title="Trimite mai departe">→</button>';
-      html += '</div>';
-    } else {
-      html += '<div class="piece-btn-row">';
-      // „un pas înapoi" n-are sens la capul fluxului
-      if(flowIdx > 0) html += '<button class="btn btn-xs btn-ghost" data-piece-demote="' + project.id + '::' + piece.id + '" title="Un pas înapoi în flux">↺</button>';
-      // fără o etapă de montaj (proiect după ultima etapă de piesă) piesa n-ar mai avea unde să apară
-      if(firstProiectAfterLastPiesaFor(project)) html += '<button class="btn btn-xs sub-piece-btn send" data-piece-to-montaj="' + project.id + '::' + piece.id + '" title="Trimite piesa la montaj">📦</button>';
-      html += '</div>';
-    }
+    // etichetă informativă — piesele se mută doar prin drag
+    if(atMontaj) html += '<div class="badge badge-done" style="margin:4px 0 0;">Montaj</div>';
+    else if(inProiectStage) html += '<div class="badge badge-done" style="margin:4px 0 0;">' + esc(curStation.name) + '</div>';
     html += '</div>';
     return html;
   }
@@ -959,29 +928,6 @@
         }
       });
     });
-    document.querySelectorAll('[data-advance]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var p = state.projects.find(function(x){ return x.id===btn.dataset.advance; });
-        if(p){
-          p.stationId = btn.dataset.target; p.lane = null;
-
-          var tSt = stationByIdFor(p, btn.dataset.target);
-          logEvent('avansat', p.cod + ' · ' + p.client + ' → ' + (tSt ? tSt.name : '?'));
-          saveState(); render();
-        }
-      });
-    });
-    document.querySelectorAll('[data-finalize]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var p = state.projects.find(function(x){ return x.id===btn.dataset.finalize; });
-        if(!p) return;
-        var target = firstProiectAfterLastPiesaFor(p);
-        if(target){ p.stationId = target.id; p.lane = null; }
-        else { p.finalizat = true; p.finalizatAt = new Date().toISOString(); logEvent('finalizat', p.cod + ' · ' + p.client); } // nowhere else for it to go
-
-        saveState(); render();
-      });
-    });
     document.querySelectorAll('[data-close-project]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var p = state.projects.find(function(x){ return x.id===btn.dataset.closeProject; });
@@ -1000,58 +946,6 @@
         }
       });
     });
-    document.querySelectorAll('[data-piece-move]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var parts = btn.dataset.pieceMove.split('::');
-        var p = state.projects.find(function(x){ return x.id===parts[0]; });
-        if(!p) return;
-        var pc = p.pieces.find(function(x){ return x.id===parts[1]; });
-        if(!pc) return;
-        var flow = pieceFlowFor(p);
-        var idx = flow.findIndex(function(s){ return s.id===pc.stationId; });
-        var newIdx = btn.dataset.dir==='next' ? idx+1 : idx-1;
-        if(newIdx>=0 && newIdx<flow.length){
-          pc.stationId = flow[newIdx].id; pc.lane = null;
-
-          saveState(); render();
-        }
-      });
-    });
-    document.querySelectorAll('[data-piece-demote]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var parts = btn.dataset.pieceDemote.split('::');
-        var p = state.projects.find(function(x){ return x.id===parts[0]; });
-        if(!p) return;
-        var pc = p.pieces.find(function(x){ return x.id===parts[1]; });
-        if(pc){
-          var dflow = pieceFlowFor(p);
-          var didx = dflow.findIndex(function(s){ return s.id===pc.stationId; });
-          if(didx === -1 && pc.stationId === PIECE_MONTAJ && dflow.length){
-            // from montaj, one step back = re-enter the flow at its last stage
-            pc.stationId = dflow[dflow.length-1].id; pc.lane = null;
-            saveState(); render();
-          } else if(didx > 0){
-            pc.stationId = dflow[didx-1].id; pc.lane = null;
-            saveState(); render();
-          }
-        }
-      });
-    });
-    document.querySelectorAll('[data-piece-to-montaj]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var parts = btn.dataset.pieceToMontaj.split('::');
-        var p = projectById(parts[0]);
-        if(!p) return;
-        var pc = (p.pieces||[]).find(function(x){ return x.id === parts[1]; });
-        if(!pc) return;
-        pc.stationId = PIECE_MONTAJ; pc.lane = null;
-
-        logEvent('piesa-montaj', p.cod + ' · ' + p.client + ' · ' + pc.name);
-        saveState(); render();
-      });
-    });
-
     // drag & drop — the project itself, dragged by the head of its current "proiect" stage column
     document.querySelectorAll('[data-proj-drag]').forEach(function(el){
       el.addEventListener('dragstart', function(e){
