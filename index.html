@@ -1010,6 +1010,9 @@
       }
     });
     parsed.checklists.forEach(function(c){ if(!Array.isArray(c.items)) c.items = []; });
+    if(parsed.registrySort !== 'termen' && parsed.registrySort !== 'urgenta') parsed.registrySort = 'termen';
+    (parsed.projects||[]).forEach(function(p){ delete p.x; delete p.y; });
+    (parsed.checklists||[]).forEach(function(c){ delete c.x; delete c.y; }); // datele listelor rămân
     return parsed;
   }
   function resolveVersioned(parsed){
