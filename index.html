@@ -394,6 +394,19 @@
   .cmz-inp{ width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:6px 8px; border-radius:6px; font-size:12.5px; }
   .cmz-proj{ cursor:pointer; white-space:nowrap; }
   .cmz-proj:hover .t-code{ text-decoration:underline; }
+  .furn-panel{ border:1px solid var(--border); border-radius:8px; margin-bottom:14px; background:var(--panel); }
+  .furn-panel-head{ display:flex; align-items:center; gap:8px; width:100%; background:none; border:0; padding:9px 12px; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; }
+  .furn-count{ color:var(--ink-dim); font-weight:400; }
+  .furn-chev{ margin-left:auto; color:var(--ink-dim); transition:transform .15s; }
+  .furn-panel-head[aria-expanded="true"] .furn-chev, .furn-panel.open .furn-chev{ transform:rotate(90deg); }
+  .furn-panel-body{ padding:4px 12px 12px; display:flex; flex-direction:column; gap:6px; }
+  .furn-row{ display:grid; grid-template-columns:1.4fr 1.4fr 2fr 32px; gap:8px; align-items:center; }
+  .furn-row-head{ font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--ink-dim); padding:0 2px; }
+  .furn-inp{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:6px 9px; border-radius:6px; font-size:12.5px; }
+  .furn-del{ background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:28px; height:28px; cursor:pointer; }
+  .furn-del:hover:not([disabled]){ color:#a85248; border-color:rgba(200,110,95,0.45); }
+  .furn-del[disabled]{ opacity:.35; cursor:not-allowed; }
+  @media (max-width:640px){ .furn-row{ grid-template-columns:1fr 1fr; } .furn-row > *:nth-child(3){ grid-column:1 / -1; } .furn-row-head{ display:none; } }
   .fin-detail td{ background:var(--panel-2); }
   .fin-detail-box{ display:flex; flex-direction:column; gap:6px; font-size:12.5px; color:var(--ink-dim); padding:4px 0; }
   .fin-sec b{ color:var(--ink); }
@@ -2022,6 +2035,66 @@
 
   /* ================= COMENZI (toate materialele de aprovizionat) ================= */
   var comenziShowPrimit = false;
+  var comenziFurnizoriOpen = false;
+
+  function renderFurnizoriPanel(){
+    var sup = state.workers.filter(function(w){ return w.kind === 'furnizor'; }).slice();
+    sup.sort(function(a, b){ return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()); });
+    var open = comenziFurnizoriOpen;
+    var h = '<div class="furn-panel' + (open ? ' open' : '') + '">';
+    h += '<button type="button" class="furn-panel-head" data-furn-toggle aria-expanded="' + (open ? 'true' : 'false') + '">';
+    h += '<span>Furnizori</span> <span class="furn-count">(' + sup.length + ')</span>';
+    h += '<span class="furn-chev">▸</span>';
+    h += '</button>';
+    h += '<div class="furn-panel-body"' + (open ? '' : ' hidden') + '>';
+    h += '<div class="furn-row furn-row-head"><span>Nume</span><span>Contact</span><span>Note</span><span></span></div>';
+    sup.forEach(function(w){
+      var inUse = state.projects.some(function(p){ return (p.orders || []).some(function(o){ return o.supplierId === w.id; }); });
+      h += '<div class="furn-row">';
+      h += '<input class="furn-inp" data-furn-edit="' + w.id + '" data-field="name" value="' + esc(w.name || '') + '" placeholder="Nume furnizor">';
+      h += '<input class="furn-inp" data-furn-edit="' + w.id + '" data-field="contact" value="' + esc(w.contact || '') + '" placeholder="telefon / email">';
+      h += '<input class="furn-inp" data-furn-edit="' + w.id + '" data-field="taskNote" value="' + esc(w.taskNote || '') + '" placeholder="note">';
+      h += '<button type="button" class="furn-del" data-furn-del="' + w.id + '"' +
+        (inUse ? ' disabled title="Are comenzi legate — nu se poate șterge"' : ' title="Șterge"') + '>×</button>';
+      h += '</div>';
+    });
+    h += '<button type="button" class="btn btn-xs btn-ghost" data-furn-add>+ furnizor nou</button>';
+    h += '</div></div>';
+    return h;
+  }
+
+  function attachFurnizoriEvents(){
+    var t = document.querySelector('[data-furn-toggle]');
+    if(t) t.addEventListener('click', function(){ comenziFurnizoriOpen = !comenziFurnizoriOpen; render(); });
+    document.querySelectorAll('[data-furn-edit]').forEach(function(inp){
+      inp.addEventListener('change', function(){
+        var w = state.workers.find(function(x){ return x.id === inp.dataset.furnEdit; });
+        if(!w) return;
+        var v = inp.value.trim();
+        if(inp.dataset.field === 'name' && !v){ inp.value = w.name; return; }
+        w[inp.dataset.field] = v;
+        saveState();
+      });
+    });
+    document.querySelectorAll('[data-furn-add]').forEach(function(b){
+      b.addEventListener('click', function(){
+        state.workers.push({ id: uid(), name: 'Furnizor nou', kind: 'furnizor', taskNote: '', contact: '' });
+        comenziFurnizoriOpen = true;
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-furn-del]').forEach(function(b){
+      b.addEventListener('click', function(){
+        if(b.disabled) return;
+        var w = state.workers.find(function(x){ return x.id === b.dataset.furnDel; });
+        if(!w) return;
+        if(!confirm('Ștergi furnizorul „' + w.name + '”?')) return;
+        state.workers = state.workers.filter(function(x){ return x.id !== w.id; });
+        saveState(); render();
+      });
+    });
+  }
+
   function renderComenzi(){
     var board = document.getElementById('board');
     board.className = ''; board.style.display = 'block'; board.style.height = '100%';
@@ -2051,12 +2124,14 @@
     var total = rows.length;
     var toBuy = rows.filter(function(r){ return r.o.status === 'de-comandat'; }).length;
 
-    var html = '<div class="toolbar-row"><strong>Comenzi materiale</strong> — ' + total + ' rânduri, ' + toBuy + ' de comandat' +
+    var html = renderFurnizoriPanel();
+    html += '<div class="toolbar-row"><strong>Comenzi materiale</strong> — ' + total + ' rânduri, ' + toBuy + ' de comandat' +
       '<label style="margin-left:16px;"><input type="checkbox" id="cmz-primit" ' + (comenziShowPrimit ? 'checked' : '') + '> Arată și primite</label></div>';
 
     if(!total){
       html += '<div class="empty-state" style="margin-top:20px;"><h2>Nicio comandă</h2><p>Adaugă materiale în panoul „Comenzi materiale" al fiecărui proiect (marginea stângă a dosarului).</p></div>';
       board.innerHTML = html;
+      attachFurnizoriEvents();
       var cb0 = document.getElementById('cmz-primit');
       if(cb0) cb0.addEventListener('change', function(e){ comenziShowPrimit = e.target.checked; render(); });
       return;
@@ -2082,6 +2157,7 @@
     });
     html += '</table></div>';
     board.innerHTML = html;
+    attachFurnizoriEvents();
 
     var cb = document.getElementById('cmz-primit');
     if(cb) cb.addEventListener('change', function(e){ comenziShowPrimit = e.target.checked; render(); });
