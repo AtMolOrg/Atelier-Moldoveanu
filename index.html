@@ -119,8 +119,6 @@
   .column.drag-over{ box-shadow: 0 0 0 2px rgba(0,0,0,0.4) inset; }
   @keyframes rise{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
 
-  .harta-grid{ position:relative; }
-  .harta-grid .column{ position:absolute; max-height:none; min-width:0; }
   .column.dragging-col{ box-shadow: 0 16px 40px rgba(0,0,0,0.35); z-index:50; opacity:0.97; }
   .col-head{ display:flex; align-items:center; gap:8px; padding:11px 12px 9px 14px; border-bottom:1px solid var(--border); cursor:grab; user-select:none; }
   .col-head:active{ cursor:grabbing; }
@@ -217,7 +215,6 @@
   /* ---------- SIDE PANEL — „comenzi materiale", iese din marginea stângă a dosarului.
      Mâner, hover, auto-hide, pin sincronizat per proiect. ---------- */
   .side-panel{ position:absolute; top:28px; z-index:20; display:flex; align-items:flex-start; }
-  .side-panel.side-left{ right:100%; flex-direction:row-reverse; }
   .side-handle{
     flex:none; writing-mode:vertical-rl; text-orientation:mixed;
     background:var(--panel-2); border:1px solid var(--border);
@@ -264,48 +261,6 @@
   .order-del:hover{ color:#a85248; border-color: rgba(200,110,95,0.45); }
   .order-add{ align-self:flex-start; }
   .card-orders-line{ display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--ink-dim); margin-bottom:8px; }
-
-  /* ---------- CHECKLIST CARD (listă permanentă de mărunțișuri, pe canvas) ---------- */
-  .note-wrap{ width:max-content; margin-bottom:16px; }
-  .note-tab{
-    display:inline-flex; align-items:center; position:relative; z-index:1; max-width:300px;
-    background:var(--panel-2); border:1px solid var(--border); border-bottom:none;
-    border-radius:8px 8px 0 0; padding:5px 16px; margin:0 0 -1px 16px;
-    font-family:'Raleway',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.03em; color:var(--accent);
-    cursor:grab; user-select:none; word-break:break-word;
-  }
-  .note-tab:active{ cursor:grabbing; }
-  .note-wrap.node-dragging{ z-index:50; }
-  .note-wrap.node-dragging .note-body{ box-shadow: 0 16px 40px rgba(0,0,0,0.35); opacity:0.97; }
-  .note-body{
-    background:var(--panel); border:1px solid var(--border); border-radius:0 10px 10px 10px;
-    box-shadow:var(--shadow); width:300px; padding:10px 12px 12px; display:flex; flex-direction:column; gap:8px;
-  }
-  .note-head{ display:flex; align-items:center; gap:8px; cursor:grab; user-select:none; }
-  .note-head:active{ cursor:grabbing; }
-  .note-wrap.node-dragging .note-head{ cursor:grabbing; }
-  .note-count{ flex:1; font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.03em; font-size:10.5px; color:var(--ink-faint); }
-  .note-del{ flex:none; background:transparent; border:none; color:var(--ink-faint); font-size:13px; padding:2px 6px; border-radius:6px; }
-  .note-del:hover{ color:#a85248; background:var(--panel-2); }
-  .note-items{ display:flex; flex-direction:column; gap:5px; }
-  .note-item{ display:flex; align-items:center; gap:6px; }
-  .note-item.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; border-radius:6px; }
-  .note-check{ flex:none; width:15px; height:15px; cursor:pointer; }
-  .note-item-text{ flex:1; min-width:0; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:6px 9px; border-radius:6px; font-size:12.5px; }
-  .note-assignee{ flex:none; display:flex; align-items:center; gap:2px; background:var(--panel-3); border:1px solid var(--border); border-radius:999px; padding:2px 4px 2px 2px; }
-  .note-assignee-clear{ background:transparent; border:none; color:var(--ink-faint); font-size:11px; line-height:1; padding:0 2px; }
-  .note-assignee-clear:hover{ color:#a85248; }
-  .note-item-del{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:24px; height:24px; font-size:12px; padding:0; }
-  .note-item-del:hover{ color:#a85248; border-color: rgba(200,110,95,0.45); }
-  .note-add-item{ align-self:flex-start; }
-  .note-done{ border-top:1px dashed var(--border); padding-top:6px; }
-  .note-done-label{ color:var(--ink-faint); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; padding:2px 0; }
-  .note-done-list{ display:flex; flex-direction:column; gap:4px; margin-top:6px; }
-  .note-done-row{ display:flex; align-items:center; gap:6px; }
-  .note-done-text{ flex:1; min-width:0; font-size:12px; color:var(--ink-faint); text-decoration:line-through; word-break:break-word; }
-  .note-restore{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:22px; height:22px; font-size:11px; padding:0; }
-  .note-restore:hover{ color:var(--ink); }
-  .note-done-clear{ align-self:flex-start; margin-top:4px; }
 
   .col-resize{
     position:absolute; right:0; bottom:0; width:18px; height:18px;
@@ -368,18 +323,6 @@
   .badge-none{ background: rgba(0,0,0,0.08); color:var(--ink-faint); }
   .badge-done{ background: rgba(168,200,220,0.4); color:#3d6d85; }
   .card-notes{ font-size:12.5px; color:var(--ink-dim); margin-bottom:8px; line-height:1.4; }
-  .piece-sublist{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; background:var(--panel-3); border-radius:7px; padding:8px; }
-  .sub-piece-row{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; font-size:11.5px; cursor:grab; transition: opacity var(--dur); }
-  .sub-piece-row + .sub-piece-row{ border-top:1px dashed var(--border); padding-top:8px; }
-  .sub-piece-row.dragging{ opacity:0.35; }
-  .sub-piece-name{ flex:1 1 100%; color:var(--ink-dim); }
-  .sub-piece-color{ color:#000000; font-size:10px; font-weight:600; }
-  .sub-piece-status{ flex:none; font-size:10px; color:var(--steel); font-weight:600; }
-  .sub-piece-status.pending{ color:var(--ink-faint); }
-  .sub-piece-people{ display:flex; flex-wrap:wrap; gap:4px; flex:1 1 auto; }
-  .sub-piece-people .assigned-chip{ padding:1px 3px 1px 1px; }
-  .sub-piece-people .assigned-name{ font-size:10px; }
-  .sub-piece-people .mini-avatar{ width:16px; height:16px; font-size:7.5px; }
   .sub-piece-btn{ flex:none; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:5px; width:22px; height:22px; font-size:11px; padding:0; }
   .sub-piece-btn:hover{ color:var(--ink); border-color:var(--ink-faint); }
   .sub-piece-btn.send{ color:#333333; border-color:rgba(0,0,0,0.45); }
@@ -426,26 +369,6 @@
   .empty-state{ margin:auto; max-width:420px; text-align:center; padding:50px 30px; background:var(--panel); border:1px dashed var(--border); border-radius:var(--radius); }
   .empty-state h2{ font-family:'Raleway',sans-serif; text-transform:uppercase; letter-spacing:0.04em; font-size:18px; margin:0 0 8px; }
   .empty-state p{ color:var(--ink-dim); font-size:13.5px; line-height:1.5; margin:0 0 18px; }
-
-  /* ---------- HARTĂ: pan/zoom canvas ---------- */
-  .canvas-viewport{
-    position:relative; overflow:hidden;
-    flex:1; min-height:0;
-    background: transparent;
-    cursor:grab;
-    touch-action:none;
-  }
-  .canvas-viewport.panning{ cursor:grabbing; }
-  .canvas-content{ position:absolute; top:0; left:0; transform-origin:0 0; padding:18px; }
-  .canvas-zoom-controls{
-    position:absolute; right:12px; bottom:12px; z-index:5;
-    display:flex; align-items:center; gap:2px;
-    background:var(--panel-2); border:1px solid var(--border); border-radius:10px;
-    padding:4px; box-shadow:var(--shadow);
-  }
-  .canvas-zoom-controls button{ background:transparent; border:none; color:var(--ink-dim); width:28px; height:28px; border-radius:7px; font-size:15px; font-weight:700; }
-  .canvas-zoom-controls button:hover{ background:var(--panel-3); color:var(--ink); }
-  .canvas-zoom-controls span{ font-family:'Raleway',sans-serif; font-size:11px; color:var(--ink-faint); padding:0 6px; min-width:38px; text-align:center; }
 
   .col-body.drag-over, .people-row.drag-over{ box-shadow: 0 0 0 2px rgba(0,0,0,0.45) inset; border-radius:8px; }
 
@@ -506,7 +429,6 @@
   .worker-token.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; background: var(--panel-3); }
   .worker-token.reorder-target{ box-shadow: 0 0 0 2px var(--accent) inset; }
   .card.link-target, .piece-card.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; }
-  .sub-piece-row.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; border-radius:6px; }
   .montaj-team{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:8px; padding:7px 8px; background:var(--panel-3); border:1px dashed var(--border); border-radius:7px; }
   .montaj-team.link-target{ box-shadow: 0 0 0 2px var(--steel) inset; }
   .montaj-team-label{ flex:1 1 100%; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:var(--ink-faint); }
@@ -750,7 +672,6 @@
     </div>
     <div class="topbar-actions">
       <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
-      <button class="btn" id="btn-add-list">+ Listă</button>
       <input type="text" id="search" class="search-input" placeholder="Caută cod sau client…">
       <button class="btn btn-ghost btn-icon" id="btn-undo" title="Anulează (Ctrl+Z)" disabled>↶</button>
       <button class="btn btn-ghost btn-icon" id="btn-redo" title="Refă (Ctrl+Shift+Z)" disabled>↷</button>
@@ -796,14 +717,6 @@
   function noteLocalWrite(sig){ recentLocalSigs.push(sig); if(recentLocalSigs.length > 10) recentLocalSigs.shift(); }
   var draggingData = null;
   var suppressWorkerClick = false;
-  var canvasZoom = 1, canvasPanX = 0, canvasPanY = 0;
-  var canvasInitialized = false;
-  var canvasDragging = false, canvasStartX = 0, canvasStartY = 0, canvasStartPanX = 0, canvasStartPanY = 0;
-  var CANVAS_MIN_ZOOM = 0.35, CANVAS_MAX_ZOOM = 2.2;
-  var SNAP_THRESHOLD = 10, SNAP_GRID = 20;
-  var nodeDragging = false, nodeDragObj = null, nodeDragEl = null, nodeDragMoved = false;
-  var nodeDragStartMouseX = 0, nodeDragStartMouseY = 0, nodeDragStartX = 0, nodeDragStartY = 0;
-  var sideOpen = {}; // "<projectId>|<kind>" -> true while that folder side panel is open on hover (transient; the pin lives in shared state)
   var registryOpen = {}; // "<projectId>" -> true while that registru row is expanded (transient; not persisted)
   var PIECE_MONTAJ = '__montaj__'; // pc.stationId sentinel: piece is done on the floor, sent to montaj
   var MONTAJ_TEAM = 'MONTAJ_TEAM'; // assignment.pieceId sentinel: worker is on this project's install crew
@@ -1434,22 +1347,6 @@
     html += '</div>';
     return html;
   }
-  // compact assignee chips for a piece row inside the project card's sublist
-  function renderPieceAssignees(projectId, pieceId){
-    var links = assignmentsForTask(projectId, pieceId);
-    if(!links.length) return '';
-    var h = '<div class="sub-piece-people">';
-    links.forEach(function(a){
-      var w = state.workers.find(function(x){ return x.id === a.workerId; });
-      if(!w) return;
-      h += '<div class="assigned-chip' + (w.kind==='furnizor'?' furnizor':'') + '" data-open-worker="' + w.id + '" title="' + esc(w.name) + '">' +
-        '<span class="mini-avatar" style="background:' + workerColor(w) + '">' + esc(initials(w.name)) + '</span>' +
-        '<span class="assigned-name">' + esc(w.name) + '</span>' + supplierTimeChip(a, w) +
-        '<button type="button" class="assigned-remove" data-unlink="' + a.id + '" title="Scoate legătura">×</button></div>';
-    });
-    h += '</div>';
-    return h;
-  }
   function renderWorkerToken(w){
     var isFurnizor = w.kind === 'furnizor';
     var html = '<div class="worker-token' + (isFurnizor?' furnizor':'') + '" draggable="true" data-worker="' + w.id + '" title="' + esc(w.name) + '">';
@@ -1476,22 +1373,7 @@
     var o = p.orders.find(function(x){ return x.id === parts[1]; });
     return o ? { project: p, order: o } : null;
   }
-  // Generic side-panel shell: a handle that juts out of a folder edge, hover/click to open,
-  // auto-hide unless pinned (pin is shared, per-project, in state[pinField]).
-  function renderSidePanel(opts){
-    // opts: { projectId, kind, side, label, count, pinned, bodyHtml, pinField }
-    var isOpen = opts.pinned || !!sideOpen[opts.projectId + '|' + opts.kind];
-    var h = '<div class="side-panel side-' + opts.side + (isOpen ? ' open' : '') + '" data-side-panel="' + opts.projectId + '" data-side-kind="' + opts.kind + '" data-side-pinfield="' + opts.pinField + '">';
-    h += '<div class="side-handle" data-side-handle="1">' + esc(opts.label) + (opts.count ? ' <span class="side-count">' + esc(opts.count) + '</span>' : '') + '</div>';
-    h += '<div class="side-body">';
-    h += '<div class="side-head"><span class="side-title">' + esc(opts.title || opts.label) + '</span>' +
-      '<button type="button" class="btn btn-xs side-pin' + (opts.pinned ? ' pinned' : '') + '" data-side-pin="' + opts.projectId + '" data-pinfield="' + opts.pinField + '" title="' + (opts.pinned ? 'Anulează fixarea (pentru toți)' : 'Fixează deschis (pentru toți)') + '">📌</button></div>';
-    h += opts.bodyHtml;
-    h += '</div></div>';
-    return h;
-  }
-  // Just the order rows + "adaugă comandă" button — shared by the side panel (Hartă pe proiecte)
-  // and the registru row header. No renderSidePanel wrapper.
+  // Just the order rows + "adaugă comandă" button — used by the registru row header.
   function renderOrdersRows(p){
     var orders = Array.isArray(p.orders) ? p.orders : [];
     var b = '<div class="side-list">';
@@ -1513,308 +1395,20 @@
     b += '<button type="button" class="btn btn-xs btn-ghost order-add" data-order-add="' + p.id + '">+ Adaugă comandă</button>';
     return b;
   }
-  function renderOrdersPanel(p){
-    var orders = Array.isArray(p.orders) ? p.orders : [];
-    var received = orders.filter(function(o){ return o.status === 'primit'; }).length;
-    var b = renderOrdersRows(p);
-    return renderSidePanel({
-      projectId: p.id, kind: 'orders', side: 'left', pinField: 'ordersPinned',
-      label: '📋 comenzi materiale', title: 'Comenzi materiale',
-      count: orders.length ? (received + '/' + orders.length) : '',
-      pinned: !!p.ordersPinned, bodyHtml: b
-    });
-  }
-
-  /* ---------------- checklists (liste permanente de mărunțișuri, noduri pe canvas) ---------------- */
-  function checklistById(id){
-    return (state.checklists || []).find(function(c){ return c.id === id; });
-  }
-  function addChecklist(){
-    var t = prompt('Titlul listei:', 'Listă nouă');
-    if(t === null) return;
-    if(!state.checklists) state.checklists = [];
-    // drop it roughly where the user is looking (viewport centre in canvas coords),
-    // nudged per list so several don't stack exactly
-    var vp = document.getElementById('canvas-viewport');
-    var n = state.checklists.length;
-    var cx = 40, cy = 40;
-    if(vp){
-      cx = Math.round((vp.clientWidth / 2 - canvasPanX) / canvasZoom) - 150;
-      cy = Math.round((vp.clientHeight / 2 - canvasPanY) / canvasZoom) - 40;
-    }
-    state.checklists.push({ id: uid(), title: (t.trim() || 'Listă nouă'), x: cx + n * 16, y: cy + n * 16, items: [] });
-    saveState(); render();
-  }
-  function findChecklistItem(key){
-    var parts = String(key).split('::');
-    var cl = checklistById(parts[0]);
-    if(!cl || !Array.isArray(cl.items)) return null;
-    var it = cl.items.find(function(x){ return x.id === parts[1]; });
-    return it ? { list: cl, item: it } : null;
-  }
-  function renderChecklistRow(cl, it){
-    var key = cl.id + '::' + it.id;
-    var w = it.workerId ? state.workers.find(function(x){ return x.id === it.workerId; }) : null;
-    var h = '<div class="note-item" data-note-row="' + key + '">';
-    h += '<input type="checkbox" class="note-check" data-note-check="' + key + '">';
-    h += '<input class="note-item-text" data-note-text="' + key + '" value="' + esc(it.text || '') + '" placeholder="Ce e de făcut">';
-    if(w){
-      h += '<span class="note-assignee" title="' + esc(w.name) + '"><span class="mini-avatar" style="background:' + workerColor(w) + '">' + esc(initials(w.name)) + '</span>' +
-        '<button type="button" class="note-assignee-clear" data-note-unassign="' + key + '" title="Scoate responsabilul">×</button></span>';
-    }
-    h += '<button type="button" class="note-item-del" data-note-item-del="' + key + '" title="Șterge rândul">×</button>';
-    h += '</div>';
-    return h;
-  }
-  function renderChecklistCard(cl){
-    var items = Array.isArray(cl.items) ? cl.items : [];
-    var active = items.filter(function(it){ return !it.done; });
-    var done = items.filter(function(it){ return it.done; });
-    var posStyle = (typeof cl.x === 'number' && typeof cl.y === 'number') ? ('position:absolute; left:' + cl.x + 'px; top:' + cl.y + 'px;') : '';
-    var h = '<div class="note-wrap" data-checklist="' + cl.id + '" style="' + posStyle + '">';
-    h += '<div class="note-tab" data-note-rename="' + cl.id + '" title="Trage ca să muți · dublu-click ca să redenumești">📋 ' + esc(cl.title || 'Listă') + '</div>';
-    h += '<div class="note-body">';
-    h += '<div class="note-head"><span class="note-count">' + active.length + ' de făcut</span>';
-    h += '<button type="button" class="note-del" data-note-del="' + cl.id + '" title="Șterge lista">✕</button></div>';
-    h += '<div class="note-items">';
-    if(!active.length) h += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Gata tot. 🎉</div>';
-    active.forEach(function(it){ h += renderChecklistRow(cl, it); });
-    h += '</div>';
-    h += '<button type="button" class="btn btn-xs btn-ghost note-add-item" data-note-add="' + cl.id + '">+ rând</button>';
-    if(done.length){
-      h += '<div class="note-done open">';
-      h += '<div class="note-done-label">gata (' + done.length + ')</div>';
-      h += '<div class="note-done-list">';
-      done.forEach(function(it){
-        h += '<div class="note-done-row"><span class="note-done-text">' + esc(it.text || '(gol)') + '</span>' +
-          '<button type="button" class="note-restore" data-note-restore="' + cl.id + '::' + it.id + '" title="Înapoi în listă">↺</button></div>';
-      });
-      h += '<button type="button" class="btn btn-xs btn-danger-outline note-done-clear" data-note-done-clear="' + cl.id + '">Golește „gata"</button>';
-      h += '</div>';
-      h += '</div>';
-    }
-    h += '</div></div>';
-    return h;
-  }
-
-
-  /* ---------------- canvas pan/zoom (Hartă tab) ---------------- */
-  function applyCanvasTransform(){
-    var el = document.getElementById('canvas-content');
-    if(el) el.style.transform = 'translate(' + canvasPanX + 'px,' + canvasPanY + 'px) scale(' + canvasZoom + ')';
-  }
-  function updateZoomLabel(){
-    var lbl = document.getElementById('zoom-label');
-    if(lbl) lbl.textContent = Math.round(canvasZoom * 100) + '%';
-  }
-  function zoomCanvasBy(factor, anchorX, anchorY){
-    var viewport = document.getElementById('canvas-viewport');
-    if(!viewport) return;
-    var rect = viewport.getBoundingClientRect();
-    var ax = (typeof anchorX === 'number') ? anchorX : rect.width / 2;
-    var ay = (typeof anchorY === 'number') ? anchorY : rect.height / 2;
-    var newZoom = Math.min(CANVAS_MAX_ZOOM, Math.max(CANVAS_MIN_ZOOM, canvasZoom * factor));
-    var contentX = (ax - canvasPanX) / canvasZoom;
-    var contentY = (ay - canvasPanY) / canvasZoom;
-    canvasPanX = ax - contentX * newZoom;
-    canvasPanY = ay - contentY * newZoom;
-    canvasZoom = newZoom;
-    applyCanvasTransform();
-    updateZoomLabel();
-  }
-  function hartaContentBounds(){
-    var grid = document.getElementById('harta-grid');
-    var selector = '.proj-wrap, .note-wrap';
-    var minX = 0, minY = 0, maxX = 300, maxY = 300;
-    if(grid){
-      grid.querySelectorAll(selector).forEach(function(el){
-        var l = el.offsetLeft, t = el.offsetTop;
-        var r = l + el.offsetWidth, b = t + el.offsetHeight;
-        if(l < minX) minX = l;
-        if(t < minY) minY = t;
-        if(r > maxX) maxX = r;
-        if(b > maxY) maxY = b;
-      });
-    }
-    return {minX:minX, minY:minY, maxX:maxX, maxY:maxY, width:maxX-minX, height:maxY-minY};
-  }
-  function fitCanvasToViewport(){
-    var viewport = document.getElementById('canvas-viewport');
-    var content = document.getElementById('canvas-content');
-    if(!viewport || !content) return;
-    var topbarEl = document.querySelector('.topbar');
-    var topInset = (topbarEl ? topbarEl.offsetHeight : 0) + 12;
-    var bounds = hartaContentBounds();
-    var naturalW = bounds.width || 1;
-    var naturalH = bounds.height || 1;
-    var vw = viewport.clientWidth - 24;
-    var vh = viewport.clientHeight - topInset - 12;
-    var scale = Math.min(vw / naturalW, vh / naturalH, 1);
-    scale = Math.max(CANVAS_MIN_ZOOM, scale);
-    canvasZoom = scale;
-    canvasPanX = Math.max(12, (viewport.clientWidth - naturalW * scale) / 2) - bounds.minX * scale;
-    canvasPanY = topInset - bounds.minY * scale;
-    applyCanvasTransform();
-    updateZoomLabel();
-  }
-  function adjustCanvasExtent(){
-    var grid = document.getElementById('harta-grid');
-    if(!grid) return;
-    var bounds = hartaContentBounds();
-    grid.style.width = (bounds.maxX + 20) + 'px';
-    grid.style.height = (bounds.maxY + 20) + 'px';
-  }
-  function attachCanvasEvents(){
-    var viewport = document.getElementById('canvas-viewport');
-    if(!viewport) return;
-    adjustCanvasExtent();
-    requestAnimationFrame(function(){
-      adjustCanvasExtent();
-    });
-    if(!canvasInitialized){ fitCanvasToViewport(); canvasInitialized = true; }
-    else { applyCanvasTransform(); updateZoomLabel(); }
-
-    viewport.addEventListener('wheel', function(e){
-      e.preventDefault();
-      var rect = viewport.getBoundingClientRect();
-      var factor = e.deltaY > 0 ? 0.92 : 1.08;
-      zoomCanvasBy(factor, e.clientX - rect.left, e.clientY - rect.top);
-    }, {passive:false});
-
-    var noPanSelector = '.card, .piece-card, .worker-token, button, input, select, textarea, .assigned-chip, .proj-wrap, .note-wrap';
-    // pan only with the middle mouse button (press the wheel) + drag — never left-click
-    viewport.addEventListener('mousedown', function(e){
-      if(e.button !== 1) return;
-      e.preventDefault();
-      canvasDragging = true;
-      canvasStartX = e.clientX; canvasStartY = e.clientY;
-      canvasStartPanX = canvasPanX; canvasStartPanY = canvasPanY;
-      viewport.classList.add('panning');
-    });
-    // stop the browser's middle-click autoscroll bubble
-    viewport.addEventListener('auxclick', function(e){ if(e.button === 1) e.preventDefault(); });
-    viewport.addEventListener('touchstart', function(e){
-      if(e.touches.length !== 1) return;
-      if(e.target.closest(noPanSelector)) return;
-      canvasDragging = true;
-      canvasStartX = e.touches[0].clientX; canvasStartY = e.touches[0].clientY;
-      canvasStartPanX = canvasPanX; canvasStartPanY = canvasPanY;
-    }, {passive:true});
-    viewport.addEventListener('touchmove', function(e){
-      if(!canvasDragging || e.touches.length !== 1) return;
-      canvasPanX = canvasStartPanX + (e.touches[0].clientX - canvasStartX);
-      canvasPanY = canvasStartPanY + (e.touches[0].clientY - canvasStartY);
-      applyCanvasTransform();
-    }, {passive:true});
-    viewport.addEventListener('touchend', function(){ canvasDragging = false; });
-
-    var zoomInBtn = document.getElementById('zoom-in');
-    var zoomOutBtn = document.getElementById('zoom-out');
-    var zoomFitBtn = document.getElementById('zoom-fit');
-    if(zoomInBtn) zoomInBtn.addEventListener('click', function(){ zoomCanvasBy(1.2); });
-    if(zoomOutBtn) zoomOutBtn.addEventListener('click', function(){ zoomCanvasBy(1/1.2); });
-    if(zoomFitBtn) zoomFitBtn.addEventListener('click', fitCanvasToViewport);
-  }
-  // window-level pan continuation — attached once, not per-render, to avoid stacking listeners
-  window.addEventListener('mousemove', function(e){
-    if(!canvasDragging) return;
-    canvasPanX = canvasStartPanX + (e.clientX - canvasStartX);
-    canvasPanY = canvasStartPanY + (e.clientY - canvasStartY);
-    applyCanvasTransform();
-  });
-  window.addEventListener('mouseup', function(){
-    if(!canvasDragging) return;
-    canvasDragging = false;
-    var viewport = document.getElementById('canvas-viewport');
-    if(viewport) viewport.classList.remove('panning');
-  });
-
-  function snapValue(value, refs){
-    for(var i=0;i<refs.length;i++){
-      if(Math.abs(value - refs[i]) <= SNAP_THRESHOLD) return refs[i];
-    }
-    return Math.round(value / SNAP_GRID) * SNAP_GRID;
-  }
-
-  // canvas nodes that can be dragged freely on the "Pe proiecte" map: project folders
-  // (.proj-wrap, backed by a project) and checklist cards (.note-wrap, backed by a checklist).
-  // Both are a positioned wrapper grabbed by a tab; one drag path serves them.
-  function canvasNodeObjFor(wrap){
-    if(!wrap) return null;
-    if(wrap.dataset.project) return projectById(wrap.dataset.project);
-    if(wrap.dataset.checklist) return checklistById(wrap.dataset.checklist);
-    return null;
-  }
-  function attachCanvasNodeDrag(){
-    // grab handles: a project folder drags from its code tab; a checklist card drags from
-    // its tab OR its whole header strip (the tab alone is a small target)
-    document.querySelectorAll('.proj-cluster-tab, .note-tab, .note-head').forEach(function(tab){
-      tab.addEventListener('mousedown', function(e){
-        if(e.target.closest('button, input')) return;
-        var wrap = tab.closest('.proj-wrap, .note-wrap');
-        var obj = canvasNodeObjFor(wrap);
-        if(!obj) return;
-        e.preventDefault();
-        e.stopPropagation();
-        nodeDragging = true;
-        nodeDragMoved = false;
-        nodeDragObj = obj;
-        nodeDragEl = wrap;
-        nodeDragStartMouseX = e.clientX; nodeDragStartMouseY = e.clientY;
-        nodeDragStartX = (typeof obj.x === 'number') ? obj.x : wrap.offsetLeft;
-        nodeDragStartY = (typeof obj.y === 'number') ? obj.y : wrap.offsetTop;
-        wrap.classList.add('node-dragging');
-      });
-    });
-  }
-  window.addEventListener('mousemove', function(e){
-    if(!nodeDragging || !nodeDragObj || !nodeDragEl) return;
-    var dx = (e.clientX - nodeDragStartMouseX) / canvasZoom;
-    var dy = (e.clientY - nodeDragStartMouseY) / canvasZoom;
-    if(!nodeDragMoved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return; // ignore jitter so a plain click/dblclick isn't a "move"
-    nodeDragMoved = true;
-    var rawX = nodeDragStartX + dx;
-    var rawY = nodeDragStartY + dy;
-    var el = nodeDragEl;
-    var w = el.offsetWidth, h = el.offsetHeight;
-    var xRefs = [], yRefs = [];
-    document.querySelectorAll('.proj-wrap, .note-wrap').forEach(function(otherEl){
-      if(otherEl === el) return;
-      xRefs.push(otherEl.offsetLeft, otherEl.offsetLeft + otherEl.offsetWidth - w);
-      yRefs.push(otherEl.offsetTop, otherEl.offsetTop + otherEl.offsetHeight - h);
-    });
-    var snappedX = snapValue(rawX, xRefs);
-    var snappedY = snapValue(rawY, yRefs);
-    nodeDragObj.x = snappedX;
-    nodeDragObj.y = snappedY;
-    el.style.position = 'absolute'; el.style.left = snappedX + 'px'; el.style.top = snappedY + 'px';
-  });
-  window.addEventListener('mouseup', function(){
-    if(!nodeDragging) return;
-    nodeDragging = false;
-    if(nodeDragEl) nodeDragEl.classList.remove('node-dragging');
-    if(nodeDragObj && nodeDragMoved) saveState();
-    nodeDragObj = null;
-    nodeDragEl = null;
-    if(nodeDragMoved) adjustCanvasExtent();
-    nodeDragMoved = false;
-  });
-
   function renderHala(){
     var board = document.getElementById('board');
     board.style.display = 'flex';
     board.style.flexDirection = 'column';
     board.style.alignItems = 'stretch';
 
-    if(state.projects.length === 0 && state.workers.length === 0 && (state.checklists || []).length === 0){
-      board.innerHTML = '<div class="empty-state" style="margin-top:60px;"><h2>Atelier gol</h2><p>Adaugă un proiect, primul om din echipă, sau o listă de mărunțișuri.</p>' +
-        '<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;"><button class="btn btn-primary" id="empty-add">+ Proiect nou</button><button class="btn" id="empty-add-worker">+ Persoană nouă</button><button class="btn" id="empty-add-list">+ Listă nouă</button></div></div>';
+    if(state.projects.length === 0 && state.workers.length === 0){
+      board.innerHTML = '<div class="empty-state" style="margin-top:60px;"><h2>Atelier gol</h2><p>Adaugă un proiect sau primul om din echipă.</p>' +
+        '<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;"><button class="btn btn-primary" id="empty-add">+ Proiect nou</button><button class="btn" id="empty-add-worker">+ Persoană nouă</button></div></div>';
       document.getElementById('empty-add').onclick = function(){ openProjectModal(null); };
       document.getElementById('empty-add-worker').onclick = function(){
         var name = prompt('Numele persoanei:');
         if(name && name.trim()){ state.workers.push({id:uid(), name:name.trim(), kind:'intern', taskNote:''}); saveState(); render(); }
       };
-      document.getElementById('empty-add-list').onclick = addChecklist;
       renderTeamSidebar();
       attachHalaEvents();
       return;
@@ -1832,90 +1426,6 @@
     renderTeamSidebar();
     attachHalaEvents();
   }
-  function renderHartaPeProiecte(){
-    var list = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod,p.client); })
-      .sort(function(a,b){ return (a.termen||'9999') < (b.termen||'9999') ? -1 : 1; });
-    var checklists = state.checklists || [];
-    if(list.length === 0 && checklists.length === 0){
-      return '<div class="empty-state" style="margin:30px auto;"><h2>Nimic pe hartă</h2><p>Adaugă un proiect sau o listă din colțul din stânga-jos.</p></div>';
-    }
-    var out = '';
-    list.forEach(function(p){
-      var grad = urgencyGradient(p);
-      var posStyle = (typeof p.x === 'number' && typeof p.y === 'number') ? ('position:absolute; left:' + p.x + 'px; top:' + p.y + 'px;') : '';
-      var warns = projectWarnings(p);
-      var stg = currentStageInfo(p);
-      out += '<div class="proj-wrap' + (stg ? ' ' + stg.cls : '') + (warns.length ? ' has-warn' : '') + '" data-project="' + p.id + '" style="' + posStyle + '">';
-      out += '<div class="proj-cluster-tab"><span class="pct-code">' + esc(p.cod) + '</span> <span class="pct-client">' + esc(p.client) + '</span>' +
-        (stg ? '<span class="pct-stage ' + stg.cls + '" title="Etapa curentă">' + esc(stg.name) + '</span>' : '') + '</div>';
-      out += '<div class="proj-cluster"' + (grad ? ' style="border-left:4px solid '+grad.border+';"' : '') + '>';
-      out += '<div class="proj-cluster-head">';
-      out += '<div class="head-add-stage">' +
-        '<button type="button" data-add-stage="' + p.id + '" data-type="proiect">+ etapă proiectare (anteproiect)</button>' +
-        '<button type="button" data-add-stage="' + p.id + '" data-type="piesa">+ etapă execuție</button>' +
-        '</div>';
-      out += '<span class="badge badge-' + urgencyOf(p) + '" style="margin-left:auto;">' + esc(urgencyLabel(p)) + '</span></div>';
-      if(warns.length){
-        out += '<div class="proj-warn-bar">⚠ ' + warns.map(esc).join(' <span class="pwb-sep">·</span> ') + '</div>';
-      }
-      out += '<div class="proj-cluster-stages">';
-      var pStations = stationsFor(p);
-      pStations.forEach(function(station, sIdx){
-        var projLanes = projectLanesFor(p, station);
-        var hasLanes = projLanes.length > 0;
-        out += '<div class="proj-stage-box ' + station.type + '">';
-        out += '<div class="proj-stage-head"><span>' + esc(station.name) + '</span><div class="col-actions">';
-        if(sIdx > 0) out += '<button data-act="left" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la stânga">‹</button>';
-        if(sIdx < pStations.length - 1) out += '<button data-act="right" data-station="' + station.id + '" data-project="' + p.id + '" title="Mută etapa la dreapta">›</button>';
-        out += '<button data-act="addlane" data-station="' + station.id + '" data-project="' + p.id + '" title="Adaugă o partiție">⊞</button>';
-        out += '<button data-act="del" data-station="' + station.id + '" data-project="' + p.id + '" title="Șterge etapa">✕</button>';
-        out += '</div></div>';
-        if(hasLanes){
-          out += '<div class="lanes-row">';
-          projLanes.forEach(function(lane){
-            var items = [];
-            if(station.type === 'proiect'){
-              if(p.stationId === station.id && (p.lane || defaultLaneId(projLanes)) === lane.id) items.push(p);
-              (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
-            } else {
-              (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
-            }
-            out += '<div class="lane">';
-            out += '<div class="lane-head"><input class="lane-title" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" value="' + esc(lane.name) + '"><span class="col-count">' + items.length + '</span><button class="lane-del" data-act="lanedel" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" title="Șterge partiția">✕</button></div>';
-            out += '<div class="col-body lane-body" data-station="' + station.id + '" data-kind="' + station.type + '" data-lane="' + lane.id + '">';
-            if(items.length === 0) out += '<div class="col-empty">—</div>';
-            else if(station.type === 'proiect'){
-              if(p.stationId === station.id && (p.lane || defaultLaneId(projLanes)) === lane.id) out += renderProjectCard(p, station);
-              (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) out += renderPieceCard(pc, p); });
-            }
-            else items.forEach(function(pc){ out += renderPieceCard(pc, p); });
-            out += '</div></div>';
-          });
-          out += '</div>';
-        } else {
-        out += '<div class="col-body" data-station="' + station.id + '" data-kind="' + station.type + '">';
-        if(station.type === 'proiect'){
-          var parked = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
-          if(p.stationId === station.id) out += renderProjectCard(p, station);
-          parked.forEach(function(pc){ out += renderPieceCard(pc, p); });
-          if(p.stationId !== station.id && !parked.length) out += '<div class="col-empty">—</div>';
-        } else {
-          var pieces = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
-          if(pieces.length) pieces.forEach(function(pc){ out += renderPieceCard(pc, p); });
-          else out += '<div class="col-empty">—</div>';
-        }
-        out += '</div>';
-        }
-        out += '</div>';
-      });
-      out += '</div></div>'; // close .proj-cluster-stages, .proj-cluster
-      out += renderOrdersPanel(p);   // left edge
-      out += '</div>'; // close .proj-wrap
-    });
-    checklists.forEach(function(cl){ out += renderChecklistCard(cl); });
-    return out;
-  }
-
   // Registru desfășurător — înlocuiește harta canvas: o listă verticală de rânduri pliabile.
   function renderRegistru(){
     var list = state.projects.filter(function(p){ return !p.finalizat && matchesSearch(p.cod, p.client); });
@@ -1957,12 +1467,11 @@
 
   // Antetul de proiect din rândul desfăcut al registrului: slider urgență, badge,
   // oameni la nivel de proiect, comenzi materiale, necesar montaj, echipă montaj, acțiuni.
-  // (fără pipeline-ul de piese — vine în Task 6). Portat din renderProjectCard.
   function renderRegHead(p){
     var grad = urgencyGradient(p);
     var h = '<div class="reg-detail-head">';
 
-    // 1. slider-ul de urgență (copiat 1:1 din renderProjectCard)
+    // 1. slider-ul de urgență
     if(!p.finalizat && p.termen){
       var hasFloor = typeof p.urgencyFloor === 'number';
       var autoMin = Math.round(autoUrgencyValue(p));
@@ -1973,7 +1482,7 @@
       h += '</div>';
     }
 
-    // 2. badge-ul de urgență (copiat din renderProjectCard .card-meta)
+    // 2. badge-ul de urgență (reutilizează .card-meta)
     h += '<div class="card-meta">';
     if(p.finalizat) h += '<span class="badge badge-done">Finalizat</span>';
     else if(grad) h += '<span class="badge" style="background:' + grad.tint + '; color:' + grad.border + ';">' + esc(urgencyLabel(p)) + '</span>';
@@ -1993,7 +1502,7 @@
     // 5. necesar montaj notat
     if((p.montajNotes || '').trim()) h += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
 
-    // 6. cutia „Echipă montaj" (copiată din renderProjectCard)
+    // 6. cutia „Echipă montaj"
     var teamChips = renderAssignedPeople(p.id, MONTAJ_TEAM);
     if(firstProiectAfterLastPiesaFor(p) || teamChips){
       h += '<div class="montaj-team" data-montaj-team="' + p.id + '">';
@@ -2002,7 +1511,7 @@
       h += '</div>';
     }
 
-    // 7. acțiuni (copiate din renderProjectCard .card-actions, cu p.stationId în loc de station.id)
+    // 7. acțiuni (reutilizează .card-actions, cu p.stationId)
     h += '<div class="card-actions">';
     var next = nextProiectStationFor(p, p.stationId);
     if(next) h += '<button class="btn btn-sm" data-advance="' + p.id + '" data-target="' + next.id + '">Avansează → ' + esc(next.name) + '</button>';
@@ -2023,8 +1532,7 @@
   }
 
   // Pipeline-ul de etape din rândul desfăcut al registrului: coloane de etape, lane-uri,
-  // carduri de piesă, drag&drop, controale de etapă. Portat din blocul .proj-cluster-stages
-  // al lui renderHartaPeProiecte (fără wrapper-ul .proj-cluster, badge urgență, side panel).
+  // carduri de piesă, drag&drop, controale de etapă.
   function renderRegPipe(p){
     var out = '<div class="reg-detail-pipe">';
     out += '<div class="head-add-stage">' +
@@ -2107,90 +1615,6 @@
     else supplierList.forEach(function(w){ supHtml += renderWorkerToken(w); });
     supHtml += '</div></div>';
     document.getElementById('supplier-sidebar-body').innerHTML = supHtml;
-  }
-
-  function renderProjectCard(p, station){
-    var grad = urgencyGradient(p);
-    var cardStyle = grad ? ' style="border-left:4px solid ' + grad.border + '; background:' + grad.tint + ';"' : '';
-    var html = '<div class="card" data-id="' + p.id + '"' + cardStyle + '>';
-    html += '<div class="card-drag-handle" draggable="true" data-id="' + p.id + '" title="Trage de aici ca să muți proiectul">';
-    html += '<div class="card-stub"><span class="card-code">' + esc(p.cod) + '</span><span class="card-type">' + esc(displayTip(p)) + '</span></div>';
-    html += '<div class="card-client">' + esc(p.client) + '</div>';
-    html += '</div>';
-    html += '<div class="card-perf"></div><div class="card-body">';
-    if(!p.finalizat && p.termen){
-      var hasFloor = typeof p.urgencyFloor === 'number';
-      var autoMin = Math.round(autoUrgencyValue(p));
-      var sliderVal = Math.round(urgencyValue(p));
-      html += '<div class="urgency-slider-row">';
-      html += '<input type="range" min="0" max="100" value="' + sliderVal + '" draggable="false" class="urgency-slider" data-project="' + p.id + '" data-automin="' + autoMin + '" title="Cât de urgent arată — rămâne cel puțin atât, chiar dacă termenul e departe">';
-      if(hasFloor) html += '<button type="button" draggable="false" class="urgency-reset" data-urgency-reset="' + p.id + '" title="Anulează ajustarea manuală">↺</button>';
-      html += '</div>';
-    }
-    html += '<div class="card-meta">';
-    if(p.finalizat) html += '<span class="badge badge-done">Finalizat</span>';
-    else if(grad) html += '<span class="badge" style="background:' + grad.tint + '; color:' + grad.border + ';">' + esc(urgencyLabel(p)) + '</span>';
-    else html += '<span class="badge badge-none">' + esc(urgencyLabel(p)) + '</span>';
-    html += '</div>';
-    if(p.orders && p.orders.length){
-      var recvCount = p.orders.filter(function(o){ return o.status === 'primit'; }).length;
-      var complete = recvCount >= p.orders.length;
-      html += '<div class="card-orders-line">📋 Materiale ' + recvCount + '/' + p.orders.length +
-        (complete ? ' <span style="color:#3d7a52;">· complet</span>' : ' <span style="color:#a8483a;">· incomplet</span>') + '</div>';
-    }
-    if((p.montajNotes || '').trim()) html += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
-    if(p.notite) html += '<div class="card-notes">' + esc(p.notite) + '</div>';
-    html += renderAssignedPeople(p.id);
-    if(p.pieces && p.pieces.length){
-      html += '<div class="piece-sublist">';
-      p.pieces.forEach(function(pc){
-        var atMontaj = pc.stationId === PIECE_MONTAJ;
-        var st = (pc.stationId && !atMontaj) ? stationByIdFor(p, pc.stationId) : null;
-        html += '<div class="sub-piece-row" draggable="true" data-piece="' + p.id + '::' + pc.id + '" title="Trage pe un banc ca s-o muți · trage o persoană aici ca s-o legi de piesă"><span class="sub-piece-name">' + esc(pc.name) + (pc.colorCode ? ' <span class="sub-piece-color">'+esc(pc.colorCode)+'</span>' : '') + '</span>';
-        html += renderPieceAssignees(p.id, pc.id);
-        if(atMontaj){
-          html += '<span class="sub-piece-status">Montaj</span>';
-          html += '<button type="button" class="sub-piece-btn" data-piece-demote="' + p.id + '::' + pc.id + '" title="Scoate de la montaj, înapoi la proiectare">↺</button>';
-        } else if(st){
-          html += '<span class="sub-piece-status">' + esc(st.name) + '</span>';
-          html += '<button type="button" class="sub-piece-btn" data-piece-demote="' + p.id + '::' + pc.id + '" title="Un pas înapoi în flux">↺</button>';
-          if(st.type === 'proiect'){
-            var pflow = pieceFlowFor(p);
-            var pfi = pflow.findIndex(function(s){ return s.id === pc.stationId; });
-            if(pfi > -1 && pfi < pflow.length - 1) html += '<button type="button" class="sub-piece-btn send" data-piece-move="' + p.id + '::' + pc.id + '" data-dir="next" title="Trimite mai departe">→</button>';
-          }
-        } else {
-          html += '<span class="sub-piece-status pending">La proiectare</span>';
-          if(piesaStationsFor(p).length > 0) html += '<button type="button" class="sub-piece-btn send" data-piece-move="' + p.id + '::' + pc.id + '" data-dir="next" title="Trimite în producție">→</button>';
-        }
-        html += '</div>';
-      });
-      html += '</div>';
-    }
-    var teamChips = renderAssignedPeople(p.id, MONTAJ_TEAM);
-    if(firstProiectAfterLastPiesaFor(p) || teamChips){
-      html += '<div class="montaj-team" data-montaj-team="' + p.id + '">';
-      html += '<span class="montaj-team-label">🔧 Echipă montaj</span>';
-      html += teamChips || '<span class="montaj-team-empty">— trage o persoană aici</span>';
-      html += '</div>';
-    }
-    html += '<div class="card-actions">';
-    if(p.finalizat){
-      html += '<button class="btn btn-sm btn-ghost" data-reopen="' + p.id + '">↺ Redeschide</button>';
-    } else {
-      var next = nextProiectStationFor(p, station.id);
-      if(next) html += '<button class="btn btn-sm" data-advance="' + p.id + '" data-target="' + next.id + '">Avansează → ' + esc(next.name) + '</button>';
-      if(isPostExecStationFor(p, station.id) || (!next && piesaStationsFor(p).length === 0)){
-        // la Montaj, SAU pe ultima etapă a unui flux fără etape de piesă (n-ar mai avea unde avansa)
-        html += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează proiect ✓</button>';
-      }
-    }
-    html += '</div>';
-    html += '<div class="card-actions">';
-    html += '<button class="btn btn-sm" data-edit="' + p.id + '">Editează</button>';
-    html += '<button class="btn btn-sm btn-danger-outline" data-del="' + p.id + '">Șterge</button>';
-    html += '</div></div></div>';
-    return html;
   }
 
   function renderPieceCard(piece, project){
@@ -2582,30 +2006,6 @@
         saveState(); render();
       });
     });
-    // drag & drop — sub-list piece rows on the project card (manual move, not just the button)
-    document.querySelectorAll('.sub-piece-row[draggable="true"]').forEach(function(row){
-      row.addEventListener('dragstart', function(e){
-        var payload = 'PC::' + row.dataset.piece;
-        draggingData = payload;
-        row.classList.add('dragging');
-        e.dataTransfer.setData('text/plain', payload);
-      });
-      row.addEventListener('dragend', function(){ row.classList.remove('dragging'); draggingData=null; });
-      // drop a person here to link them to this specific piece
-      row.addEventListener('dragover', function(e){
-        if((draggingData||'').indexOf('WRK::')===0){ e.preventDefault(); e.stopPropagation(); row.classList.add('link-target'); }
-      });
-      row.addEventListener('dragleave', function(){ row.classList.remove('link-target'); });
-      row.addEventListener('drop', function(e){
-        var data = e.dataTransfer.getData('text/plain') || draggingData;
-        if(!data || data.indexOf('WRK::')!==0) return;
-        e.preventDefault(); e.stopPropagation();
-        row.classList.remove('link-target');
-        var parts = row.dataset.piece.split('::');
-        addAssignment(data.slice(5), parts[0], parts[1]);
-        saveState(); render();
-      });
-    });
     // drag & click — worker tokens
     document.querySelectorAll('.worker-token[draggable="true"]').forEach(function(card){
       card.addEventListener('dragstart', function(e){
@@ -2737,142 +2137,6 @@
       });
     });
 
-    // checklist cards — mărunțișuri
-    document.querySelectorAll('[data-note-rename]').forEach(function(tab){
-      tab.addEventListener('dblclick', function(e){
-        e.preventDefault(); e.stopPropagation();
-        var cl = checklistById(tab.dataset.noteRename);
-        if(!cl) return;
-        var t = prompt('Titlul listei:', cl.title || '');
-        if(t === null) return;
-        cl.title = t.trim() || cl.title;
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-note-del]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var cl = checklistById(btn.dataset.noteDel);
-        if(!cl) return;
-        if(!confirm('Ștergi lista „' + (cl.title || '') + '” cu tot cu rânduri?')) return;
-        state.checklists = state.checklists.filter(function(x){ return x.id !== cl.id; });
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-note-add]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var cl = checklistById(btn.dataset.noteAdd);
-        if(!cl) return;
-        if(!Array.isArray(cl.items)) cl.items = [];
-        cl.items.push({ id: uid(), text: '', done: false, workerId: '' });
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-note-check]').forEach(function(cb){
-      cb.addEventListener('mousedown', function(e){ e.stopPropagation(); });
-      cb.addEventListener('change', function(){
-        var f = findChecklistItem(cb.dataset.noteCheck);
-        if(!f) return;
-        f.item.done = cb.checked;
-        if(cb.checked) f.item.doneTs = Date.now(); else delete f.item.doneTs;
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-note-text]').forEach(function(inp){
-      inp.addEventListener('mousedown', function(e){ e.stopPropagation(); });
-      inp.addEventListener('change', function(){
-        var f = findChecklistItem(inp.dataset.noteText);
-        if(!f) return;
-        f.item.text = inp.value.trim();
-        saveState(); // no re-render: keeps focus; text isn't shown anywhere else live
-      });
-    });
-    document.querySelectorAll('[data-note-item-del]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var f = findChecklistItem(btn.dataset.noteItemDel);
-        if(!f) return;
-        if(f.item.text && !confirm('Ștergi rândul „' + f.item.text + '”?')) return;
-        f.list.items = f.list.items.filter(function(x){ return x.id !== f.item.id; });
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-note-unassign]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var f = findChecklistItem(btn.dataset.noteUnassign);
-        if(!f) return;
-        f.item.workerId = '';
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-note-restore]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var f = findChecklistItem(btn.dataset.noteRestore);
-        if(!f) return;
-        f.item.done = false; delete f.item.doneTs;
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('[data-note-done-clear]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var cl = checklistById(btn.dataset.noteDoneClear);
-        if(!cl) return;
-        if(!confirm('Golești secțiunea „gata"? Rândurile bifate se șterg definitiv.')) return;
-        cl.items = cl.items.filter(function(x){ return !x.done; });
-        saveState(); render();
-      });
-    });
-    document.querySelectorAll('.note-item[data-note-row]').forEach(function(row){
-      row.addEventListener('dragover', function(e){
-        if((draggingData || '').indexOf('WRK::') === 0){ e.preventDefault(); e.stopPropagation(); row.classList.add('link-target'); }
-      });
-      row.addEventListener('dragleave', function(){ row.classList.remove('link-target'); });
-      row.addEventListener('drop', function(e){
-        var data = e.dataTransfer.getData('text/plain') || draggingData;
-        if(!data || data.indexOf('WRK::') !== 0) return;
-        e.preventDefault(); e.stopPropagation();
-        row.classList.remove('link-target');
-        var f = findChecklistItem(row.dataset.noteRow);
-        if(!f) return;
-        f.item.workerId = data.slice(5);
-        saveState(); render();
-      });
-    });
-
-    // folder side panels (comenzi materiale — stânga; necesar montaj — dreapta):
-    // hover/click the handle to open; auto-hide unless pinned; pin is shared per project
-    document.querySelectorAll('[data-side-panel]').forEach(function(pnl){
-      var id = pnl.dataset.sidePanel, kind = pnl.dataset.sideKind, pinField = pnl.dataset.sidePinfield;
-      var okey = id + '|' + kind;
-      var closeTimer = null;
-      function open(){ clearTimeout(closeTimer); sideOpen[okey] = true; pnl.classList.add('open'); }
-      function scheduleClose(){
-        var pr = projectById(id);
-        if(pr && pr[pinField]) return;
-        clearTimeout(closeTimer);
-        closeTimer = setTimeout(function(){ sideOpen[okey] = false; pnl.classList.remove('open'); }, 900);
-      }
-      var handle = pnl.querySelector('[data-side-handle]');
-      if(handle){
-        handle.addEventListener('mouseenter', open);
-        handle.addEventListener('click', function(e){ e.stopPropagation(); open(); });
-      }
-      pnl.addEventListener('mouseenter', function(){ clearTimeout(closeTimer); });
-      pnl.addEventListener('mouseleave', scheduleClose);
-    });
-    document.querySelectorAll('[data-side-pin]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var pr = projectById(btn.dataset.sidePin), field = btn.dataset.pinfield;
-        if(!pr || !field) return;
-        pr[field] = !pr[field];
-        saveState(); render();
-      });
-    });
     // drop zones — station bodies (projects/pieces/workers) and the unassigned-people pool (workers only)
     document.querySelectorAll('.col-body').forEach(function(zone){
       zone.addEventListener('dragover', function(e){
@@ -3684,11 +2948,8 @@
   /* ---------------- top-level wiring ---------------- */
   function setAddButton(){
     var btn = document.getElementById('btn-add');
-    var listBtn = document.getElementById('btn-add-list');
     if(tab === 'reparatii'){ btn.textContent = '+ Reparație nouă'; btn.onclick = function(){ openRepairModal(null); }; }
     else { btn.textContent = '+ Proiect nou'; btn.onclick = function(){ openProjectModal(null); }; }
-    // "+ Listă" only makes sense on the canvas
-    if(listBtn) listBtn.style.display = (tab === 'hala') ? '' : 'none';
   }
 
   function isMobile(){ return window.matchMedia('(max-width: 640px)').matches; }
@@ -3789,7 +3050,6 @@
     e.preventDefault();
     if(k === 'y' || e.shiftKey) doRedo(); else doUndo();
   });
-  document.getElementById('btn-add-list').addEventListener('click', addChecklist);
   document.querySelectorAll('#tabs button').forEach(function(b){
     b.addEventListener('click', function(){
       if(tab === b.dataset.tab) return;
@@ -3831,7 +3091,6 @@
   function userIsBusy(){
     var mr = document.getElementById('modal-root');
     if(mr && mr.children.length) return true;
-    if(nodeDragging || canvasDragging) return true;
     var a = document.activeElement;
     if(!a || (a.tagName !== 'INPUT' && a.tagName !== 'TEXTAREA' && a.tagName !== 'SELECT')) return false;
     // the top-bar search box is a filter, not data entry — it must not block live sync
