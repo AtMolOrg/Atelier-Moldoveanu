@@ -236,7 +236,7 @@
   /* coloana cu piese: grilă de carduri slim. Cu multe piese se lățește și curg pe rânduri — folosește spațiul, nu crește pe verticală */
   .reg-detail-pipe .proj-stage-box.has-pieces{ flex:0 1 320px; }
   .reg-detail-pipe .proj-stage-box.has-many{ flex:1 1 auto; }
-  .reg-detail-pipe .proj-stage-box.has-pieces .col-body{ display:grid; grid-template-columns:repeat(auto-fill,minmax(144px,1fr)); gap:8px; align-content:start; }
+  .reg-detail-pipe .proj-stage-box.has-pieces > .col-body{ display:grid; grid-template-columns:repeat(auto-fill,minmax(144px,1fr)); gap:8px; align-content:start; }
   .reg-detail-pipe .piece-card{ padding:6px 9px; border-radius:6px; }
   .reg-detail-pipe .piece-card .p-name{ font-size:12.5px; margin:0; line-height:1.25; }
   .reg-detail-pipe .piece-card .p-color{ font-size:10.5px; margin:1px 0 0; }
