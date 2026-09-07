@@ -42,7 +42,6 @@
       <button class="btn btn-ghost btn-icon" id="btn-undo" title="Anulează (Ctrl+Z)" disabled>↶</button>
       <button class="btn btn-ghost btn-icon" id="btn-redo" title="Refă (Ctrl+Shift+Z)" disabled>↷</button>
       <button class="btn btn-ghost btn-icon" id="btn-feedback" title="Lasă un feedback">💬</button>
-      <button class="btn btn-ghost btn-icon" id="btn-reset" title="Resetează tot panoul">⟲</button>
     </div>
   </header>
 
@@ -1686,13 +1685,6 @@
     });
   });
 
-  document.getElementById('btn-reset').addEventListener('click', function(){
-    if(confirm('Ștergi tot panoul (proiecte, etape, reparații)? Nu se poate anula.')){
-      if(confirm('Ești absolut sigur? Toate datele salvate se pierd definitiv.')){
-        state = defaultState(); saveState(); render();
-      }
-    }
-  });
 
   function startApp(){
     document.getElementById('login-screen').style.display = 'none';
