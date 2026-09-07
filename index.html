@@ -205,6 +205,10 @@
   .reg-chev{ color:var(--ink-dim); transition:transform .15s; flex:none; }
   .reg-row[aria-expanded="true"] .reg-chev{ transform:rotate(90deg); }
   .reg-detail{ border-top:1px solid var(--border); background:var(--panel-2); padding:12px; }
+  .reg-detail-head{ display:flex; flex-direction:column; gap:10px; }
+  .reg-detail-head .card-actions{ display:flex; flex-wrap:wrap; gap:6px; }
+  .reg-orders-toggle{ align-self:flex-start; background:var(--panel-3); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:4px 9px; font-size:12px; cursor:pointer; }
+  .reg-orders{ margin-top:2px; }
 
   /* ---------- SIDE PANEL — „comenzi materiale", iese din marginea stângă a dosarului.
      Mâner, hover, auto-hide, pin sincronizat per proiect. ---------- */
@@ -1482,9 +1486,10 @@
     h += '</div></div>';
     return h;
   }
-  function renderOrdersPanel(p){
+  // Just the order rows + "adaugă comandă" button — shared by the side panel (Hartă pe proiecte)
+  // and the registru row header. No renderSidePanel wrapper.
+  function renderOrdersRows(p){
     var orders = Array.isArray(p.orders) ? p.orders : [];
-    var received = orders.filter(function(o){ return o.status === 'primit'; }).length;
     var b = '<div class="side-list">';
     if(!orders.length){
       b += '<div class="col-empty" style="padding:6px 2px; text-align:left;">Nicio comandă încă.</div>';
@@ -1502,6 +1507,12 @@
     }
     b += '</div>';
     b += '<button type="button" class="btn btn-xs btn-ghost order-add" data-order-add="' + p.id + '">+ Adaugă comandă</button>';
+    return b;
+  }
+  function renderOrdersPanel(p){
+    var orders = Array.isArray(p.orders) ? p.orders : [];
+    var received = orders.filter(function(o){ return o.status === 'primit'; }).length;
+    var b = renderOrdersRows(p);
     return renderSidePanel({
       projectId: p.id, kind: 'orders', side: 'left', pinField: 'ordersPinned',
       label: '📋 comenzi materiale', title: 'Comenzi materiale',
@@ -1913,7 +1924,7 @@
     var out = '';
     list.forEach(function(p){
       out += renderRegRow(p);
-      if(registryOpen[p.id]) out += '<div class="reg-detail">(desfășurătorul vine în Task 5–6)</div>';
+      if(registryOpen[p.id]) out += '<div class="reg-detail">' + renderRegHead(p) + '</div>';
     });
     return out;
   }
@@ -1937,6 +1948,68 @@
     if(warns.length) h += '<span class="reg-warn" title="' + esc(warns.join(' · ')) + '"></span>';
     h += '<span class="reg-chev">▸</span>';
     h += '</button>';
+    return h;
+  }
+
+  // Antetul de proiect din rândul desfăcut al registrului: slider urgență, badge,
+  // oameni la nivel de proiect, comenzi materiale, necesar montaj, echipă montaj, acțiuni.
+  // (fără pipeline-ul de piese — vine în Task 6). Portat din renderProjectCard.
+  function renderRegHead(p){
+    var grad = urgencyGradient(p);
+    var h = '<div class="reg-detail-head">';
+
+    // 1. slider-ul de urgență (copiat 1:1 din renderProjectCard)
+    if(!p.finalizat && p.termen){
+      var hasFloor = typeof p.urgencyFloor === 'number';
+      var autoMin = Math.round(autoUrgencyValue(p));
+      var sliderVal = Math.round(urgencyValue(p));
+      h += '<div class="urgency-slider-row">';
+      h += '<input type="range" min="0" max="100" value="' + sliderVal + '" draggable="false" class="urgency-slider" data-project="' + p.id + '" data-automin="' + autoMin + '" title="Cât de urgent arată — rămâne cel puțin atât, chiar dacă termenul e departe">';
+      if(hasFloor) h += '<button type="button" draggable="false" class="urgency-reset" data-urgency-reset="' + p.id + '" title="Anulează ajustarea manuală">↺</button>';
+      h += '</div>';
+    }
+
+    // 2. badge-ul de urgență (copiat din renderProjectCard .card-meta)
+    h += '<div class="card-meta">';
+    if(p.finalizat) h += '<span class="badge badge-done">Finalizat</span>';
+    else if(grad) h += '<span class="badge" style="background:' + grad.tint + '; color:' + grad.border + ';">' + esc(urgencyLabel(p)) + '</span>';
+    else h += '<span class="badge badge-none">' + esc(urgencyLabel(p)) + '</span>';
+    h += '</div>';
+
+    // 3. oameni legați la nivel de proiect
+    h += renderAssignedPeople(p.id);
+
+    // 4. linia de materiale, ca buton care deschide rândurile de comandă
+    var orders = Array.isArray(p.orders) ? p.orders : [];
+    var recvCount = orders.filter(function(o){ return o.status === 'primit'; }).length;
+    var complete = orders.length && recvCount >= orders.length;
+    h += '<button type="button" class="reg-orders-toggle" data-toggle-orders="' + p.id + '">📋 Materiale ' + recvCount + '/' + orders.length + ' · ' + (complete ? 'complet' : 'incomplet') + '</button>';
+    h += '<div class="reg-orders" id="reg-orders-' + p.id + '" hidden>' + renderOrdersRows(p) + '</div>';
+
+    // 5. necesar montaj notat
+    if((p.montajNotes || '').trim()) h += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
+
+    // 6. cutia „Echipă montaj" (copiată din renderProjectCard)
+    var teamChips = renderAssignedPeople(p.id, MONTAJ_TEAM);
+    if(firstProiectAfterLastPiesaFor(p) || teamChips){
+      h += '<div class="montaj-team" data-montaj-team="' + p.id + '">';
+      h += '<span class="montaj-team-label">🔧 Echipă montaj</span>';
+      h += teamChips || '<span class="montaj-team-empty">— trage o persoană aici</span>';
+      h += '</div>';
+    }
+
+    // 7. acțiuni (copiate din renderProjectCard .card-actions, cu p.stationId în loc de station.id)
+    h += '<div class="card-actions">';
+    var next = nextProiectStationFor(p, p.stationId);
+    if(next) h += '<button class="btn btn-sm" data-advance="' + p.id + '" data-target="' + next.id + '">Avansează → ' + esc(next.name) + '</button>';
+    if(isPostExecStationFor(p, p.stationId) || (!next && piesaStationsFor(p).length === 0)){
+      h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează proiect ✓</button>';
+    }
+    h += '<button class="btn btn-sm" data-edit="' + p.id + '">Editează</button>';
+    h += '<button class="btn btn-sm btn-danger-outline" data-del="' + p.id + '">Șterge</button>';
+    h += '</div>';
+
+    h += '</div>';
     return h;
   }
 
@@ -2792,6 +2865,12 @@
         var id = b.dataset.toggleReg;
         if(registryOpen[id]) delete registryOpen[id]; else registryOpen[id] = true;
         render();
+      });
+    });
+    document.querySelectorAll('[data-toggle-orders]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var box = document.getElementById('reg-orders-' + b.dataset.toggleOrders);
+        if(box) box.hidden = !box.hidden;
       });
     });
   }
