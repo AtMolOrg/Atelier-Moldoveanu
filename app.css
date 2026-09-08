@@ -11,6 +11,7 @@
     --ink-faint:#6f7883;
     --border: rgba(255,255,255,0.11);
     --border-strong: rgba(255,255,255,0.22);
+    --hair: rgba(255,255,255,0.055);
     --accent:#ef8f63;
     --accent-ink:#1c0f08;
     --accent-hover:#f2a988;
@@ -192,29 +193,73 @@
   }
   .head-add-stage button:hover{ border-color:var(--accent); color:var(--accent); }
 
-  /* ---------- REGISTRU — listă verticală de proiecte, rânduri pliabile (înlocuiește harta canvas) ---------- */
-  .reg{ border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--panel); }
-  .reg-row{ display:flex; align-items:center; gap:11px; width:100%; text-align:left; background:none; border:0; border-top:1px solid var(--border); padding:9px 12px; }
-  .reg-row:first-child{ border-top:0; }
-  .reg-row:hover{ background:var(--panel-2); }
-  .reg-row.phase-proiect{ box-shadow:inset 3px 0 0 var(--ante); }
-  .reg-row.phase-piesa{   box-shadow:inset 3px 0 0 var(--exec); }
-  .reg-row.phase-montaj{   box-shadow:inset 3px 0 0 var(--montaj); }
-  .reg-row.has-warn{ box-shadow:inset 4px 0 0 var(--montaj); background:var(--danger-wash); }
-  .reg-row .rr-cod{ font-weight:700; font-size:12.5px; font-variant-numeric: tabular-nums; }
-  .reg-row .rr-cli{ font-weight:600; min-width:90px; }
-  .reg-bar{ display:flex; height:7px; width:120px; border-radius:4px; overflow:hidden; background:var(--panel-3); flex:none; }
-  .reg-bar i{ display:block; }
-  .reg-bar i.pregatire{ background:var(--ante); }
-  .reg-bar i.exec{ background:var(--exec); }
-  .reg-bar i.montaj{ background:var(--montaj); }
-  .reg-count{ font-family:monospace; font-size:11px; color:var(--ink-dim); white-space:nowrap; }
-  .reg-term{ font-family:monospace; font-size:12px; color:var(--ink-dim); white-space:nowrap; margin-left:auto; }
-  .reg-term.late{ color:var(--montaj-ink); font-weight:700; }
-  .reg-warn{ width:8px; height:8px; border-radius:50%; background:var(--montaj); flex:none; }
-  .reg-chev{ color:var(--ink-dim); transition:transform .15s; flex:none; }
-  .reg-row[aria-expanded="true"] .reg-chev{ transform:rotate(90deg); }
-  .reg-detail{ border-top:1px solid var(--border); background:var(--panel-2); padding:12px; }
+  /* ---------- REGISTRU — un singur semnal per rând, grupat pe termene ---------- */
+  .reg{ background:none; border:0; padding:0 2px 60px; }
+
+  .reg-toolbar{ display:flex; align-items:center; gap:8px 22px; flex-wrap:wrap; padding:6px 0 4px; font-size:11px; }
+  .reg-filters{ display:flex; gap:2px; margin-left:-8px; }
+  .reg-filters button{ background:none; border:0; cursor:pointer; padding:4px 8px; color:var(--ink-faint);
+    font-size:11px; border-bottom:1px solid transparent; }
+  .reg-filters button:hover{ color:var(--ink-dim); }
+  .reg-filters button.on{ color:var(--ink); font-weight:700; border-bottom-color:var(--border-strong); }
+  .reg-sort{ display:flex; align-items:center; gap:7px; color:var(--ink-faint); }
+  .reg-sort label{ font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; }
+  .reg-sort select{ background:transparent; border:0; border-bottom:1px solid var(--hair); color:var(--ink);
+    font-family:inherit; font-size:11px; padding:3px 2px; border-radius:0; }
+  .reg-sort select option{ background:var(--panel-2); color:var(--ink); }
+
+  .reg-group{ margin-top:32px; }
+  .reg-group:first-of-type{ margin-top:14px; }
+  .reg-ghead{ font-size:9.5px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-faint); padding:0 0 8px; }
+  .reg-ghead .n{ letter-spacing:.04em; opacity:.6; }
+  .reg-ghead.late{ color:var(--accent); }
+  .reg-ghead.late .n{ color:var(--accent); }
+
+  .reg-row{ display:grid; grid-template-columns:auto minmax(0,1fr) minmax(52px,74px); align-items:baseline;
+    gap:clamp(12px,2.5vw,22px); width:100%; text-align:left; background:none; border:0;
+    padding:12px 12px 12px 0; margin:0 -12px; border-radius:5px; cursor:pointer; transition:background .12s; }
+  .reg-row:hover{ background:rgba(255,255,255,0.028); }
+  .reg-row .rr-cod{ font-weight:600; font-size:12.5px; font-variant-numeric:tabular-nums; color:var(--ink-dim);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .reg-row .rr-rep{ color:var(--rep-ink); font-size:10.5px; margin-left:4px; }
+  .rr-sig{ font-size:12.5px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rr-sig.k-late, .rr-sig.k-blk{ color:var(--accent); }
+  .rr-sig.k-mat{ color:var(--warn); }
+  .rr-sig.k-stage{ color:var(--ink-faint); }
+  .rr-sig.k-done{ color:var(--ok-ink); }
+  .reg-row.k-late .rr-cod, .reg-row.k-blk .rr-cod{ color:var(--ink); }
+  .reg-row .rr-term{ text-align:right; font-size:11px; color:var(--ink-faint); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .reg-row .rr-term.late{ color:var(--accent); font-weight:600; }
+  @media (max-width:640px){
+    .reg-row{ grid-template-columns:1fr auto; grid-template-areas:"cod term" "sig sig"; gap:3px 12px; }
+    .reg-row .rr-cod{ grid-area:cod; }
+    .reg-row .rr-term{ grid-area:term; }
+    .rr-sig{ grid-area:sig; white-space:normal; }
+  }
+
+  /* fir de reparații în rândul desfășurat */
+  .reg-reps{ margin-top:10px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+  .reg-reps-h{ font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); margin-bottom:6px; }
+  .reg-reps-none{ font-size:11.5px; color:var(--ink-faint); opacity:.7; }
+  .rep-line{ display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px dashed var(--hair); font-size:12px; }
+  .rep-line:first-of-type{ border-top:0; }
+  .rep-line .rep-d{ flex:1; min-width:0; color:var(--ink-dim); }
+  .rep-line.res .rep-d{ color:var(--ink-faint); text-decoration:line-through; opacity:.7; }
+  .rep-sb{ font-family:inherit; font-size:9px; font-weight:700; letter-spacing:0.06em; padding:3px 9px; border-radius:999px;
+    border:1px solid var(--border); background:transparent; cursor:pointer; white-space:nowrap; }
+  .rep-sb.deschisa{ color:var(--warn); border-color:var(--warn-line); }
+  .rep-sb.lucru{ color:var(--ante-ink); border-color:rgba(122,139,154,.5); }
+  .rep-sb.rezolvata{ color:var(--ok-ink); border-color:var(--ok-line); }
+  .rep-del{ background:none; border:0; color:var(--ink-faint); cursor:pointer; font-size:14px; line-height:1; padding:0 2px; }
+  .rep-del:hover{ color:var(--accent); }
+  .rep-add{ display:flex; gap:8px; margin-top:9px; align-items:center; }
+  .rep-add-inp{ flex:1; min-width:0; background:transparent; border:0; border-bottom:1px solid var(--hair);
+    color:var(--ink); font-family:inherit; border-radius:0; padding:5px 2px; font-size:11.5px; }
+  .rep-add-inp:focus{ outline:0; border-bottom-color:var(--border-strong); }
+  .rep-add-inp.bad{ border-bottom-color:var(--accent); }
+  .rep-add-inp::placeholder{ color:var(--ink-faint); }
+
+  .reg-detail{ background:var(--panel-2); border-radius:8px; padding:12px; margin:2px 0 8px; }
   .reg-detail-head{ display:flex; flex-direction:column; gap:8px; }
   .reg-detail-head .card-actions{ display:flex; flex-wrap:wrap; gap:6px; }
   .reg-orders-toggle{ align-self:flex-start; background:var(--panel-3); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:4px 9px; font-size:12px; cursor:pointer; }
@@ -226,7 +271,6 @@
   .reg-strip .rs-term.late{ color:var(--montaj-ink); font-weight:700; }
   .reg-strip .rs-sep{ width:1px; align-self:stretch; background:var(--border); }
   .reg-strip .rs-grow{ flex:1 1 20px; }
-  .reg-strip .reg-bar.mini{ width:78px; height:6px; }
   .reg-strip .reg-orders-toggle{ align-self:auto; padding:3px 8px; }
   .reg-strip .rs-more{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:2px 9px; cursor:pointer; font-size:14px; line-height:1; }
   .reg-attn{ display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; background:var(--danger-wash); border:1px solid var(--danger-line); color:var(--montaj-ink); border-radius:8px; padding:6px 11px; font-size:12px; }
