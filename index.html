@@ -656,7 +656,7 @@
     var html = '';
 
     // închis peste tot → coloană îngustă centrată; ceva deschis → lățime plină pentru pipeline
-    var anyOpen = Object.keys(registryOpen).length > 0;
+    var anyOpen = state.projects.some(function(p){ return registryOpen[p.id]; });
     html += '<div class="reg' + (anyOpen ? ' reg-wide' : '') + '">' + renderRegistru() + '</div>';
 
     board.innerHTML = html;
@@ -667,8 +667,9 @@
   var REG_PHASE_ORDER = { 'phase-proiect': 0, 'phase-piesa': 1, 'phase-montaj': 2 };
   function regTermKey(p){ return p.termen || '9999-99-99'; }
   function regCmp(a, b){
-    if(regSort === 'urgenta') return regSeverity(b) - regSeverity(a) || a.cod.localeCompare(b.cod);
-    if(regSort === 'cod') return a.cod.localeCompare(b.cod);
+    var ca = String(a.cod == null ? '' : a.cod), cb = String(b.cod == null ? '' : b.cod);
+    if(regSort === 'urgenta') return regSeverity(b) - regSeverity(a) || ca.localeCompare(cb);
+    if(regSort === 'cod') return ca.localeCompare(cb);
     if(regSort === 'faza'){
       var ca = (currentStageInfo(a) || {}).cls, cb = (currentStageInfo(b) || {}).cls;
       return (REG_PHASE_ORDER[ca] || 0) - (REG_PHASE_ORDER[cb] || 0) || (regTermKey(a) < regTermKey(b) ? -1 : 1);
@@ -760,9 +761,9 @@
     var warns = projectWarnings(p);
     var nP = 0, nE = 0, nM = 0;
     (p.pieces||[]).forEach(function(pc){ var b = bucketFor(p, pc.stationId); if(b === 'exec') nE++; else if(b === 'montaj') nM++; else nP++; });
-    var tot = Math.max(1, nP + nE + nM);
+    var totPieces = nP + nE + nM;
     var td = p.termen ? parseDate(p.termen) : null;
-    var late = !!(td && td.getTime() < todayDate().getTime());
+    var late = !!(td && td.getTime() < todayDate().getTime() && !p.finalizat);
     var orders = Array.isArray(p.orders) ? p.orders : [];
     var recv = orders.filter(function(o){ return o.status === 'primit'; }).length;
     var complete = orders.length && recv >= orders.length;
@@ -774,7 +775,9 @@
 
     // termen
     var termTxt;
-    if(td){
+    if(p.finalizat){
+      termTxt = 'livrat' + (p.finalizatAt ? ' ' + fmtShortDate(p.finalizatAt.slice(0,10)) : '');
+    } else if(td){
       termTxt = fmtShortDate(p.termen);
       if(late) termTxt += ' · întârziat ' + Math.abs(daysBetween(todayDate(), td)) + 'z';
     } else {
@@ -784,7 +787,9 @@
     h += '<span class="rs-sep"></span>';
 
     // progres — doar numărul (bara e redundantă cu pipeline-ul de mai jos)
-    h += '<span class="rs-k"><b>' + tot + ' piese</b> <span class="rs-dim">' + nP + ' pregătire · ' + nE + ' execuție · ' + nM + ' montaj</span></span>';
+    h += '<span class="rs-k">' + (totPieces
+      ? ('<b>' + totPieces + (totPieces === 1 ? ' piesă' : ' piese') + '</b> <span class="rs-dim">' + nP + ' pregătire · ' + nE + ' execuție · ' + nM + ' montaj</span>')
+      : '<span class="rs-dim">fără piese</span>') + '</span>';
     h += '<span class="rs-sep"></span>';
 
     // etapa curentă
@@ -796,8 +801,10 @@
     h += '<button type="button" class="rs-k reg-orders-toggle" data-toggle-orders="' + p.id + '">📋 ' + esc(matLabel) + '</button>';
     h += '<span class="rs-grow"></span>';
 
-    // acțiunea principală — avansul e doar prin drag; aici rămâne doar finalizarea
-    if(finalizabil){
+    // acțiunea principală — avansul e doar prin drag; aici rămâne finalizarea / redeschiderea
+    if(p.finalizat){
+      h += '<button class="btn btn-sm" data-reopen-project="' + p.id + '">↩ Redeschide</button>';
+    } else if(finalizabil){
       h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează ✓</button>';
     }
     h += '<button type="button" class="rs-more" data-reg-more="' + p.id + '" title="Detalii / editare">⋯</button>';
@@ -1031,7 +1038,13 @@
     document.querySelectorAll('[data-close-project]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var p = state.projects.find(function(x){ return x.id===btn.dataset.closeProject; });
-        if(p){ p.finalizat = true; p.finalizatAt = new Date().toISOString(); logEvent('finalizat', p.cod + ' · ' + p.client); saveState(); render(); }
+        if(p && !p.finalizat){ p.finalizat = true; p.finalizatAt = new Date().toISOString(); logEvent('finalizat', p.cod + ' · ' + p.client); saveState(); render(); }
+      });
+    });
+    document.querySelectorAll('[data-reopen-project]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var p = state.projects.find(function(x){ return x.id===btn.dataset.reopenProject; });
+        if(p && p.finalizat){ p.finalizat = false; logEvent('redeschis', p.cod + ' · ' + p.client); saveState(); render(); }
       });
     });
     document.querySelectorAll('[data-edit]').forEach(function(btn){
@@ -1042,6 +1055,8 @@
         var proj = state.projects.find(function(p){ return p.id === btn.dataset.del; });
         if(proj && confirm('Ștergi proiectul ' + proj.cod + ' (' + proj.client + ')?')){
           state.projects = state.projects.filter(function(p){ return p.id !== proj.id; });
+          state.repairs = (state.repairs || []).filter(function(r){ return r.projectId !== proj.id && normCod(r.cod) !== normCod(proj.cod); });
+          delete registryOpen[proj.id];
           saveState(); render();
         }
       });
@@ -1554,7 +1569,12 @@
     document.getElementById('btn-cancel').addEventListener('click', close);
     // clicul pe fundal NU închide modalul (ca să nu pierzi ce ai completat) — închizi cu ✕ sau Anulează
     if(editing) document.getElementById('btn-del-project').addEventListener('click', function(){
-      if(confirm('Ștergi proiectul '+proj.cod+'?')){ state.projects = state.projects.filter(function(p){ return p.id!==proj.id; }); saveState(); close(); render(); }
+      if(confirm('Ștergi proiectul '+proj.cod+'?')){
+        state.projects = state.projects.filter(function(p){ return p.id!==proj.id; });
+        state.repairs = (state.repairs || []).filter(function(r){ return r.projectId !== proj.id && normCod(r.cod) !== normCod(proj.cod); });
+        delete registryOpen[proj.id];
+        saveState(); close(); render();
+      }
     });
 
     document.getElementById('btn-save').addEventListener('click', function(){
