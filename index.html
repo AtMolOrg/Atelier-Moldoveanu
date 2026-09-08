@@ -657,7 +657,9 @@
 
     var html = '';
 
-    html += '<div class="reg">' + renderRegistru() + '</div>';
+    // închis peste tot → coloană îngustă centrată; ceva deschis → lățime plină pentru pipeline
+    var anyOpen = Object.keys(registryOpen).length > 0;
+    html += '<div class="reg' + (anyOpen ? ' reg-wide' : '') + '">' + renderRegistru() + '</div>';
 
     board.innerHTML = html;
     attachHalaEvents();
