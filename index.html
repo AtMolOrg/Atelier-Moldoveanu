@@ -553,6 +553,15 @@
     if(n <= 13) return 'w2';
     return 'later';
   }
+  // faza proiectului ca cheie scurtă (tag + culoare margine)
+  function regPhaseKey(p){
+    if(p.finalizat) return 'done';
+    var stg = currentStageInfo(p);
+    if(!stg) return 'ante';
+    return stg.cls === 'phase-piesa' ? 'exec' : (stg.cls === 'phase-montaj' ? 'montaj' : 'ante');
+  }
+  function regPhaseTag(k){ return k === 'ante' ? 'PRG' : (k === 'exec' ? 'EXE' : (k === 'montaj' ? 'MTJ' : 'LIV')); }
+
   // un singur semnal per rând: ce blochează → cât întârzie → unde e acum
   function regSignal(p){
     if(p.finalizat) return { t: 'livrat', k: 'done' };
@@ -704,15 +713,21 @@
     return out;
   }
 
-  // rând strâns: un singur semnal — ce blochează / cât întârzie / unde e acum
+  // rând strâns: margine + tag de fază · cod întreg · client · semnal · termen
   function renderRegRow(p){
     var sig = regSignal(p);
     var nr = openRepairsFor(p).length;
     var td = p.termen ? parseDate(p.termen) : null;
     var late = !!(td && td.getTime() < todayDate().getTime() && !p.finalizat);
-    var h = '<button type="button" class="reg-row" data-toggle-reg="' + p.id + '" aria-controls="reg-detail-' + p.id + '" aria-expanded="' + (!!registryOpen[p.id]) + '">';
+    var pk = regPhaseKey(p);
+    var att = (sig.k === 'late' || sig.k === 'blk' || sig.k === 'mat' || nr > 0);
+    var h = '<button type="button" class="reg-row ph-' + pk + '" data-toggle-reg="' + p.id + '" aria-controls="reg-detail-' + p.id + '" aria-expanded="' + (!!registryOpen[p.id]) + '">';
+    h += '<i class="rr-edge"></i>';
+    h += '<span class="rr-tag">' + regPhaseTag(pk) + '</span>';
     h += '<span class="rr-cod">' + esc(p.cod) + (nr ? ' <span class="rr-rep">🔧' + nr + '</span>' : '') + '</span>';
-    h += '<span class="rr-sig k-' + sig.k + '">' + esc(sig.t) + '</span>';
+    var cli = (p.client || '').trim();
+    h += '<span class="rr-cli">' + (cli && cli !== '-' && cli !== '—' ? esc(cli) : '') + '</span>';
+    h += '<span class="rr-sigwrap">' + (att ? '<i class="rr-dot"></i>' : '') + '<span class="rr-sig k-' + sig.k + '">' + esc(sig.t) + '</span></span>';
     h += '<span class="rr-term' + (late ? ' late' : '') + '">' + (p.finalizat ? (p.finalizatAt ? esc(fmtShortDate(p.finalizatAt.slice(0,10))) : '') : (td ? esc(fmtShortDate(p.termen)) : '')) + '</span>';
     h += '</button>';
     return h;

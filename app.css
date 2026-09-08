@@ -12,6 +12,7 @@
     --border: rgba(255,255,255,0.11);
     --border-strong: rgba(255,255,255,0.22);
     --hair: rgba(255,255,255,0.055);
+    --ph-ante:#7f8f9d; --ph-exec:#b3bcc4; --ph-mtj:#c99a78; --ph-done:#7ba98c;
     --accent:#ef8f63;
     --accent-ink:#1c0f08;
     --accent-hover:#f2a988;
@@ -194,7 +195,7 @@
   .head-add-stage button:hover{ border-color:var(--accent); color:var(--accent); }
 
   /* ---------- REGISTRU — un singur semnal per rând, grupat pe termene ---------- */
-  .reg{ background:none; border:0; padding:0 2px 60px; }
+  .reg{ background:none; border:0; padding:0 2px 60px; max-width:880px; margin:0 auto; }
 
   .reg-toolbar{ display:flex; align-items:center; gap:8px 22px; flex-wrap:wrap; padding:6px 0 4px; font-size:11px; }
   .reg-filters{ display:flex; gap:2px; margin-left:-8px; }
@@ -215,26 +216,42 @@
   .reg-ghead.late{ color:var(--accent); }
   .reg-ghead.late .n{ color:var(--accent); }
 
-  .reg-row{ display:grid; grid-template-columns:auto minmax(0,1fr) minmax(52px,74px); align-items:baseline;
-    gap:clamp(12px,2.5vw,22px); width:100%; text-align:left; background:none; border:0;
-    padding:12px 12px 12px 0; margin:0 -12px; border-radius:5px; cursor:pointer; transition:background .12s; }
-  .reg-row:hover{ background:rgba(255,255,255,0.028); }
-  .reg-row .rr-cod{ font-weight:600; font-size:12.5px; font-variant-numeric:tabular-nums; color:var(--ink-dim);
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .reg-row .rr-rep{ color:var(--rep-ink); font-size:10.5px; margin-left:4px; }
-  .rr-sig{ font-size:12.5px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .reg-row{ display:grid; grid-template-columns:2px 30px auto minmax(0,auto) minmax(0,1fr) minmax(50px,68px);
+    align-items:center; gap:0 14px; width:100%; text-align:left; background:none; border:0;
+    padding:11px 12px; margin:0 -12px; border-radius:5px; cursor:pointer; transition:background .12s; }
+  .reg-row .rr-cli:empty{ margin:0; }
+  .reg-row:hover{ background:rgba(255,255,255,0.03); }
+  .reg-row .rr-edge{ align-self:stretch; border-radius:1px; background:var(--rr-ph, var(--ink-faint)); }
+  .reg-row .rr-tag{ font-size:9px; font-weight:700; letter-spacing:0.08em; color:var(--rr-ph, var(--ink-faint)); }
+  .reg-row.ph-ante{  --rr-ph: var(--ph-ante); }
+  .reg-row.ph-exec{  --rr-ph: var(--ph-exec); }
+  .reg-row.ph-montaj{ --rr-ph: var(--ph-mtj); }
+  .reg-row.ph-done{  --rr-ph: var(--ph-done); }
+  .reg-row .rr-cod{ font-weight:600; font-size:12.5px; font-variant-numeric:tabular-nums; color:var(--ink);
+    white-space:nowrap; letter-spacing:0; }
+  .reg-row .rr-rep{ color:var(--rep-ink); font-size:10px; margin-left:4px; }
+  .reg-row .rr-cli{ font-size:11.5px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rr-sigwrap{ display:flex; align-items:center; gap:8px; min-width:0; }
+  .rr-dot{ width:5px; height:5px; border-radius:50%; background:var(--accent); flex:none; }
+  .rr-sig{ font-size:12px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .rr-sig.k-late, .rr-sig.k-blk{ color:var(--accent); }
   .rr-sig.k-mat{ color:var(--warn); }
   .rr-sig.k-stage{ color:var(--ink-faint); }
   .rr-sig.k-done{ color:var(--ok-ink); }
-  .reg-row.k-late .rr-cod, .reg-row.k-blk .rr-cod{ color:var(--ink); }
-  .reg-row .rr-term{ text-align:right; font-size:11px; color:var(--ink-faint); font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .reg-row .rr-term.late{ color:var(--accent); font-weight:600; }
-  @media (max-width:640px){
-    .reg-row{ grid-template-columns:1fr auto; grid-template-areas:"cod term" "sig sig"; gap:3px 12px; }
-    .reg-row .rr-cod{ grid-area:cod; }
+  .reg-row .rr-term{ text-align:right; font-size:11px; color:var(--ink-faint); font-variant-numeric:tabular-nums; white-space:nowrap; opacity:.85; }
+  .reg-row .rr-term.late{ color:var(--accent); font-weight:600; opacity:1; }
+  @media (max-width:600px){
+    .reg-row{ grid-template-columns:2px 28px 1fr auto; grid-template-areas:
+      "edge tag cod  term"
+      "edge tag cli  cli"
+      "edge sig sig  sig"; gap:2px 10px; align-items:baseline; padding:11px 10px; }
+    .reg-row .rr-edge{ grid-area:edge; }
+    .reg-row .rr-tag{ grid-area:tag; }
+    .reg-row .rr-cod{ grid-area:cod; white-space:normal; }
+    .reg-row .rr-cli{ grid-area:cli; }
     .reg-row .rr-term{ grid-area:term; }
-    .rr-sig{ grid-area:sig; white-space:normal; }
+    .rr-sigwrap{ grid-area:sig; }
+    .reg-row .rr-cli:empty{ display:none; }
   }
 
   /* fir de reparații în rândul desfășurat */
