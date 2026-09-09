@@ -388,6 +388,7 @@
   .atl-title{ font-weight:600; color:var(--ink); }
   .atl-asset{ font-weight:400; color:var(--ink-faint); font-size:11px; }
   .atl-rec, .atl-last{ font-size:11px; color:var(--ink-faint); }
+  .atl-stat{ font-size:10.5px; color:var(--warn); }
   .atl-e{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); border-radius:5px; padding:3px 6px; font:inherit; font-size:11.5px; }
   .atl-e-title{ flex:1 1 160px; min-width:0; }
   .atl-e-n{ width:52px; }

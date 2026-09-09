@@ -927,6 +927,40 @@
     }
     if(typeof logEvent === 'function') logEvent('upkeep-done', item.title, { upkeepId: item.id, kind: item.kind, on: iso });
   }
+  // Faza 4 — statistică din jurnal (nod -log). Cache pe sesiune; gol dacă jurnalul n-are istoric.
+  var logStatsCache = null;
+  function refreshLogStats(cb){
+    if(typeof fetchLog !== 'function'){ if(cb) cb(); return; }
+    fetchLog(120).then(function(arr){
+      var byUpk = {};   // upkeepId -> [ts...] ale finalizărilor
+      arr.forEach(function(e){
+        if(e.type === 'upkeep-done' && e.data && e.data.upkeepId){
+          (byUpk[e.data.upkeepId] = byUpk[e.data.upkeepId] || []).push(e.ts);
+        }
+      });
+      var upkGap = {};  // upkeepId -> media zilelor între finalizări
+      Object.keys(byUpk).forEach(function(id){
+        var ts = byUpk[id].slice().sort();
+        if(ts.length < 2) return;
+        var gaps = [];
+        for(var i = 1; i < ts.length; i++) gaps.push((new Date(ts[i]) - new Date(ts[i - 1])) / 86400000);
+        gaps.sort(function(a, b){ return a - b; });
+        upkGap[id] = Math.round(gaps[Math.floor(gaps.length / 2)]); // mediană
+      });
+      logStatsCache = { upkGap: upkGap, count: arr.length };
+      if(cb) cb();
+    }).catch(function(){ if(cb) cb(); });
+  }
+  function upkeepStatHint(u){
+    if(!logStatsCache || !logStatsCache.upkGap) return '';
+    var g = logStatsCache.upkGap[u.id];
+    if(g == null) return '';
+    var conf = u.recur.type === 'sapt' ? 7 * (u.recur.every || 1) : (u.recur.every || 1);
+    if(u.recur.type !== 'zile' && u.recur.type !== 'sapt') return '';
+    if(g > conf * 1.4) return 'de fapt se face la ~' + g + 'z (setat la ' + conf + ')';
+    return '';
+  }
+
   function upkeepSnooze(item, iso, days){
     if(!item) return;
     item.snoozeUntil = isoOf(addDays(parseDate(iso), days || 3));
@@ -960,6 +994,7 @@
     h += '<button type="button" class="' + (atelierFilter === 'toate' ? 'on' : '') + '" data-atl-filter="toate">Toate</button>';
     UPK_KINDS.forEach(function(k){ h += '<button type="button" class="' + (atelierFilter === k[0] ? 'on' : '') + '" data-atl-filter="' + k[0] + '">' + k[1] + '</button>'; });
     h += '<label class="atl-due"><input type="checkbox" data-atl-dueonly' + (atelierDueOnly ? ' checked' : '') + '> doar scadente</label>';
+    h += '<button type="button" class="btn btn-xs" data-atl-stats title="Compară cu jurnalul">📊 din jurnal</button>';
     h += '</div>';
 
     // --- Recurente ---
@@ -1015,6 +1050,8 @@
     } else {
       h += '<span class="atl-title">' + esc(u.title) + (u.asset ? ' <span class="atl-asset">' + esc(u.asset) + '</span>' : '') + '</span>';
       h += '<span class="atl-rec">' + esc(recurLabel(u.recur)) + '</span>';
+      var sh = upkeepStatHint(u);
+      if(sh) h += '<span class="atl-stat">📊 ' + esc(sh) + '</span>';
       if(u.lastDoneDate) h += '<span class="atl-last">ultima: ' + esc(fmtShortDate(u.lastDoneDate)) + '</span>';
       h += '<span class="rs-grow"></span>';
       if(!u.archived) h += '<button type="button" class="btn btn-xs btn-primary" data-atl-done="' + u.id + '">bifează făcut</button>';
@@ -1032,6 +1069,15 @@
     if(dueChk) dueChk.addEventListener('change', function(){ atelierDueOnly = dueChk.checked; render(); });
     var dtgl = document.querySelector('[data-atl-donetgl]');
     if(dtgl) dtgl.addEventListener('click', function(){ atelierDoneOpen = !atelierDoneOpen; render(); });
+    var statsBtn = document.querySelector('[data-atl-stats]');
+    if(statsBtn) statsBtn.addEventListener('click', function(){
+      statsBtn.textContent = '…'; statsBtn.disabled = true;
+      refreshLogStats(function(){
+        var n = logStatsCache ? logStatsCache.count : 0;
+        showToast(n ? ('Jurnal: ' + n + ' evenimente analizate.') : 'Jurnalul n-are încă istoric suficient.');
+        render();
+      });
+    });
 
     document.querySelectorAll('[data-atl-done]').forEach(function(b){ b.addEventListener('click', function(){
       upkeepMarkDone(upkeepById(b.dataset.atlDone), isoToday()); saveState(); render();
