@@ -367,6 +367,7 @@
   .pw-task.done{ text-decoration:line-through; color:var(--ink-faint); }
   .pw-task.carry{ border-left:2px solid var(--ph-mtj); }
   .dcard-upk{ border-left-color:var(--warn); }
+  .dcard-note{ border-left-color:var(--ante-ink); }
   /* tab Atelier */
   .atl-h{ font-size:14px; font-weight:600; margin-bottom:4px; }
   .atl-cnt{ font-size:11px; font-weight:400; color:var(--ink-faint); margin-left:8px; }
@@ -394,6 +395,15 @@
   .atl-add input[type="text"]{ flex:1 1 200px; min-width:0; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:5px 8px; font:inherit; font-size:12px; }
   .atl-add select{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:5px 6px; font:inherit; font-size:11.5px; }
   .atl-donetgl{ background:none; border:0; color:var(--ink-faint); cursor:pointer; font:inherit; font-size:11.5px; padding:6px 0 2px; }
+  /* notițe */
+  #btn-notite{ position:relative; }
+  .notite-badge{ position:absolute; top:-2px; right:-2px; background:var(--accent); color:var(--accent-ink); font-size:9px; font-weight:700; min-width:14px; height:14px; line-height:14px; text-align:center; border-radius:999px; padding:0 3px; }
+  .nt-add input{ width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); border-radius:7px; padding:8px 10px; font:inherit; font-size:13px; }
+  .nt-list{ margin-top:10px; display:flex; flex-direction:column; gap:5px; }
+  .nt-row{ display:flex; align-items:center; gap:7px; background:var(--panel-2); border:1px solid var(--border); border-radius:7px; padding:6px 9px; font-size:12.5px; }
+  .nt-grip{ color:var(--ink-faint); cursor:grab; font-size:11px; flex:none; }
+  .nt-text{ flex:1; min-width:0; outline:0; word-break:break-word; }
+  .nt-text:focus{ box-shadow:0 0 0 1px var(--border-strong); border-radius:3px; }
   @media print{
     .topbar, #main > *:not(#board){ display:none !important; }
     body, #main, #board, .plan-board, .plan-wrap{ background:#fff !important; padding:0 !important; margin:0 !important; }

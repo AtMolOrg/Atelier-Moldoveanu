@@ -42,6 +42,7 @@
       <input type="text" id="search" class="search-input" placeholder="Caută cod sau client…">
       <button class="btn btn-ghost btn-icon" id="btn-undo" title="Anulează (Ctrl+Z)" disabled>↶</button>
       <button class="btn btn-ghost btn-icon" id="btn-redo" title="Refă (Ctrl+Shift+Z)" disabled>↷</button>
+      <button class="btn btn-ghost btn-icon" id="btn-notite" title="Notițe (ca să nu uiți)">📝<span id="notite-badge" class="notite-badge" hidden></span></button>
       <button class="btn btn-ghost btn-icon" id="btn-feedback" title="Lasă un feedback">💬</button>
     </div>
   </header>
@@ -838,6 +839,7 @@
     else if(tab === 'planificare') renderPlanificare();
     else if(tab === 'atelier') renderAtelier();
     updateUndoButtons();
+    if(typeof updateNotiteBadge === 'function') updateNotiteBadge();
 
     if(focusSel){
       var back = board.querySelector(focusSel);
@@ -1271,28 +1273,38 @@
     });
     return out;
   }
+  function deriveNotiteCards(){
+    return notiteOpen().map(function(n){ return { id: 'n:' + n.id, text: n.text, hint: 'notiță', projectId: null, skill: '', noteId: n.id }; });
+  }
   function allDerivedCards(state, dateIso){
     return deriveTasks(state, dateIso)
       .concat(deriveUpkeepTasks(state, dateIso))
+      .concat(deriveNotiteCards())
       .concat(deriveNarcisTasks(state, dateIso))
       .concat(deriveGabiTasks(state, dateIso));
   }
 
   function assignDerived(card, personId, plan){
     if((plan.tasks || []).some(function(t){ return t.id === card.id; })) return;
-    planTaskAdd(plan, personId, card.text, card.upkeepId ? 'upkeep' : 'derived',
+    var src = card.upkeepId ? 'upkeep' : (card.noteId ? 'capture' : 'derived');
+    var t = planTaskAdd(plan, personId, card.text, src,
       { id: card.id, projectId: card.projectId || null, upkeepId: card.upkeepId || null });
+    if(card.noteId){
+      var n = (state.notite || []).find(function(x){ return x.id === card.noteId; });
+      if(n){ n.status = 'planned'; n.plannedDate = plan.date; n.plannedTaskId = t ? t.id : null;
+        if(typeof logEvent === 'function') logEvent('notita-promovata', n.text, { toDate: plan.date, personId: personId }); }
+    }
   }
 
   function renderDerivedColumn(plan){
     var taken = {};
     (plan.tasks || []).forEach(function(t){ taken[t.id] = true; });
-    var cards = deriveTasks(state, currentPlanDate).concat(deriveUpkeepTasks(state, currentPlanDate)).filter(function(c){ return !taken[c.id]; });
+    var cards = deriveTasks(state, currentPlanDate).concat(deriveUpkeepTasks(state, currentPlanDate)).concat(deriveNotiteCards()).filter(function(c){ return !taken[c.id]; });
     if(!cards.length) return '<div class="plan-empty">nimic derivat — toate proiectele curg</div>';
     return cards.map(function(c){
       var who = peopleWithSkill(c.skill).map(function(p){ return p.name; }).slice(0, 4).join(', ');
-      return '<div class="dcard' + (c.upkeepId ? ' dcard-upk' : '') + '" draggable="true" data-dcard="' + esc(c.id) + '" title="Trage pe un om">'
-        + '<div class="dcard-t">' + (c.upkeepId ? '🔧 ' : '') + esc(c.text) + '</div>'
+      return '<div class="dcard' + (c.upkeepId ? ' dcard-upk' : '') + (c.noteId ? ' dcard-note' : '') + '" draggable="true" data-dcard="' + esc(c.id) + '" title="Trage pe un om">'
+        + '<div class="dcard-t">' + (c.upkeepId ? '🔧 ' : (c.noteId ? '📝 ' : '')) + esc(c.text) + '</div>'
         + (c.hint ? '<div class="dcard-h">' + esc(c.hint) + '</div>' : '')
         + (who ? '<div class="dcard-who">→ ' + esc(who) + '</div>' : '')
         + '</div>';
@@ -1489,9 +1501,10 @@
       });
     });
     if(!any) h += '<div class="plan-empty">nimic repartizat pe ziua asta</div>';
-    if((plan.resturi || []).length){
+    var rest = notiteOpen().map(function(n){ return n.text; }).concat((plan.resturi || []).map(function(r){ return r.text; }));
+    if(rest.length){
       h += '<div class="pm-who">Resturi</div>';
-      plan.resturi.forEach(function(r){ h += '<div class="pm-task pm-rest"><span>' + esc(r.text) + '</span></div>'; });
+      rest.forEach(function(txt){ h += '<div class="pm-task pm-rest"><span>' + esc(txt) + '</span></div>'; });
     }
     h += '</div>';
     return h;
@@ -1515,10 +1528,12 @@
       h += '</ul>';
     });
     if(!any) h += '<div class="os-empty">— nicio sarcină repartizată încă —</div>';
-    var rest = (plan.resturi || []).slice().sort(function(a, b){ return (a.order || 0) - (b.order || 0); });
+    // Resturi = inbox permanent (state.notite deschise) + eventualele resturi înghețate ale zilei
+    var rest = notiteOpen().map(function(n){ return n.text; })
+      .concat((plan.resturi || []).slice().sort(function(a, b){ return (a.order || 0) - (b.order || 0); }).map(function(r){ return r.text; }));
     if(rest.length){
       h += '<div class="os-who">Resturi</div><ul class="os-list">';
-      rest.forEach(function(r){ h += '<li>' + esc(r.text) + '</li>'; });
+      rest.forEach(function(txt){ h += '<li>' + esc(txt) + '</li>'; });
       h += '</ul>';
     }
     h += '</div>';
@@ -1781,6 +1796,11 @@
     });
     document.querySelectorAll('[data-ptask-del]').forEach(function(b){
       b.addEventListener('click', function(){
+        var gone = (plan.tasks || []).find(function(x){ return x.id === b.dataset.ptaskDel; });
+        if(gone && gone.source === 'capture' && gone.id.indexOf('n:') === 0){
+          var n = (state.notite || []).find(function(x){ return x.id === gone.id.slice(2); });
+          if(n){ n.status = 'open'; n.plannedDate = null; n.plannedTaskId = null; }
+        }
         plan.tasks = (plan.tasks || []).filter(function(x){ return x.id !== b.dataset.ptaskDel; });
         commitPlan(plan); saveState(); render();
       });
@@ -3352,6 +3372,79 @@
     });
   }
 
+  /* ================= NOTIȚE (captură rapidă, Nick) ================= */
+  function notiteOpen(){ return (state.notite || []).filter(function(n){ return n.status === 'open' && n.ownerId == null; }).slice().sort(function(a, b){ return (a.order || 0) - (b.order || 0); }); }
+  function updateNotiteBadge(){
+    var el = document.getElementById('notite-badge'); if(!el) return;
+    var n = notiteOpen().length;
+    el.textContent = n; el.hidden = !n;
+  }
+  function openNotiteModal(){
+    var root = document.getElementById('modal-root');
+    function draw(){
+      var list = notiteOpen();
+      var h = '<div class="modal-overlay" id="modal-overlay"><div class="modal">';
+      h += '<div class="modal-head"><h3>Notițe</h3><button class="modal-close" id="modal-close">✕</button></div>';
+      h += '<div class="modal-body"><div class="nt-add"><input type="text" id="nt-new" placeholder="scrie o notiță și Enter…" autocomplete="off"></div>';
+      h += '<div class="nt-list">';
+      if(!list.length) h += '<div class="plan-empty">nimic notat — bine</div>';
+      list.forEach(function(n){
+        h += '<div class="nt-row" draggable="true" data-nt-drag="' + n.id + '">'
+          + '<span class="nt-grip">⠿</span>'
+          + '<span class="nt-text" contenteditable="true" data-nt-text="' + n.id + '">' + esc(n.text) + '</span>'
+          + '<button type="button" class="btn btn-xs" data-nt-done="' + n.id + '" title="Făcut">✓</button>'
+          + '<button type="button" class="btn btn-xs btn-danger-outline" data-nt-drop="' + n.id + '" title="Aruncă">×</button>'
+          + '</div>';
+      });
+      h += '</div></div><div class="modal-foot"><div></div><div><button class="btn btn-ghost" id="btn-cancel">Închide</button></div></div></div></div>';
+      root.innerHTML = h;
+      var close = function(){ root.innerHTML = ''; };
+      document.getElementById('modal-close').addEventListener('click', close);
+      document.getElementById('btn-cancel').addEventListener('click', close);
+      var inp = document.getElementById('nt-new');
+      inp.focus();
+      inp.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          var v = inp.value.trim(); if(!v) return;
+          state.notite.push({ id: uid(), text: v, ownerId: null, createdAt: new Date().toISOString(),
+            order: state.notite.length, status: 'open', plannedDate: null, plannedTaskId: null, doneAt: null });
+          saveState(); updateNotiteBadge(); draw();
+        } else if(e.key === 'Escape'){ close(); }
+      });
+      root.querySelectorAll('[data-nt-text]').forEach(function(el){
+        el.addEventListener('input', function(){
+          var n = (state.notite || []).find(function(x){ return x.id === el.dataset.ntText; });
+          if(n){ n.text = el.textContent; saveState(); }
+        });
+        el.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); el.blur(); } });
+      });
+      root.querySelectorAll('[data-nt-done]').forEach(function(b){ b.addEventListener('click', function(){
+        var n = (state.notite || []).find(function(x){ return x.id === b.dataset.ntDone; });
+        if(n){ n.status = 'done'; n.doneAt = new Date().toISOString(); if(typeof logEvent === 'function') logEvent('notita-close', n.text, { how: 'done' }); saveState(); updateNotiteBadge(); draw(); }
+      }); });
+      root.querySelectorAll('[data-nt-drop]').forEach(function(b){ b.addEventListener('click', function(){
+        var n = (state.notite || []).find(function(x){ return x.id === b.dataset.ntDrop; });
+        if(n){ n.status = 'dropped'; n.doneAt = new Date().toISOString(); if(typeof logEvent === 'function') logEvent('notita-close', n.text, { how: 'dropped' }); saveState(); updateNotiteBadge(); draw(); }
+      }); });
+      // reordonare
+      var d = null;
+      root.querySelectorAll('[data-nt-drag]').forEach(function(row){
+        row.addEventListener('dragstart', function(e){ d = row.dataset.ntDrag; e.dataTransfer.setData('text/plain', d); });
+        row.addEventListener('dragover', function(e){ e.preventDefault(); });
+        row.addEventListener('drop', function(e){
+          e.preventDefault();
+          if(!d || d === row.dataset.ntDrag) return;
+          var ids = notiteOpen().map(function(x){ return x.id; }).filter(function(x){ return x !== d; });
+          ids.splice(ids.indexOf(row.dataset.ntDrag), 0, d);
+          ids.forEach(function(id, i){ var n = (state.notite || []).find(function(x){ return x.id === id; }); if(n) n.order = i; });
+          saveState(); draw();
+        });
+      });
+    }
+    draw();
+  }
+
   /* ================= MODAL: feedback ================= */
   function openFeedbackModal(){
     var root = document.getElementById('modal-root');
@@ -3587,6 +3680,7 @@
 
   document.getElementById('search').addEventListener('input', function(e){ searchQuery = e.target.value; render(); });
   document.getElementById('btn-feedback').addEventListener('click', function(){ openFeedbackModal(); });
+  document.getElementById('btn-notite').addEventListener('click', function(){ openNotiteModal(); });
   document.getElementById('btn-undo').addEventListener('click', doUndo);
   document.getElementById('btn-redo').addEventListener('click', doRedo);
   document.addEventListener('keydown', function(e){
