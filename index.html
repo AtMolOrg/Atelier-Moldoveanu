@@ -953,7 +953,11 @@
     var recv = orders.filter(function(o){ return o.status === 'primit'; }).length;
     var complete = orders.length && recv >= orders.length;
     var next = nextProiectStationFor(p, p.stationId);
-    var finalizabil = isPostExecStationFor(p, p.stationId) || (!next && piesaStationsFor(p).length === 0);
+    // „arată gata": cardul e pe o etapă de proiect post-execuție, SAU nu mai are etape în față,
+    // SAU are piese și toate sunt la montaj (munca e făcută, doar cardul a rămas în urmă).
+    var finalizabil = isPostExecStationFor(p, p.stationId)
+      || (!next && piesaStationsFor(p).length === 0)
+      || (totPieces > 0 && nM === totPieces);
 
     var h = '<div class="reg-detail-head">';
     h += '<div class="reg-strip">';
@@ -989,8 +993,9 @@
     // acțiuni de proiect — finalizare/redeschidere + editează + șterge, toate aici
     if(p.finalizat){
       h += '<button class="btn btn-sm" data-reopen-project="' + p.id + '">↩ Redeschide</button>';
-    } else if(finalizabil){
-      h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează ✓</button>';
+    } else {
+      // mereu disponibil (echipă mică, e reversibil prin „Redeschide") — dar discret până când proiectul chiar arată gata
+      h += '<button class="btn btn-sm' + (finalizabil ? ' btn-primary' : '') + '" data-close-project="' + p.id + '">Finalizează ✓</button>';
     }
     h += '<button class="btn btn-sm" data-edit="' + p.id + '" title="Editează proiectul">Editează</button>';
     h += '<button class="btn btn-sm btn-danger-outline" data-del="' + p.id + '" title="Șterge proiectul">Șterge</button>';
