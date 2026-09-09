@@ -385,6 +385,13 @@
   .prow-add{ background:var(--panel-3); border:1px solid var(--border); color:var(--ink-dim); border-radius:6px; font:inherit; font-size:11px; padding:2px 8px; cursor:pointer; flex:none; }
   .prow-add:hover{ color:var(--ink); border-color:var(--border-strong); }
   .prow-sum{ font-size:11px; color:var(--ink-dim); margin-top:5px; line-height:1.45; }
+  .prow-sum-ai{ color:var(--ink); }
+  .prow-ai{ font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ph-mtj); vertical-align:1px; }
+  .prow-sumbtn{ background:none; border:0; color:var(--ink-faint); cursor:pointer; font:inherit; font-size:12px; padding:0 4px; flex:none; }
+  .prow-sumbtn:hover{ color:var(--ink); }
+  .prow-sumbtn.stale{ color:var(--warn); }
+  .prow-sumall{ background:none; border:0; color:var(--ink-faint); cursor:pointer; font:inherit; font-size:9px; letter-spacing:0; text-transform:none; margin-left:8px; }
+  .prow-sumall:hover{ color:var(--ink); }
   .prow-tgl{ background:none; border:0; color:var(--ink-faint); cursor:pointer; font:inherit; font-size:10px; letter-spacing:.14em; text-transform:uppercase; padding:10px 0 5px; }
   .prow-tgl .n{ opacity:.6; }
   .pcompose{ display:flex; gap:5px; margin-top:7px; flex-wrap:wrap; }

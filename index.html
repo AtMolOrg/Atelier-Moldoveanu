@@ -971,6 +971,10 @@
   // Pune aici URL-ul unei Firebase Cloud Function (sau alt endpoint) care primește
   // { events, playbook } și întoarce { text } — textul nou propus. Gol = pas manual.
   var PLAYBOOK_LLM_URL = '';
+  // Faza D5 strat 2 — rezumat narativ per proiect. Cloud Function care primește
+  // { facts, playbook, cod } și întoarce { text } (2–4 propoziții, descriptiv, „pare" nu imperativ).
+  // Gol = doar rezumatul determinist.
+  var SUMMARY_LLM_URL = '';
   var caietOpen = false;
   function proposePlaybookUpdate(){
     if(!PLAYBOOK_LLM_URL){
@@ -1418,6 +1422,26 @@
     var f = projectFacts(p);
     return f.late || (f.dl != null && f.dl <= 7) || f.openReps > 0;
   }
+  function factsHash(p){ return stableStringify(projectFacts(p)); }
+  // rezumatul afișat: narativ LLM dacă e proaspăt (faptele nu s-au schimbat), altfel determinist
+  function projectSummaryShown(p){
+    var a = p.aiSummary;
+    if(a && a.text && a.factsHash === factsHash(p)) return { text: a.text, ai: true, stale: false };
+    if(a && a.text) return { text: projectSummary(p), ai: false, stale: true }; // are un rezumat vechi, dar faptele s-au schimbat
+    return { text: projectSummary(p), ai: false, stale: false };
+  }
+  function refreshSummary(p, cb){
+    if(!SUMMARY_LLM_URL){ if(cb) cb(false); return; }
+    fetch(SUMMARY_LLM_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cod: p.cod, facts: projectFacts(p), playbook: (state.playbook && state.playbook.text) || '' }) })
+      .then(function(r){ return r.json(); }).then(function(res){
+        if(res && typeof res.text === 'string' && res.text.trim()){
+          p.aiSummary = { text: res.text.trim(), at: new Date().toISOString(), factsHash: factsHash(p) };
+          saveState();
+        }
+        if(cb) cb(true);
+      }).catch(function(){ if(cb) cb(false); });
+  }
 
   function assignDerived(card, personId, plan){
     if((plan.tasks || []).some(function(t){ return t.id === card.id; })) return;
@@ -1439,12 +1463,15 @@
   }
   function planProjRow(p){
     var f = projectFacts(p);
+    var sm = projectSummaryShown(p);
     var h = '<div class="prow ph-' + f.phaseKey + '" data-prow="' + p.id + '">';
     h += '<div class="prow-top"><span class="rr-tag">' + regPhaseTag(f.phaseKey) + '</span>';
     h += '<span class="prow-cod">' + esc(p.cod) + '</span>';
     if(f.dl != null) h += '<span class="prow-term' + (f.late ? ' late' : '') + '">' + (f.late ? 'întârziat ' + Math.abs(f.dl) + 'z' : 'în ' + f.dl + 'z') + '</span>';
-    h += '<span class="rs-grow"></span><button type="button" class="prow-add" data-plan-addtask="' + p.id + '">+ sarcină</button></div>';
-    h += '<div class="prow-sum">' + esc(projectSummary(p)) + '</div>';
+    h += '<span class="rs-grow"></span>';
+    if(SUMMARY_LLM_URL) h += '<button type="button" class="prow-sumbtn' + (sm.stale ? ' stale' : '') + '" data-plan-sum="' + p.id + '" title="Rezumat narativ">↻</button>';
+    h += '<button type="button" class="prow-add" data-plan-addtask="' + p.id + '">+ sarcină</button></div>';
+    h += '<div class="prow-sum' + (sm.ai ? ' prow-sum-ai' : '') + '">' + esc(sm.text) + (sm.ai ? ' <span class="prow-ai">·ai</span>' : '') + '</div>';
     h += planComposeHtml(p);
     return h + '</div>';
   }
@@ -1464,7 +1491,8 @@
     var attn = active.filter(needsPlanAttn).sort(function(a, b){ var x = projectFacts(a).dl, y = projectFacts(b).dl; return (x == null ? 9999 : x) - (y == null ? 9999 : y); });
     var rest = active.filter(function(p){ return !needsPlanAttn(p); }).sort(function(a, b){ var x = projectFacts(a).dl, y = projectFacts(b).dl; return (x == null ? 9999 : x) - (y == null ? 9999 : y); });
 
-    var h = '<div class="prow-seg">Cere atenție <span class="n">' + attn.length + '</span></div>';
+    var h = '<div class="prow-seg">Cere atenție <span class="n">' + attn.length + '</span>'
+      + (SUMMARY_LLM_URL ? ' <button type="button" class="prow-sumall" data-plan-sumall>↻ rezumă tot</button>' : '') + '</div>';
     h += attn.length ? attn.map(planProjRow).join('') : '<div class="plan-empty">nimic urgent</div>';
     h += '<button type="button" class="prow-tgl" data-plan-rest>' + (planRestOpen ? '▾' : '▸') + ' Restul — curg <span class="n">' + rest.length + '</span></button>';
     if(planRestOpen) h += rest.map(planRestRow).join('');
@@ -1817,6 +1845,24 @@
     if(weekAll) weekAll.addEventListener('click', function(){ planWeekAll = !planWeekAll; render(); });
     var restTgl = document.querySelector('[data-plan-rest]');
     if(restTgl) restTgl.addEventListener('click', function(){ planRestOpen = !planRestOpen; render(); });
+    document.querySelectorAll('[data-plan-sum]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var p = (state.projects || []).find(function(x){ return x.id === b.dataset.planSum; });
+        if(!p) return;
+        b.textContent = '…'; b.disabled = true;
+        refreshSummary(p, function(ok){ if(!ok) showToast('Fără endpoint LLM sau apel eșuat.', true); render(); });
+      });
+    });
+    var sumAll = document.querySelector('[data-plan-sumall]');
+    if(sumAll) sumAll.addEventListener('click', function(){
+      var targets = (state.projects || []).filter(function(p){ return !p.finalizat && needsPlanAttn(p); });
+      sumAll.textContent = '…'; sumAll.disabled = true;
+      var i = 0;
+      (function next(){
+        if(i >= targets.length){ render(); return; }
+        refreshSummary(targets[i++], function(){ next(); });
+      })();
+    });
     document.querySelectorAll('[data-plan-addtask]').forEach(function(b){
       b.addEventListener('click', function(){
         var box = document.querySelector('[data-plan-compose="' + b.dataset.planAddtask + '"]');
