@@ -305,6 +305,11 @@
   .reg-detail-pipe .proj-stage-box.thin{ flex:0 0 32px; min-width:32px; background:var(--panel-2); }
   .reg-detail-pipe .proj-stage-box.thin .proj-stage-head{ writing-mode:vertical-rl; text-orientation:mixed; padding:8px 2px; border-bottom:0; justify-content:center; gap:0; }
   .reg-detail-pipe .proj-stage-box.thin .col-body{ min-height:0; padding:4px; }
+  /* în timpul unui drag: coloanele goale se lățesc și fiecare col-body devine o țintă vizibilă de drop */
+  body.pipe-dnd .reg-detail-pipe .proj-stage-box.thin{ flex:0 0 128px; min-width:128px; }
+  body.pipe-dnd .reg-detail-pipe .proj-stage-box.thin .proj-stage-head{ writing-mode:horizontal-tb; padding:9px 10px; justify-content:flex-start; }
+  body.pipe-dnd .reg-detail-pipe .proj-stage-box .col-body{ min-height:76px; padding:8px; outline:1px dashed var(--border-strong); outline-offset:-4px; border-radius:7px; transition:none; }
+  body.pipe-dnd .reg-detail-pipe .proj-stage-box .col-body.drag-over{ outline-color:var(--accent); background:var(--danger-wash); }
   /* coloana cu piese: carduri slim care se împachetează compact, până la o lățime maximă */
   .reg-detail-pipe .proj-stage-box.has-pieces{ min-width:0; }
   .reg-detail-pipe .proj-stage-box .col-body{ min-height:0; }
