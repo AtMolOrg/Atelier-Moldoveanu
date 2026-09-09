@@ -75,6 +75,28 @@
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
 
+  // roster implicit (pre-completat o singură dată în normalizeState) — role grosier + skills fin
+  var DEFAULT_PEOPLE = [
+    { name:'Andrei',     role:'atelier',    skills:['sudura'] },
+    { name:'Dic',        role:'atelier',    skills:['sudura'] },
+    { name:'Hadi',       role:'atelier',    skills:['sudura'] },
+    { name:'Nea Marian', role:'atelier',    skills:['debitare','strung'] },
+    { name:'Mircea',     role:'atelier',    skills:['laser','abkant','debitare'] },
+    { name:'Mihai',      role:'atelier',    skills:['polizat'] },
+    { name:'Eugen',      role:'atelier',    skills:['montaj','atelier'] },
+    { name:'Dorin',      role:'atelier',    skills:['montaj','atelier'] },
+    { name:'Mihăiță',    role:'atelier',    skills:['montaj','atelier'] },
+    { name:'Alin',       role:'atelier',    skills:['montaj','atelier'] },
+    { name:'Vlad',       role:'atelier',    skills:['curatenie'] },
+    { name:'Bianca',     role:'proiectant', skills:['proiectare'] },
+    { name:'Radian',     role:'proiectant', skills:['proiectare'] },
+    { name:'Nick',       role:'coord',      skills:['coord'] },
+    { name:'Narcis',     role:'coord',      skills:['sofer'] },
+    { name:'Gabi',       role:'birou',      skills:['comenzi','contabilitate'] },
+    { name:'Petru',      role:'sef',        skills:['coord'] }
+  ];
+  var DEFAULT_REMINDERS = ['Suflat flexurile la final de zi', 'Sa se respecte ordinea taskurilor!'];
+
   /* ---------------- utils ---------------- */
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
   function esc(s){
@@ -83,6 +105,12 @@
     });
   }
   function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+  // slug determinist pentru id-uri din seed/migrare (fără Date.now): „Nea Marian" -> „nea-marian"
+  function slug(s){
+    return String(s == null ? '' : s).toLowerCase()
+      .replace(/[ăâ]/g,'a').replace(/î/g,'i').replace(/[șş]/g,'s').replace(/[țţ]/g,'t')
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  }
   // key-order-independent JSON, used only to compare local state vs. a remote snapshot.
   // Firebase RTDB prunes null/undefined, empty arrays, empty objects and empty strings on
   // save (recursively), so the echo of our own write comes back without those keys. We drop
@@ -293,6 +321,30 @@
     parsed.assignments = []; // legăturile persoană↔proiect nu mai există; ținem cheia ca să nu crape cod vechi
     delete parsed.colorHistory; // paleta de culori pentru oameni — feature scoasă
     if(!Array.isArray(parsed.checklists)) parsed.checklists = [];
+
+    // --- organizare zilnică: roster, planuri, reminder-e (Faza 1) ---
+    if(typeof parsed.people === 'undefined'){
+      parsed.people = DEFAULT_PEOPLE.map(function(pp, i){
+        return { id:'p-'+slug(pp.name), name:pp.name, active:true, role:pp.role,
+                 skills:pp.skills.slice(), order:i, awayDates:[] };
+      });
+    }
+    if(!Array.isArray(parsed.people)) parsed.people = [];
+    parsed.people.forEach(function(pp, i){
+      if(typeof pp.active === 'undefined') pp.active = true;
+      if(typeof pp.role !== 'string') pp.role = 'atelier';
+      if(!Array.isArray(pp.skills)) pp.skills = [];
+      if(typeof pp.order !== 'number') pp.order = i;
+      if(!Array.isArray(pp.awayDates)) pp.awayDates = [];
+    });
+    if(!Array.isArray(parsed.plans)) parsed.plans = [];
+    if(!Array.isArray(parsed.reminders)) parsed.reminders = DEFAULT_REMINDERS.slice();
+    // păstrează doar ultimele ~30 de zile de plan (comparație de string ISO, fără Date)
+    if(parsed.plans.length > 30){
+      parsed.plans.sort(function(a,b){ return (a.date < b.date) ? 1 : (a.date > b.date ? -1 : 0); });
+      parsed.plans = parsed.plans.slice(0, 30);
+    }
+
     parsed.projects.forEach(function(p){
       if(!Array.isArray(p.orders)) p.orders = [];
       // câmpurile noi ale unei linii de necesar — completate o singură dată, cu valori fixe
@@ -311,6 +363,8 @@
           : '';
       }
       delete p.montajNeeds;
+      if(typeof p.adresaMontaj !== 'string') p.adresaMontaj = ''; // adresa unde se face montajul (rollup Narcis)
+      if(typeof p.telClient !== 'string') p.telClient = '';       // telefon client (Narcis sună clienții)
       delete p.montajPinned; // panoul „necesar montaj" a devenit câmp în modal — nu mai are pin
       delete p.urgencyFloor; // sistemul de urgență (slider manual) a fost scos
       // each project now carries its own flow stages — seed from the shared list on first load
