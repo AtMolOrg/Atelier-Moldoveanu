@@ -939,6 +939,22 @@
         if(n < 0) add('late', '⚠ ' + p.cod + ' întârziat ' + Math.abs(n) + 'z', 'coord');
       }
     });
+    // ordine: după urgența proiectului — cel mai întârziat / cu termenul cel mai apropiat, primul
+    var urg = {};
+    (state.projects || []).forEach(function(p){
+      urg[p.id] = p.termen ? daysBetween(todayDate(), parseDate(p.termen)) : 9999;
+    });
+    var ruleW = { late: 0, montaj: 1, sud: 2, debit: 3, abkant: 4, poliz: 5, scos: 6, cmd: 7 };
+    cards.forEach(function(c, i){ c._i = i; });
+    cards.sort(function(a, b){
+      var ua = urg[a.projectId], ub = urg[b.projectId];
+      if(ua !== ub) return ua - ub;
+      var ra = a.id.split(':')[2], rb = b.id.split(':')[2];
+      var wa = ruleW[ra] == null ? 9 : ruleW[ra], wb = ruleW[rb] == null ? 9 : ruleW[rb];
+      if(wa !== wb) return wa - wb;
+      return a._i - b._i;
+    });
+    cards.forEach(function(c){ delete c._i; });
     return cards;
   }
 
