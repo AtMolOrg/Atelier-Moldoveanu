@@ -101,7 +101,7 @@ proiecte nu cer nimic.** Un digest bun ascunde acele proiecte, nu le enumeră st
 
 ---
 
-## 5. Patru variante
+## 5. Cinci variante
 
 ### D1 — Digest de rânduri (ideea lui Nick, dezvoltată)
 Un rând per proiect activ, sortat după urgență. Fiecare rând, compact:
@@ -160,6 +160,45 @@ ieri**, nu de la zero.
 - **Minus:** nu ajută la un proiect nou care n-a fost pe nicio foaie.
 - **Efort:** mediu; depinde de `fetchLog` + un „carryover vizual" al foii.
 
+### D5 — Advisor: rezumat per proiect (ideea de „agent" a lui Nick, în forma corectă)
+**Nu** un agent care generează sarcini sau conduce atelierul. Un **rezumat scris** per
+proiect — 2–4 propoziții, limbaj natural: „unde e proiectul, ce l-ar putea bloca, ce
+pare că urmează". Nick citește rezumatul lui 0011, se gândește 5 secunde, scrie 2 linii
+pe oameni. Rezumatul îi economisește căutarea prin 3 tab-uri și îi dă o a doua pereche
+de ochi pe „e ceva în neregulă aici?".
+
+De ce **rezolvă** problemele din secțiunea 1:
+- Nu are nevoie de intenție — doar povestește starea în care Nick are deja încredere, și
+  poate spune „pare blocat" fără să pretindă că știe soluția.
+- Nu e sarcină falsă — e un briefing.
+- Grosierimea nu contează — o propoziție poate zice „majoritatea pieselor au trecut de
+  sudură, câteva încă la debitare" fără cifre false.
+- Staleness — poate spune singur „pipeline-ul n-a fost atins de 5 zile, deci poate fi în
+  urmă de realitate".
+
+**Două straturi:**
+1. **Determinist (fără LLM), disponibil azi:** `projectFacts(p)` — fază, bucket-uri de
+   piese, defalcarea comenzilor, reparații deschise, delta de termen, avertismente,
+   ultima activitate din jurnal. Din ele, un șablon: *„Fază montaj · 4/5 piese la montaj
+   · 1 comandă neprimită (Furnizor X, joi) · termen în 3 zile · pipeline neatins de 6 z."*
+2. **LLM (când Nick pune un endpoint):** trimite `projectFacts(p)` (+ caietul de atelier)
+   la o Cloud Function → primește 2–4 propoziții narative. Cache pe proiect
+   (`p.aiSummary = {text, at, factsHash}`) — se regenerează doar când faptele s-au
+   schimbat. Buton „↻ rezumă" forțează, „rezumă tot" procesează toate proiectele active.
+
+- **Plus:** exact fluxul lui Nick — citește, decide, scrie. Cel mai bun raport
+  utilitate/risc dacă rezumatul rămâne descriptiv, nu prescriptiv.
+- **Plus:** util **din prima zi** cu șablonul determinist; devine narativ când Nick vrea.
+- **Minus (LLM):** un apel per proiect activ per sesiune de planificare (~15 apeluri);
+  cost + latență; are nevoie de o Cloud Function cu cheie API (nu cheie în client).
+- **Minus:** un rezumat subtil greșit citit în fiecare seară e mai rău decât niciunul —
+  de aceea rămâne factual, citează datele, iar câmpurile brute se văd alături.
+- **Efort:** stratul determinist — mic. Stratul LLM — mic în client (refolosește tiparul
+  `PLAYBOOK_LLM_URL`), munca e Cloud Function-ul (Nick / separat).
+
+**D5 se așază peste D3:** D3 dă lista triată + „scrie aici"; advisor-ul umple fiecare
+rând cu rezumatul (întâi șablon determinist, apoi narativ LLM).
+
 ---
 
 ## 6. Recomandare — sinceră
@@ -184,10 +223,20 @@ ieri**, nu de la zero.
   „gata de montaj" / „toate piesele la montaj"), plus, dacă avem jurnal, „ultima mișcare
   acum Nz" ca indicator de încredere.
 
+- **Deasupra, D5:** fiecare rând care „cere atenție" își arată **rezumatul** — întâi
+  șablonul determinist (azi), apoi narativul LLM (când Nick pune endpoint-ul). Ăsta e
+  răspunsul la ce a tot încercat Nick să spună cu „un advisor" — un rezumat de citit
+  per proiect, nu un generator de sarcini.
+
 **De ce D3 și nu D1:** D1 rescrie un digest de la zero care riscă să redevină un zid și
 dublează logica de stare din registru. D3 refolosește vederea în care Nick are deja
 încredere și adaugă doar trierea + butonul de scriere. Mai puțin cod, mai puțin de
 stricat, mai aproape de cum lucrează deja.
+
+**De ce D3+D5 și nu doar un „agent":** un agent care *conduce* (repartizează, decide) e
+prea mult pentru ce știe aplicația și greșește tăcut. Un agent care *rezumă* (D5) e exact
+cât trebuie — descrie starea, semnalează ce pare în neregulă, și lasă Nick să decidă.
+D3 e scheletul (ce proiecte, în ce ordine, unde scrii); D5 e conținutul fiecărui rând.
 
 **De ce nu D4 acum:** e cea mai elegantă pe termen lung, dar are nevoie de 1–2 săptămâni
 de jurnal ca să arate ceva. O ținem ca fază ulterioară — delta „ce s-a schimbat de

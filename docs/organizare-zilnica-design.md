@@ -111,9 +111,9 @@ determinist, fără `Date.now()`):
   lui îi șterge activ pe ceilalți).
 - **Funcție reală de administrare:** adaugă / redenumește / dezactivează / șterge
   membri, reordonează, editează rol + skills. UI: sub-panou „Angajați".
-- `role` = grupare grosieră pentru UI + tratamentul special coord (Narcis/Gabi).
-  `skills` = fin, folosit de generatoare ca să **sugereze** cine primește un card
-  (Nick tot trage unde vrea).
+- `role` = grupare grosieră pentru UI (atelier / proiectant / sofer / coord / birou / sef).
+  `skills` = fin — pe el se face detecția rollup-ului (Narcis = `skill 'sofer'`,
+  Gabi = `skill 'comenzi'`) și sugestia „cine primește un card"; Nick tot trage unde vrea.
 - `awayDates: []` — zile în care omul lipsește; îl scoate din foaia acelei zile.
 
 **Roster pre-completat** (din cele 6 foi + rolurile reale spuse de Nick):
@@ -127,7 +127,7 @@ determinist, fără `Date.now()`):
 | Dorin, Mihăiță, Eugen, Alin | atelier | `montaj`, `atelier` |
 | Vlad | atelier | `curatenie` |
 | Bianca, Radian | proiectant | `proiectare` |
-| Narcis | coord | `sofer` |
+| Narcis | sofer | `sofer` |
 | Gabi | birou | `comenzi`, `contabilitate` |
 | Nick | coord | `coord` |
 | Petru | sef | `coord` |
