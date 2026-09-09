@@ -61,10 +61,37 @@ export default {
     let body;
     try { body = await request.json(); } catch { return json({ error: "body invalid" }, 400); }
 
-    const task = body.task || (body.events ? "playbook" : "summary");
+    const task = body.task || (body.events ? "playbook" : (body.proiecte ? "strategie" : "summary"));
     let system, user, maxTokens;
 
-    if (task === "summary") {
+    if (task === "strategie") {
+      maxTokens = 2000;
+      system =
+        "Ești managerul de producție al unui atelier de metal (tâmplărie metalică, balustrade, " +
+        "structuri; ~15 oameni). Primești starea TUTUROR proiectelor active, echipa (cu meserii) și " +
+        "data de azi. Dă o strategie scurtă pentru zilele următoare, în română:\n" +
+        "- ce e prioritar și DE CE (termen, risc, clientul așteaptă)\n" +
+        "- unde e gâtul de sticlă (resurse partajate: sudori, laser/abkant, șofer, proiectanți)\n" +
+        "- ce e blocat și poate aștepta\n" +
+        "- ce riscă să întârzie dacă nu se mișcă azi\n" +
+        "Aici AI-ul POATE recomanda — e strategie, nu execuție: e ok «prioritizează X», «pune " +
+        "sudorii pe Y întâi». Dar: (a) nu inventa informații care nu-s în date; (b) 6–10 puncte " +
+        "scurte, cu «-» în față; (c) fără introducere, fără concluzie, direct punctele.";
+      const P = (body.proiecte || [])
+        .map((p) => {
+          const d = Object.entries(p.detalii || {})
+            .map(([k, v]) => k + ": " + (Array.isArray(v) ? (v.join(", ") || "niciunul") : v))
+            .join("; ");
+          return "• " + (p.cod || "?") + " — " + (p.stare || "") + " [" + d + "]";
+        })
+        .join("\n");
+      const O = (body.oameni || [])
+        .map((o) => "• " + o.nume + " (" + (o.skills || []).join(", ") + ")")
+        .join("\n");
+      user =
+        "Azi: " + (body.azi || "?") + "\n\nPROIECTE ACTIVE:\n" + P + "\n\nECHIPA:\n" + O +
+        (body.caiet ? "\n\nCAIET DE ATELIER (context):\n" + body.caiet : "");
+    } else if (task === "summary") {
       maxTokens = 900; // generos: unele modele ard tokeni pe „reasoning" înainte de text
       system =
         "Ești asistentul unui manager de atelier de metal (tâmplărie metalică, balustrade, " +
