@@ -794,6 +794,8 @@
   var planSettingsOpen = false;
   var rosterOpen = false;
   var planViewMode = null; // null = automat după oră; 'seara' | 'dimineata' = forțat de utilizator
+  var planWeekOpen = false;
+  var planWeekAll = false;
   var PERSON_ROLES = ['atelier', 'proiectant', 'coord', 'birou', 'sef'];
   var MON_SHORT = ['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','noi','dec'];
 
@@ -807,6 +809,7 @@
     return currentPlanDate;
   }
   function shiftPlanDate(n){ currentPlanDate = isoOf(addDays(parseDate(ensurePlanDate()), n)); }
+  function weekStartIso(iso){ var d = parseDate(iso); var dow = d.getDay(); return isoOf(addDays(d, -(dow === 0 ? 6 : dow - 1))); } // luni
   // modul de afișare: forțat de utilizator, altfel automat (dimineața te uiți la ce ai de bifat azi)
   function planMode(){
     if(planViewMode) return planViewMode;
@@ -1037,6 +1040,7 @@
       + '<button type="button" class="' + (mode === 'seara' ? 'on' : '') + '" data-plan-mode="seara">seară</button>'
       + '<button type="button" class="' + (mode === 'dimineata' ? 'on' : '') + '" data-plan-mode="dimineata">dimineață</button>'
       + '</span>';
+    h += '<button type="button" class="btn btn-sm' + (planWeekOpen ? ' btn-primary' : '') + '" data-plan-week>Săptămână</button>';
     h += '<span class="rs-grow"></span>';
     h += '<button type="button" class="btn btn-sm' + (planSettingsOpen ? ' btn-primary' : '') + '" data-plan-settings title="Reminder-e fixe">⚙</button>';
     h += '<button type="button" class="btn btn-sm' + (rosterOpen ? ' btn-primary' : '') + '" data-plan-roster>Angajați</button>';
@@ -1044,6 +1048,14 @@
 
     if(planSettingsOpen) h += renderReminderSettings();
     if(rosterOpen) h += renderRoster();
+
+    if(planWeekOpen){
+      h += renderWeekView();
+      h += '</div>';
+      board.innerHTML = h;
+      attachPlanEvents();
+      return;
+    }
 
     if(mode === 'dimineata'){
       h += renderMorningView(plan);
@@ -1135,6 +1147,48 @@
   }
 
   function orgTaskText(plan, t){ return (plan.edits && plan.edits[t.id]) || t.text; }
+
+  // vederea de săptămână: grilă oameni × zile (Lun–Sâm), pregătești mai multe zile în avans
+  function renderWeekView(){
+    var start = parseDate(weekStartIso(ensurePlanDate()));
+    var days = [];
+    for(var i = 0; i < 6; i++) days.push(isoOf(addDays(start, i)));
+    var ppl = peopleSorted();
+    if(!planWeekAll){
+      var has = {};
+      days.forEach(function(iso){ (planFor(iso).tasks || []).forEach(function(t){ has[t.personId] = true; }); });
+      var filtered = ppl.filter(function(p){ return has[p.id]; });
+      if(filtered.length) ppl = filtered;
+    }
+    var h = '<div class="plan-week">';
+    h += '<div class="pw-nav">';
+    h += '<button type="button" class="btn btn-sm" data-week-nav="prev">‹ săpt.</button>';
+    h += '<span class="pw-range">' + esc(planDateLabel(days[0])) + ' – ' + esc(planDateLabel(days[5])) + '</span>';
+    h += '<button type="button" class="btn btn-sm" data-week-nav="next">săpt. ›</button>';
+    h += '<button type="button" class="btn btn-sm' + (planWeekAll ? ' btn-primary' : '') + '" data-week-all>toți oamenii</button>';
+    h += '</div>';
+    h += '<div class="pw-grid">';
+    h += '<div class="pw-hcell pw-corner"></div>';
+    days.forEach(function(iso){
+      var pl = planFor(iso);
+      h += '<div class="pw-hcell" data-week-day="' + iso + '" title="Deschide ziua">' + esc(planDateLabel(iso)) + (pl.finalizedAt ? ' <span class="pw-fin">✓</span>' : '') + '</div>';
+    });
+    ppl.forEach(function(p){
+      h += '<div class="pw-name">' + esc(p.name) + '</div>';
+      days.forEach(function(iso){
+        var pl = planFor(iso);
+        var ts = planTasksFor(pl, p.id);
+        h += '<div class="pw-cell" data-week-cell="' + p.id + '::' + iso + '">';
+        ts.forEach(function(t){
+          h += '<div class="pw-task' + (t.done ? ' done' : '') + (t.source === 'carryover' ? ' carry' : '') + '" draggable="true" data-ptask-drag="' + t.id + '" data-pw-from="' + iso + '">'
+            + (t.source === 'carryover' ? '↻ ' : '') + esc(orgTaskText(pl, t)) + '</div>';
+        });
+        h += '</div>';
+      });
+    });
+    h += '</div></div>';
+    return h;
+  }
 
   // modul de dimineață: aceeași listă, doar de bifat
   function renderMorningView(plan){
@@ -1280,6 +1334,58 @@
     if(setBtn) setBtn.addEventListener('click', function(){ planSettingsOpen = !planSettingsOpen; render(); });
     document.querySelectorAll('[data-plan-mode]').forEach(function(b){
       b.addEventListener('click', function(){ planViewMode = b.dataset.planMode; render(); });
+    });
+    var weekBtn = document.querySelector('[data-plan-week]');
+    if(weekBtn) weekBtn.addEventListener('click', function(){ planWeekOpen = !planWeekOpen; render(); });
+    document.querySelectorAll('[data-week-nav]').forEach(function(b){
+      b.addEventListener('click', function(){
+        currentPlanDate = isoOf(addDays(parseDate(weekStartIso(ensurePlanDate())), b.dataset.weekNav === 'prev' ? -7 : 7));
+        render();
+      });
+    });
+    var weekAll = document.querySelector('[data-week-all]');
+    if(weekAll) weekAll.addEventListener('click', function(){ planWeekAll = !planWeekAll; render(); });
+    document.querySelectorAll('[data-week-day]').forEach(function(el){
+      el.addEventListener('click', function(){ currentPlanDate = el.dataset.weekDay; planWeekOpen = false; render(); });
+    });
+    document.querySelectorAll('[data-week-cell]').forEach(function(zone){
+      zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('pw-over'); });
+      zone.addEventListener('dragleave', function(){ zone.classList.remove('pw-over'); });
+      zone.addEventListener('drop', function(e){
+        e.preventDefault(); zone.classList.remove('pw-over');
+        var parts = zone.dataset.weekCell.split('::');
+        var pid = parts[0], toIso = parts[1];
+        var target = planFor(toIso);
+        var data = e.dataTransfer.getData('text/plain') || '';
+        if(data.indexOf('DC::') === 0){
+          var card = allDerivedCards(state, toIso).find(function(c){ return c.id === data.slice(4); });
+          if(card){ assignDerived(card, pid, target); saveState(); render(); }
+          return;
+        }
+        if(data.indexOf('PT::') === 0){
+          var tid = data.slice(4);
+          // caută sarcina în oricare zi din săptămână
+          var ws = parseDate(weekStartIso(ensurePlanDate())), src = null, task = null;
+          for(var i = 0; i < 6 && !task; i++){
+            var pl = planFor(isoOf(addDays(ws, i)));
+            var f = (pl.tasks || []).find(function(x){ return x.id === tid; });
+            if(f){ src = pl; task = f; }
+          }
+          if(!task) return;
+          if(src !== target){
+            src.tasks = src.tasks.filter(function(x){ return x.id !== tid; });
+            commitPlan(src);
+          }
+          task.personId = pid;
+          var mx = 0;
+          (target.tasks || []).forEach(function(x){ if(x.personId === pid && (x.order || 0) > mx) mx = x.order || 0; });
+          task.order = mx + 1;
+          if(!Array.isArray(target.tasks)) target.tasks = [];
+          if(target.tasks.indexOf(task) === -1) target.tasks.push(task);
+          commitPlan(target);
+          saveState(); render();
+        }
+      });
     });
     document.querySelectorAll('[data-ptask-done]').forEach(function(cb){
       cb.addEventListener('change', function(){
