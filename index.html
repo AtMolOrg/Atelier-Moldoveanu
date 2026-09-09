@@ -783,6 +783,42 @@
       state.plans.push(plan);
     }
   }
+  function planTasksFor(plan, personId){
+    return (plan.tasks || []).filter(function(t){ return t.personId === personId; })
+      .slice().sort(function(a, b){ return (a.order || 0) - (b.order || 0); });
+  }
+  function planTaskAdd(plan, personId, text, source, extra){
+    text = (text || '').trim();
+    if(!text) return null;
+    extra = extra || {};
+    var mx = 0;
+    (plan.tasks || []).forEach(function(t){ if(t.personId === personId && (t.order || 0) > mx) mx = t.order || 0; });
+    var t = { id: extra.id || uid(), text: text, personId: personId,
+      projectId: extra.projectId || null, order: mx + 1,
+      done: false, doneAt: null, source: source || 'manual', carriedFrom: null };
+    if(extra.upkeepId) t.upkeepId = extra.upkeepId;
+    if(!Array.isArray(plan.tasks)) plan.tasks = [];
+    plan.tasks.push(t);
+    commitPlan(plan);
+    return t;
+  }
+  function moveTasksToResturi(personId, plan){
+    var mx = 0;
+    (plan.resturi || []).forEach(function(r){ if((r.order || 0) > mx) mx = r.order || 0; });
+    var keep = [];
+    (plan.tasks || []).forEach(function(t){
+      if(t.personId === personId){ plan.resturi.push({ id: uid(), text: t.text, order: ++mx }); }
+      else keep.push(t);
+    });
+    plan.tasks = keep;
+    commitPlan(plan);
+  }
+  function reorderPlanTasks(plan, personId, orderedIds){
+    var byId = {};
+    (plan.tasks || []).forEach(function(t){ byId[t.id] = t; });
+    orderedIds.forEach(function(id, i){ if(byId[id]) byId[id].order = i + 1; });
+    commitPlan(plan);
+  }
 
   function planDateLabel(iso){
     var d = parseDate(iso); if(!d) return iso;
@@ -817,12 +853,23 @@
     attachPlanEvents();
   }
 
-  // stub — Task 4 îl umple cu sarcini + editare
   function renderPeopleColumn(plan){
     return '<div class="plan-people">' + peopleSorted().map(function(p){
-      return '<div class="pcol-person" data-person="' + p.id + '">'
-        + '<div class="pcol-person-h">' + esc(p.name) + ' <span class="pcol-role">' + esc(p.role) + '</span></div>'
-        + '</div>';
+      var tasks = planTasksFor(plan, p.id);
+      var h = '<div class="pcol-person" data-person="' + p.id + '">';
+      h += '<div class="pcol-person-h">' + esc(p.name) + ' <span class="pcol-role">' + esc(p.role) + '</span></div>';
+      h += '<div class="pcol-tasks">';
+      tasks.forEach(function(t){
+        h += '<div class="ptask" draggable="true" data-ptask-drag="' + t.id + '">'
+          + '<span class="ptask-grip">⠿</span>'
+          + '<span class="ptask-text" contenteditable="true" data-ptask-text="' + t.id + '">' + esc(t.text) + '</span>'
+          + '<button type="button" class="ptask-del" data-ptask-del="' + t.id + '" title="Șterge">×</button>'
+          + '</div>';
+      });
+      h += '</div>';
+      h += '<input type="text" class="ptask-new" data-ptask-new="' + p.id + '" placeholder="+ sarcină pentru ' + esc(p.name) + '…">';
+      h += '</div>';
+      return h;
     }).join('') + '</div>';
   }
 
@@ -833,6 +880,63 @@
         if(d === 'today') currentPlanDate = planTomorrowIso();
         else shiftPlanDate(d === 'prev' ? -1 : 1);
         render();
+      });
+    });
+
+    var plan = planFor(ensurePlanDate());
+
+    document.querySelectorAll('[data-ptask-new]').forEach(function(inp){
+      inp.addEventListener('keydown', function(e){
+        if(e.key !== 'Enter') return;
+        e.preventDefault();
+        if(planTaskAdd(plan, inp.dataset.ptaskNew, inp.value, 'manual')){ saveState(); render(); }
+      });
+    });
+    document.querySelectorAll('[data-ptask-text]').forEach(function(el){
+      el.addEventListener('input', function(){
+        var t = (plan.tasks || []).find(function(x){ return x.id === el.dataset.ptaskText; });
+        if(t){ t.text = el.textContent; saveState(); }
+      });
+      el.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); el.blur(); } });
+    });
+    document.querySelectorAll('[data-ptask-del]').forEach(function(b){
+      b.addEventListener('click', function(){
+        plan.tasks = (plan.tasks || []).filter(function(x){ return x.id !== b.dataset.ptaskDel; });
+        commitPlan(plan); saveState(); render();
+      });
+    });
+
+    // drag & drop: mutare între oameni + reordonare în listă
+    var dragId = null;
+    document.querySelectorAll('[data-ptask-drag]').forEach(function(card){
+      card.addEventListener('dragstart', function(e){
+        dragId = card.dataset.ptaskDrag;
+        e.dataTransfer.setData('text/plain', 'PT::' + dragId);
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('ptask-dragging');
+      });
+      card.addEventListener('dragend', function(){ card.classList.remove('ptask-dragging'); });
+    });
+    document.querySelectorAll('.pcol-person').forEach(function(zone){
+      zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('pcol-over'); });
+      zone.addEventListener('dragleave', function(){ zone.classList.remove('pcol-over'); });
+      zone.addEventListener('drop', function(e){
+        e.preventDefault();
+        zone.classList.remove('pcol-over');
+        var data = e.dataTransfer.getData('text/plain') || (dragId ? 'PT::' + dragId : '');
+        if(data.indexOf('PT::') !== 0) return;
+        var id = data.slice(4);
+        var t = (plan.tasks || []).find(function(x){ return x.id === id; });
+        if(!t) return;
+        var pid = zone.dataset.person;
+        // poziția de inserare = după cardul peste care s-a dat drop
+        var after = e.target.closest ? e.target.closest('[data-ptask-drag]') : null;
+        var ids = planTasksFor(plan, pid).map(function(x){ return x.id; }).filter(function(x){ return x !== id; });
+        var at = after ? ids.indexOf(after.dataset.ptaskDrag) + 1 : ids.length;
+        ids.splice(at, 0, id);
+        t.personId = pid;
+        reorderPlanTasks(plan, pid, ids);
+        saveState(); render();
       });
     });
   }
