@@ -68,14 +68,20 @@ export default {
       maxTokens = 400;
       system =
         "Ești asistentul unui manager de atelier de metal (tâmplărie metalică, balustrade, " +
-        "structuri). Primești starea unui proiect ca date structurate. Rezumă în 2–4 propoziții " +
-        "scurte, în română. Reguli stricte: (a) DESCRIPTIV, nu la imperativ — spui ce se vede din " +
-        "date; (b) dacă tragi o concluzie, o formulezi cu «pare» / «s-ar putea» / «probabil», " +
-        "niciodată «fă X» sau «mută Y»; (c) nu inventa nimic ce nu e în date; (d) fără liste, fără " +
-        "titluri, doar propoziții; (e) nu explica ce faci, dă direct rezumatul.";
+        "structuri). Primești starea unui proiect, deja rezumată pe scurt, plus câteva detalii " +
+        "etichetate. Reformuleaz-o în 2–4 propoziții naturale, în română, și poți adăuga o " +
+        "interpretare ușoară acolo unde se justifică. Reguli stricte: (a) DESCRIPTIV, nu la " +
+        "imperativ — spui ce se vede; (b) orice concluzie e cu «pare» / «s-ar putea» / «probabil», " +
+        "niciodată «fă X» sau «mută Y»; (c) NU inventa informații și NU presupune ce înseamnă un " +
+        "câmp — folosește doar ce e etichetat clar; (d) fără liste, fără titluri, doar propoziții; " +
+        "(e) nu explica ce faci, dă direct rezumatul.";
       user =
         "Proiect: " + (body.cod || "?") + "\n\n" +
-        "Date (facts):\n" + JSON.stringify(body.facts || {}, null, 1) +
+        "Stare (rezumat de bază):\n" + (body.stare || "(fără)") + "\n\n" +
+        "Detalii:\n" +
+        Object.entries(body.detalii || {})
+          .map(([k, v]) => "- " + k + ": " + (Array.isArray(v) ? (v.join(", ") || "niciunul") : v))
+          .join("\n") +
         (body.playbook ? "\n\nContext general (caiet de atelier):\n" + body.playbook : "");
     } else {
       maxTokens = 1600;

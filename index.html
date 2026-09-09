@@ -1433,8 +1433,16 @@
   }
   function refreshSummary(p, cb){
     if(!SUMMARY_LLM_URL){ if(cb) cb(false); return; }
+    var f = projectFacts(p);
+    // trimitem stare deja-formulată + detalii ETICHETATE (nu chei criptice) ca să nu ghicească modelul
+    var detalii = {
+      'zile până la termen': f.dl, 'întârziat': f.late, 'faza curentă': f.phaseName,
+      'piese total': f.nP, 'piese la montaj': f.nMon, 'piese în lucru (execuție)': f.nEx, 'piese neîncepute': f.nPre,
+      'comenzi total': f.ordTotal, 'comenzi primite': f.ordRecv, 'furnizori cu comenzi neprimite': f.ordPend,
+      'reparații deschise': f.openReps
+    };
     fetch(SUMMARY_LLM_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task: 'summary', cod: p.cod, facts: projectFacts(p), playbook: (state.playbook && state.playbook.text) || '' }) })
+      body: JSON.stringify({ task: 'summary', cod: p.cod, stare: projectSummary(p), detalii: detalii, playbook: (state.playbook && state.playbook.text) || '' }) })
       .then(function(r){ return r.json(); }).then(function(res){
         if(res && typeof res.text === 'string' && res.text.trim()){
           p.aiSummary = { text: res.text.trim(), at: new Date().toISOString(), factsHash: factsHash(p) };
