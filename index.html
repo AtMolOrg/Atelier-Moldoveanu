@@ -860,6 +860,7 @@
   var planViewMode = null; // null = automat după oră; 'seara' | 'dimineata' = forțat de utilizator
   var planWeekOpen = false;
   var planWeekAll = false;
+  var planRestOpen = false;
   var PERSON_ROLES = ['atelier', 'proiectant', 'sofer', 'coord', 'birou', 'sef'];
   var MON_SHORT = ['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','noi','dec'];
 
@@ -1368,11 +1369,54 @@
     return notiteOpen().map(function(n){ return { id: 'n:' + n.id, text: n.text, hint: 'notiță', projectId: null, skill: '', noteId: n.id }; });
   }
   function allDerivedCards(state, dateIso){
-    return deriveTasks(state, dateIso)
-      .concat(deriveUpkeepTasks(state, dateIso))
+    return deriveUpkeepTasks(state, dateIso)
       .concat(deriveNotiteCards())
       .concat(deriveNarcisTasks(state, dateIso))
       .concat(deriveGabiTasks(state, dateIso));
+  }
+
+  /* ---- digest de proiect pentru coloana Sarcini (D3+D5) — descrie, nu instruiește ---- */
+  function projectFacts(p){
+    var td = p.termen ? parseDate(p.termen) : null;
+    var dl = td ? daysBetween(todayDate(), td) : null;
+    var stg = currentStageInfo(p) || {};
+    var pcs = p.pieces || [];
+    var b = pcs.map(function(pc){ return bucketFor(p, pc.stationId); });
+    var nMon = b.filter(function(x){ return x === 'montaj'; }).length;
+    var nEx = b.filter(function(x){ return x === 'exec'; }).length;
+    var nPre = b.filter(function(x){ return x === 'pregatire'; }).length;
+    var orders = p.orders || [];
+    var recv = orders.filter(function(o){ return o.status === 'primit'; }).length;
+    var pendSup = {};
+    orders.forEach(function(o){ if(o.status !== 'primit' && o.supplierId) pendSup[o.supplierId] = true; });
+    var pend = Object.keys(pendSup).map(function(id){ return supplierName(id); });
+    return {
+      dl: dl, late: !!(dl != null && dl < 0),
+      phaseName: stg.name || '—', phaseKey: regPhaseKey(p),
+      nP: pcs.length, nMon: nMon, nEx: nEx, nPre: nPre,
+      ordTotal: orders.length, ordRecv: recv, ordPend: pend,
+      openReps: openRepairsFor(p).length
+    };
+  }
+  function projectSummary(p){
+    var f = projectFacts(p), s = [];
+    if(f.dl == null) s.push('Fără termen.');
+    else if(f.late) s.push('Întârziat ' + Math.abs(f.dl) + ' zile.');
+    else s.push('Termen în ' + f.dl + (f.dl === 1 ? ' zi.' : ' zile.'));
+    if(f.nP === 0) s.push('Nicio piesă definită.');
+    else if(f.nMon === f.nP) s.push('Toate cele ' + f.nP + ' piese la montaj.');
+    else if(f.phaseKey === 'exec' && f.nMon) s.push(f.nMon + ' din ' + f.nP + ' piese la montaj; restul la ' + f.phaseName.toLowerCase() + '.');
+    else if(f.phaseKey === 'exec') s.push((f.nP === 1 ? 'Piesa la ' : f.nP + ' piese la ') + f.phaseName.toLowerCase() + '.');
+    else if(f.nMon || f.nEx) s.push(f.nMon + ' la montaj, ' + f.nEx + ' în lucru, ' + f.nPre + ' neîncepute.');
+    else s.push('La ' + f.phaseName.toLowerCase() + '.');
+    if(f.ordPend.length) s.push('Comand' + (f.ordPend.length > 1 ? 'e' : 'ă') + ' neprimit' + (f.ordPend.length > 1 ? 'e' : 'ă') + ' la ' + f.ordPend.join(', ') + '.');
+    else if(f.ordRecv && f.ordRecv === f.ordTotal) s.push('Materialele primite.');
+    if(f.openReps) s.push('🔧 ' + f.openReps + ' reparație' + (f.openReps > 1 ? ' deschise' : ' deschisă') + '.');
+    return s.join(' ');
+  }
+  function needsPlanAttn(p){
+    var f = projectFacts(p);
+    return f.late || (f.dl != null && f.dl <= 7) || f.openReps > 0;
   }
 
   function assignDerived(card, personId, plan){
@@ -1387,19 +1431,58 @@
     }
   }
 
+  function planComposeHtml(p){
+    return '<div class="pcompose" data-plan-compose="' + p.id + '" hidden>'
+      + '<input type="text" placeholder="ce e de făcut la ' + esc(String(p.cod).split(' ')[0]) + '…">'
+      + '<select><option value="">— cine —</option>' + peopleSorted().map(function(x){ return '<option value="' + x.id + '">' + esc(x.name) + '</option>'; }).join('') + '</select>'
+      + '<button type="button" data-plan-do="' + p.id + '">+</button></div>';
+  }
+  function planProjRow(p){
+    var f = projectFacts(p);
+    var h = '<div class="prow ph-' + f.phaseKey + '" data-prow="' + p.id + '">';
+    h += '<div class="prow-top"><span class="rr-tag">' + regPhaseTag(f.phaseKey) + '</span>';
+    h += '<span class="prow-cod">' + esc(p.cod) + '</span>';
+    if(f.dl != null) h += '<span class="prow-term' + (f.late ? ' late' : '') + '">' + (f.late ? 'întârziat ' + Math.abs(f.dl) + 'z' : 'în ' + f.dl + 'z') + '</span>';
+    h += '<span class="rs-grow"></span><button type="button" class="prow-add" data-plan-addtask="' + p.id + '">+ sarcină</button></div>';
+    h += '<div class="prow-sum">' + esc(projectSummary(p)) + '</div>';
+    h += planComposeHtml(p);
+    return h + '</div>';
+  }
+  function planRestRow(p){
+    var f = projectFacts(p);
+    return '<div class="prow prow-rest ph-' + f.phaseKey + '" data-prow="' + p.id + '"><div class="prow-top"><span class="rr-tag">' + regPhaseTag(f.phaseKey) + '</span>'
+      + '<span class="prow-cod">' + esc(p.cod) + '</span><span class="rs-grow"></span>'
+      + (f.dl != null ? '<span class="prow-term">în ' + f.dl + 'z</span>' : '')
+      + '<button type="button" class="prow-add" data-plan-addtask="' + p.id + '">+</button></div>'
+      + planComposeHtml(p) + '</div>';
+  }
+
   function renderDerivedColumn(plan){
     var taken = {};
     (plan.tasks || []).forEach(function(t){ taken[t.id] = true; });
-    var cards = deriveTasks(state, currentPlanDate).concat(deriveUpkeepTasks(state, currentPlanDate)).concat(deriveNotiteCards()).filter(function(c){ return !taken[c.id]; });
-    if(!cards.length) return '<div class="plan-empty">nimic derivat — toate proiectele curg</div>';
-    return cards.map(function(c){
-      var who = peopleWithSkill(c.skill).map(function(p){ return p.name; }).slice(0, 4).join(', ');
-      return '<div class="dcard' + (c.upkeepId ? ' dcard-upk' : '') + (c.noteId ? ' dcard-note' : '') + '" draggable="true" data-dcard="' + esc(c.id) + '" title="Trage pe un om">'
-        + '<div class="dcard-t">' + (c.upkeepId ? '🔧 ' : (c.noteId ? '📝 ' : '')) + esc(c.text) + '</div>'
-        + (c.hint ? '<div class="dcard-h">' + esc(c.hint) + '</div>' : '')
-        + (who ? '<div class="dcard-who">→ ' + esc(who) + '</div>' : '')
-        + '</div>';
-    }).join('');
+    var active = (state.projects || []).filter(function(p){ return !p.finalizat; });
+    var attn = active.filter(needsPlanAttn).sort(function(a, b){ var x = projectFacts(a).dl, y = projectFacts(b).dl; return (x == null ? 9999 : x) - (y == null ? 9999 : y); });
+    var rest = active.filter(function(p){ return !needsPlanAttn(p); }).sort(function(a, b){ var x = projectFacts(a).dl, y = projectFacts(b).dl; return (x == null ? 9999 : x) - (y == null ? 9999 : y); });
+
+    var h = '<div class="prow-seg">Cere atenție <span class="n">' + attn.length + '</span></div>';
+    h += attn.length ? attn.map(planProjRow).join('') : '<div class="plan-empty">nimic urgent</div>';
+    h += '<button type="button" class="prow-tgl" data-plan-rest>' + (planRestOpen ? '▾' : '▸') + ' Restul — curg <span class="n">' + rest.length + '</span></button>';
+    if(planRestOpen) h += rest.map(planRestRow).join('');
+
+    // mentenanță + notițe: astea SUNT sarcini reale — rămân ca acum, drag pe un om
+    var extra = deriveUpkeepTasks(state, currentPlanDate).concat(deriveNotiteCards()).filter(function(c){ return !taken[c.id]; });
+    if(extra.length){
+      h += '<div class="prow-seg">Mentenanță &amp; notițe</div>';
+      h += extra.map(function(c){
+        var who = peopleWithSkill(c.skill).map(function(x){ return x.name; }).slice(0, 4).join(', ');
+        return '<div class="dcard' + (c.upkeepId ? ' dcard-upk' : ' dcard-note') + '" draggable="true" data-dcard="' + esc(c.id) + '" title="Trage pe un om">'
+          + '<div class="dcard-t">' + (c.upkeepId ? '🔧 ' : '📝 ') + esc(c.text) + '</div>'
+          + (c.hint ? '<div class="dcard-h">' + esc(c.hint) + '</div>' : '')
+          + (who ? '<div class="dcard-who">→ ' + esc(who) + '</div>' : '')
+          + '</div>';
+      }).join('');
+    }
+    return h;
   }
 
   function renderPlanificare(){
@@ -1732,6 +1815,25 @@
     });
     var weekAll = document.querySelector('[data-week-all]');
     if(weekAll) weekAll.addEventListener('click', function(){ planWeekAll = !planWeekAll; render(); });
+    var restTgl = document.querySelector('[data-plan-rest]');
+    if(restTgl) restTgl.addEventListener('click', function(){ planRestOpen = !planRestOpen; render(); });
+    document.querySelectorAll('[data-plan-addtask]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var box = document.querySelector('[data-plan-compose="' + b.dataset.planAddtask + '"]');
+        if(box){ box.hidden = !box.hidden; if(!box.hidden) box.querySelector('input').focus(); }
+      });
+    });
+    document.querySelectorAll('[data-plan-do]').forEach(function(b){
+      var box = document.querySelector('[data-plan-compose="' + b.dataset.planDo + '"]');
+      function commit(){
+        var txt = box.querySelector('input').value.trim(), pid = box.querySelector('select').value;
+        if(!txt || !pid) return;
+        planTaskAdd(plan, pid, txt, 'manual', { projectId: b.dataset.planDo });
+        saveState(); render();
+      }
+      b.addEventListener('click', commit);
+      box.querySelector('input').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); commit(); } });
+    });
     document.querySelectorAll('[data-week-day]').forEach(function(el){
       el.addEventListener('click', function(){ currentPlanDate = el.dataset.weekDay; planWeekOpen = false; render(); });
     });
