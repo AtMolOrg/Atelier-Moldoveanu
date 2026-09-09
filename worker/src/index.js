@@ -16,12 +16,28 @@
  *   POST { task:"playbook", events, playbook }      -> { text }   (caietul actualizat)
  */
 
-// Se încearcă pe rând; dacă unul dă 404 (deprecated) sau 5xx, trece la următorul.
-const MODELS = [
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
-  "gemma2-9b-it",
-];
+// Groq scoate modele des. Nu hardcodăm: cerem lista live de la Groq și alegem după
+// ordinea de preferință de mai jos (primul substring care se potrivește câștigă).
+const MODEL_PREF = ["llama-3.3", "llama-3.1-70", "llama-4", "llama-3.1-8", "llama", "gpt-oss", "qwen", "mixtral", "gemma"];
+let cachedModels = null; // module-level: se reține între cereri cât trăiește isolate-ul
+
+async function pickModel(key) {
+  if (!cachedModels) {
+    const r = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { authorization: "Bearer " + key },
+    });
+    const d = await r.json();
+    cachedModels = (d.data || [])
+      .filter((m) => m.active !== false)
+      .map((m) => m.id)
+      .filter((id) => !/whisper|tts|guard|prompt-guard|embed/i.test(id));
+  }
+  for (const pref of MODEL_PREF) {
+    const hit = cachedModels.find((id) => id.toLowerCase().includes(pref));
+    if (hit) return hit;
+  }
+  return cachedModels[0] || "llama-3.3-70b-versatile";
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -79,8 +95,15 @@ export default {
       { role: "user", content: user },
     ];
 
-    let lastErr = null;
-    for (const model of MODELS) {
+    let model;
+    try {
+      model = await pickModel(env.GROQ_API_KEY);
+    } catch (e) {
+      return json({ error: "lista de modele Groq", detail: String(e) }, 502);
+    }
+
+    // o încercare cu modelul ales; dacă tocmai a fost scos, golim cache-ul și mai încercăm o dată
+    for (let attempt = 0; attempt < 2; attempt++) {
       let g, data;
       try {
         g = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -93,18 +116,20 @@ export default {
         });
         data = await g.json();
       } catch (e) {
-        lastErr = { error: "fetch", model, detail: String(e) };
+        return json({ error: "fetch groq", model, detail: String(e) }, 502);
+      }
+      if (g.ok) {
+        const text = ((((data.choices || [])[0] || {}).message || {}).content || "").trim();
+        return text ? json({ text, model }) : json({ error: "gol", model, detail: data }, 502);
+      }
+      const decommissioned = data && data.error && data.error.code === "model_decommissioned";
+      if (attempt === 0 && (g.status === 404 || decommissioned)) {
+        cachedModels = null;
+        model = await pickModel(env.GROQ_API_KEY);
         continue;
       }
-      if (g.status === 404 || g.status >= 500) {
-        lastErr = { error: "groq", model, status: g.status, detail: data };
-        continue; // model dispărut sau server ocupat -> încearcă următorul
-      }
-      if (!g.ok) return json({ error: "groq", model, status: g.status, detail: data }, 502);
-      const text = ((((data.choices || [])[0] || {}).message || {}).content || "").trim();
-      if (text) return json({ text, model });
-      lastErr = { error: "gol", model, detail: data };
+      return json({ error: "groq", model, status: g.status, detail: data }, 502);
     }
-    return json(lastErr || { error: "toate modelele au eșuat" }, 502);
+    return json({ error: "groq: nereușit după 2 încercări", model }, 502);
   },
 };
