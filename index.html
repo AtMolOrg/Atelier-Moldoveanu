@@ -564,6 +564,9 @@
     a.forEach(function(s){ if(s.type === 'piesa') piesaIds[s.id] = true; });
     if((p.pieces || []).some(function(pc){ return piesaIds[pc.stationId]; }))
       return { cls:'phase-piesa', name:'Execuție' };                            // piese pe podea, desi cartonasul e la proiectare -> portocaliu
+    var pcs = p.pieces || [];
+    if(pcs.length && pcs.every(function(pc){ return bucketFor(p, pc.stationId) === 'montaj'; }))
+      return { cls:'phase-montaj', name:'Montaj' };                             // toate piesele au trecut la montaj, desi cartonasul e in urma -> rosu
     return { cls:'phase-proiect', name: cur.name };                            // proiectare / anteproiect -> albastru
   }
   /* things that are "missing" on a project — surfaced as a loud warning on the folder */
