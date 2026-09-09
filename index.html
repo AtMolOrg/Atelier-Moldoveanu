@@ -212,11 +212,43 @@
   function feedbackUrl(){ return withAuth(FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '-feedback.json'); }
   // activity log — same idea: its own node, append-only via POST, never part of `state`
   function logUrl(){ return withAuth(FIREBASE_DB_URL.replace(/\/$/, '') + '/' + STORAGE_KEY + '-log.json'); }
-  function logEvent(type, text){
+  function logEvent(type, text, data){
     if(!hasFirebase) return;
     logUrl().then(function(url){
       return fetch(url, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ ts: new Date().toISOString(), type: type, text: text }) });
+        body: JSON.stringify({ ts: new Date().toISOString(), type: type, text: text, data: data || null }) });
+    }).catch(function(){ /* best-effort */ });
+  }
+  // citește jurnalul înapoi (pentru statistică / caiet). Întoarce array sortat crescător după ts.
+  function fetchLog(sinceDays){
+    if(!hasFirebase) return Promise.resolve([]);
+    return logUrl().then(function(url){ return fetch(url); }).then(function(r){ return r.json(); }).then(function(raw){
+      var arr = [];
+      if(raw) Object.keys(raw).forEach(function(k){ arr.push(raw[k]); });
+      if(sinceDays){
+        var cut = new Date(Date.now() - sinceDays * 86400000).toISOString();
+        arr = arr.filter(function(e){ return e && e.ts >= cut; });
+      }
+      arr.sort(function(a, b){ return (a.ts || '') < (b.ts || '') ? -1 : 1; });
+      return arr;
+    }).catch(function(){ return []; });
+  }
+  // taie jurnalul dacă a crescut prea mult (best-effort, chemat la finalizarea zilei)
+  function pruneLog(){
+    if(!hasFirebase) return;
+    var cutIso = new Date(Date.now() - 90 * 86400000).toISOString();
+    logUrl().then(function(url){
+      return fetch(url).then(function(r){ return r.json(); }).then(function(raw){
+        if(!raw) return;
+        var keys = Object.keys(raw);
+        var keep = keys.filter(function(k){ return raw[k] && raw[k].ts >= cutIso; });
+        if(keep.length === keys.length && keys.length <= 3000) return; // nimic de tăiat
+        // păstrează ultimele 3000 după ts
+        keep.sort(function(a, b){ return (raw[a].ts || '') < (raw[b].ts || '') ? -1 : 1; });
+        if(keep.length > 3000) keep = keep.slice(keep.length - 3000);
+        var obj = {}; keep.forEach(function(k){ obj[k] = raw[k]; });
+        return fetch(url, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(obj) });
+      });
     }).catch(function(){ /* best-effort */ });
   }
 
@@ -1985,7 +2017,9 @@
         e.stopPropagation();
         var found = findOrderByKey(btn.dataset.orderStatus);
         if(!found) return;
+        var from = found.order.status;
         cycleOrderStatus(found.order);
+        logEvent('comanda-stare', (found.project.cod || '') + ' · ' + (found.order.text || ''), { projectId: found.project.id, from: from, to: found.order.status });
         saveState(); render();
       });
     });
@@ -2029,13 +2063,17 @@
           var pc = p.pieces.find(function(x){ return x.id === parts[1]; });
           if(!pc) return;
           // piesele se mută liber pe orice etapă (proiect sau piesă)
+          var pcFrom = pc.stationId;
           pc.stationId = zone.dataset.station; pc.lane = zone.dataset.lane || null;
+          logEvent('piesa-mutata', (p.cod || '') + ' · ' + (pc.name || ''), { projectId: p.id, pieceId: pc.id, from: pcFrom, to: pc.stationId });
           saveState(); render();
         } else if(data.indexOf('PRJ::') === 0){
           var proj = state.projects.find(function(x){ return x.id === data.slice(5); });
           if(proj){
             // cartonașul proiectului se mută liber pe orice etapă
+            var prFrom = proj.stationId;
             proj.stationId = zone.dataset.station; proj.lane = zone.dataset.lane || null;
+            logEvent('etapa-schimbata', proj.cod || '', { projectId: proj.id, from: prFrom, to: proj.stationId });
             saveState(); render();
           }
         }
@@ -2080,7 +2118,9 @@
         e.stopPropagation();
         var r = (state.repairs || []).find(function(x){ return x.id === b.dataset.repCyc; });
         if(!r) return;
+        var rFrom = r.status;
         r.status = r.status === 'deschisa' ? 'in-lucru' : (r.status === 'in-lucru' ? 'rezolvata' : 'deschisa');
+        logEvent('reparatie-stare', (r.cod || '') + ' · ' + (r.descriere || ''), { projectId: r.projectId || null, from: rFrom, to: r.status });
         saveState(); render();
       });
     });
@@ -2104,6 +2144,7 @@
         if(!v){ if(inp) inp.classList.add('bad'); return; }
         if(!Array.isArray(state.repairs)) state.repairs = [];
         state.repairs.push({ id: uid(), projectId: pid, cod: p ? p.cod : '', client: p ? p.client : '', descriere: v, data: isoToday(), status: 'deschisa', pieceIds: [] });
+        logEvent('reparatie-adaugata', (p ? p.cod : '') + ' · ' + v, { projectId: pid });
         saveState(); render();
       });
     });
