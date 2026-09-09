@@ -82,7 +82,6 @@
     text-transform:uppercase; font-size:19px; color:var(--ink);
   }
   .brand-title span{ color:var(--accent); }
-  .brand-sub{ font-size:11px; color:var(--ink-faint); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px; }
 
   .tabs{ display:flex; background:var(--panel-2); border:1px solid var(--border); border-radius:999px; padding:3px; }
   .tabs button{
@@ -120,68 +119,7 @@
   main{ flex:1; overflow:auto; padding:18px 20px; }
   .board{ display:flex; gap:14px; align-items:flex-start; height:100%; }
 
-  .column{
-    background: var(--panel);
-    border:1px solid var(--border);
-    border-radius: var(--radius);
-    width:280px; min-width:280px;
-    display:flex; flex-direction:column;
-    max-height:100%;
-    animation: rise 320ms ease both;
-  }
-  .column.piesa{ border-top:3px solid var(--steel); width:250px; min-width:250px; }
-  .column.proiect{ border-top:3px solid var(--accent); }
-  .column.drag-over{ box-shadow: 0 0 0 2px var(--steel) inset; }
-  @keyframes rise{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
-
-  .column.dragging-col{ box-shadow: 0 16px 40px rgba(0,0,0,0.35); z-index:50; opacity:0.97; }
-  .col-head{ display:flex; align-items:center; gap:8px; padding:11px 12px 9px 14px; border-bottom:1px solid var(--border); cursor:grab; user-select:none; }
-  .col-head:active{ cursor:grabbing; }
-
-  .proj-wrap{ width:max-content; margin-bottom:16px; position:relative; }
-  .proj-cluster-tab{
-    display:inline-flex; align-items:baseline; gap:10px; position:relative; z-index:1;
-    background:var(--panel-2); border:1px solid var(--border); border-bottom:none;
-    border-radius:10px 10px 0 0; padding:8px 20px; margin:0 0 -1px 16px;
-    font-family:var(--font); letter-spacing:0.02em;
-    cursor:grab; user-select:none;
-  }
-  .proj-cluster-tab .pct-code{ font-size:30px; font-weight:700; color:var(--accent); }
-  .proj-cluster-tab .pct-client{ font-size:28px; font-weight:600; color:var(--ink-dim); }
-  .proj-cluster-tab:active{ cursor:grabbing; }
-  .proj-wrap.node-dragging .proj-cluster-tab{ cursor:grabbing; }
-  .proj-wrap.node-dragging{ z-index:50; }
-  .proj-wrap.node-dragging .proj-cluster{ box-shadow: 0 16px 40px rgba(0,0,0,0.35); opacity:0.97; }
-  .proj-cluster{ background:var(--panel); border:1px solid var(--border); border-radius:0 10px 10px 10px; overflow:hidden; box-shadow:var(--shadow); }
-  .proj-cluster-head{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel-2); }
-  .proj-cluster-client{ color:var(--ink-dim); font-size:12.5px; }
-  /* culorile fazei — folosite si de eticheta de faza, si de inelul din jurul dosarului */
-  .proj-wrap.phase-proiect{ --ph:var(--ante);   --ph-halo:var(--ante-halo); }
-  .proj-wrap.phase-piesa{   --ph:var(--exec);   --ph-halo:var(--exec-halo); }
-  .proj-wrap.phase-montaj{  --ph:var(--montaj); --ph-halo:var(--montaj-halo); }
-  /* inel colorat dupa faza, pe toate dosarele — calm, static, "harta color dintr-o privire" */
-  .proj-wrap .proj-cluster{ box-shadow:0 0 0 3px var(--ph-halo, transparent), var(--shadow); }
-  .proj-wrap[class*="phase-"] .proj-cluster-tab{ border-color:var(--ph); }
-  /* eticheta cu faza curenta — "esti aici", nu alarma (folosita si in registru, fara ancestor .proj-cluster-tab) */
-  .pct-stage{
-    align-self:center; padding:2px 10px; border-radius:999px;
-    font-size:12px; font-weight:700; letter-spacing:0.02em;
-    color:var(--pill-ink); white-space:nowrap; background:var(--ph,#888);
-  }
-  .pct-stage.phase-proiect{ --ph:var(--ante); }
-  .pct-stage.phase-piesa{   --ph:var(--exec); }
-  .pct-stage.phase-montaj{   --ph:var(--montaj); }
-  /* proiect cu ceva incomplet: inel mai gros (static) + bara care enumera ce lipseste = singura alarma */
-  .proj-wrap.has-warn .proj-cluster{ border-color:var(--ph, var(--montaj)); box-shadow:0 0 0 5px var(--ph-halo, var(--montaj-halo)), var(--shadow); }
-  .proj-wrap.has-warn .proj-cluster-tab{ border-color:var(--ph, var(--montaj)); }
-  .proj-warn-bar{
-    display:flex; flex-wrap:wrap; align-items:center; gap:8px;
-    padding:9px 16px; background:var(--montaj-soft); color:var(--montaj-ink);
-    border-bottom:1px solid var(--danger-line);
-    font-size:12.5px; font-weight:700;
-  }
-  .proj-warn-bar .pwb-sep{ opacity:0.5; font-weight:400; }
-  .proj-cluster-stages{ display:flex; align-items:stretch; }
+  /* etape în pipeline-ul registrului (stiluri de bază; suprascrise sub .reg-detail-pipe) */
   .proj-stage-box{ flex:0 0 220px; border-right:1px dashed var(--border); display:flex; flex-direction:column; }
   .proj-stage-box:last-child{ border-right:none; }
   .proj-stage-box.piesa{ background: rgba(255,255,255,0.025); }
@@ -191,13 +129,6 @@
   .proj-stage-head .col-actions:hover{ opacity:1; }
   .proj-stage-head .col-actions button{ padding:3px 4px; font-size:12px; }
   .proj-stage-box .col-body{ padding:8px; gap:8px; min-height:76px; flex:1; }
-  .head-add-stage{ display:flex; flex-wrap:wrap; gap:6px; }
-  .head-add-stage button{
-    border:1px dashed var(--border); background:transparent; color:var(--ink-dim);
-    border-radius:6px; padding:3px 10px; font-size:10.5px; font-weight:600;
-    text-transform:none; letter-spacing:0;
-  }
-  .head-add-stage button:hover{ border-color:var(--accent); color:var(--accent); }
 
   /* ---------- REGISTRU — un singur semnal per rând, grupat pe termene ---------- */
   .reg{ background:none; border:0; padding:0 2px 60px; width:62%; min-width:520px; max-width:1100px; margin:0 auto; transition:width .18s ease; }
@@ -297,7 +228,6 @@
 
   .reg-detail{ background:var(--panel-2); border-radius:8px; padding:12px; margin:2px 0 8px; }
   .reg-detail-head{ display:flex; flex-direction:column; gap:8px; }
-  .reg-detail-head .card-actions{ display:flex; flex-wrap:wrap; gap:6px; }
   .reg-orders-toggle{ align-self:flex-start; background:var(--panel-3); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:4px 9px; font-size:12px; cursor:pointer; }
   .reg-orders{ margin-top:2px; }
   .reg-strip{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:7px 11px; font-size:12px; }
@@ -339,37 +269,10 @@
   .reg-detail-pipe .piece-card{ flex:0 0 146px; padding:6px 9px; border-radius:6px; }
   .reg-detail-pipe .piece-card .p-name{ font-size:12.5px; margin:0; line-height:1.25; }
   .reg-detail-pipe .piece-card .p-color{ font-size:10.5px; margin:1px 0 0; }
-  .reg-detail-pipe .head-add-stage{ flex:0 0 auto; }
   .reg-detail-pipe .proj-stage-box.is-here{ box-shadow: inset 0 3px 0 var(--accent); }
   .reg-detail-pipe .proj-stage-head[draggable="true"]{ cursor:grab; }
   .reg-detail-pipe .proj-stage-head[draggable="true"]:active{ cursor:grabbing; }
   .proj-stage-box.dragging{ opacity:0.4; }
-
-  /* ---------- SIDE PANEL — „comenzi materiale", iese din marginea stângă a dosarului.
-     Mâner, hover, auto-hide, pin sincronizat per proiect. ---------- */
-  .side-panel{ position:absolute; top:28px; z-index:20; display:flex; align-items:flex-start; }
-  .side-handle{
-    flex:none; writing-mode:vertical-rl; text-orientation:mixed;
-    background:var(--panel-2); border:1px solid var(--border);
-    padding:12px 6px;
-    font-family:var(--font); font-weight:700; font-size:10px; letter-spacing:0.05em;
-    text-transform:uppercase; color:var(--ink-dim); cursor:pointer; white-space:nowrap;
-    box-shadow:var(--shadow);
-  }
-  .side-left .side-handle{ border-right:none; border-radius:8px 0 0 8px; }
-  .side-handle:hover{ color:var(--ink); }
-  .side-panel.open .side-handle{ display:none; }
-  .side-body{
-    display:none; width:270px;
-    background:var(--panel); border:1px solid var(--border);
-    padding:12px;
-  }
-  .side-left .side-body{ border-right:3px solid var(--accent); border-radius:10px 0 0 10px; box-shadow: -12px 0 30px rgba(0,0,0,0.18); }
-  .side-panel.open .side-body{ display:block; }
-  .side-head{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
-  .side-title{ flex:1; font-family:var(--font); text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-dim); }
-  .side-pin.pinned{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-  .side-count{ background:var(--panel-3); border-radius:999px; padding:1px 7px; font-size:9px; color:var(--ink-dim); }
 
   /* comenzi materiale — rânduri într-un panou îngust: stare+text+șterge sus, cantitate+furnizor jos */
   .side-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
@@ -393,21 +296,12 @@
   .order-del{ grid-area:del; justify-self:end; background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:24px; height:24px; font-size:12px; padding:0; }
   .order-del:hover{ color:var(--danger); border-color: var(--danger-line); }
   .order-add{ align-self:flex-start; }
-  .card-orders-line{ display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--ink-dim); margin-bottom:8px; }
 
-  .col-resize{
-    position:absolute; right:0; bottom:0; width:18px; height:18px;
-    cursor:nwse-resize; z-index:4;
-    background: linear-gradient(135deg, transparent 50%, var(--ink-faint) 50%, var(--ink-faint) 58%, transparent 58%, transparent 74%, var(--ink-faint) 74%, var(--ink-faint) 82%, transparent 82%);
-    opacity:0.5; border-radius:0 0 8px 0;
-  }
-  .col-resize:hover{ opacity:1; background: linear-gradient(135deg, transparent 50%, var(--accent) 50%, var(--accent) 58%, transparent 58%, transparent 74%, var(--accent) 74%, var(--accent) 82%, transparent 82%); }
   .col-title{
     font-family:var(--font); font-weight:600; text-transform:uppercase;
     font-size:12.5px; letter-spacing:0.04em; flex:1;
     background:transparent; border:none; color:var(--ink); padding:2px 0; width:100%;
   }
-  .col-kind{ font-size:9px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); display:block; margin-top:1px; }
   .col-count{
     font-family:var(--font); font-size:11px; color:var(--ink-faint);
     background:var(--panel-2); border-radius:999px; padding:2px 8px; min-width:20px; text-align:center;
@@ -419,33 +313,7 @@
   .col-body{ flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:9px; min-height:60px; }
   .col-empty{ color:var(--ink-faint); font-size:12px; font-style:italic; padding:14px 6px; text-align:center; }
 
-  .add-col-wrap{ width:220px; min-width:220px; padding-top:2px; }
-  .add-col-btn{
-    width:100%; padding:12px; border:1.5px dashed var(--border); border-radius:var(--radius);
-    background:transparent; color:var(--ink-dim); font-weight:600; font-size:13px;
-    transition: border-color var(--dur), color var(--dur);
-  }
-  .add-col-btn:hover{ border-color: var(--accent); color: var(--accent); }
-
-  /* ---------- PROJECT CARD (work-order ticket) ---------- */
-  .card{ background: var(--panel-2); border:1px solid var(--border); border-radius:8px; position:relative; transition: box-shadow var(--dur), transform var(--dur), opacity var(--dur); }
-  .card:hover{ box-shadow: var(--shadow); }
-  .card.dragging{ opacity:0.35; transform: rotate(-1.5deg) scale(0.98); }
-  .card-drag-handle{ cursor:grab; }
-  .card-drag-handle:active{ cursor:grabbing; }
-  .card-stub{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px 8px 20px; position:relative; }
-  .card-stub::before{ content:''; position:absolute; left:6px; top:50%; transform:translateY(-50%); width:8px; height:8px; border-radius:50%; background: var(--panel); box-shadow: inset 0 0 0 1px var(--border); }
-  .card-code{ font-family:var(--font); font-weight:600; font-size:12.5px; color:var(--accent); letter-spacing:0.02em; }
-  .card-type{ font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.05em; text-align:right; }
-  .card-body{ padding:10px 12px 12px; }
-  .card-client{ font-weight:600; font-size:14px; margin-bottom:6px; padding:0 12px; }
-  .card-meta{ display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
-  .badge{ font-family:var(--font); font-size:11px; font-weight:600; padding:2.5px 8px; border-radius:999px; display:inline-flex; align-items:center; gap:5px; }
-  .badge::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
-  .badge-done{ background: var(--ante-soft); color:var(--ante-ink); }
   .card-notes{ font-size:12.5px; color:var(--ink-dim); margin-bottom:8px; line-height:1.4; }
-  .card-actions{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
-  .card-actions button{ flex:1; }
 
   /* ---------- PIECE CARD (compact, on the floor) ---------- */
   .piece-card{ position:relative; background: var(--panel-2); border:1px solid var(--border); border-left:3px solid var(--steel); border-radius:7px; padding:9px 10px; cursor:grab; transition: box-shadow var(--dur), transform var(--dur), opacity var(--dur); }
@@ -454,18 +322,6 @@
   .piece-card.dragging{ opacity:0.35; transform: rotate(-1.5deg) scale(0.98); }
   .piece-card .p-name{ font-size:13px; font-weight:600; }
   .piece-card .p-color{ font-size:11px; color:var(--ink-dim); font-weight:600; margin-top:2px; }
-  .piece-nav{ display:flex; justify-content:space-between; gap:6px; margin-top:8px; }
-  .piece-nav button{ flex:1; background:var(--panel-3); border:1px solid var(--border); color:var(--ink-dim); border-radius:6px; padding:4px 0; font-size:12px; }
-  .piece-nav button:hover{ color:var(--ink); border-color: var(--steel); }
-
-  /* ---------- EXEC SUMMARY STRIP ---------- */
-  .exec-summary{ width:100%; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:14px; }
-  .exec-summary-title{ font-family:var(--font); text-transform:uppercase; letter-spacing:0.04em; font-size:12px; color:var(--ink-dim); margin-bottom:10px; }
-  .exec-list{ display:flex; flex-wrap:wrap; gap:10px; }
-  .exec-chip{ display:flex; align-items:center; gap:10px; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:8px 12px; }
-  .exec-chip .g-code{ font-family:var(--font); font-size:11.5px; color:var(--accent); font-weight:600; }
-  .exec-chip .g-client{ font-size:12.5px; font-weight:600; }
-  .exec-chip .g-breakdown{ font-size:11px; color:var(--ink-faint); font-family:var(--font); }
 
   /* ---------- EMPTY STATE ---------- */
   .empty-state{ margin:auto; max-width:420px; text-align:center; padding:50px 30px; background:var(--panel); border:1px dashed var(--border); border-radius:var(--radius); }
@@ -484,12 +340,6 @@
   .lane-del:hover{ color:var(--danger); background:var(--panel-3); }
   .lane .col-body{ padding:8px; gap:8px; min-height:50px; }
 
-  /* ---------- TABLE (Proiecte) ---------- */
-  .table-wrap{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); overflow:auto; height:100%; }
-  table.proj-table{ width:100%; border-collapse:collapse; font-size:13px; }
-  table.proj-table th{ text-align:left; font-family:var(--font); text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-faint); padding:12px 14px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--panel); }
-  table.proj-table td{ padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
-  table.proj-table tr:hover td{ background: rgba(255,255,255,0.04); }
   .furn-panel{ border:1px solid var(--border); border-radius:8px; background:var(--panel); }
   .furn-panel-head{ display:flex; align-items:center; gap:8px; width:100%; background:none; border:0; padding:9px 12px; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; }
   .furn-count{ color:var(--ink-dim); font-weight:400; }
@@ -679,38 +529,6 @@
     .cmz-in{ font-size:12.5px; }
     .cmz-addf select.cmz-in, .cmz-bar select.cmz-in{ max-width:none; flex:1 1 130px; }
   }
-  .t-code{ font-family:var(--font); color:var(--accent); font-weight:600; }
-  .t-badges span{ font-family:var(--font); font-size:10.5px; color:var(--ink-dim); background:var(--panel-2); border-radius:5px; padding:2px 6px; margin-right:4px; display:inline-block; margin-bottom:3px; }
-  .toolbar-row{ display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:12.5px; color:var(--ink-dim); flex-wrap:wrap; }
-  .toolbar-row label{ display:flex; align-items:center; gap:6px; cursor:pointer; }
-  .view-toggle-mini{ display:flex; gap:6px; margin-left:auto; }
-  .view-toggle-mini button{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink-dim); padding:6px 12px; border-radius:999px; font-size:11.5px; font-weight:600; }
-  .view-toggle-mini button.active{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-
-  .traseu-table{ width:100%; border-collapse:collapse; font-size:12px; }
-  .traseu-table th{ text-align:left; font-family:var(--font); text-transform:uppercase; letter-spacing:0.03em; font-size:10.5px; color:var(--ink-faint); padding:10px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--panel); white-space:nowrap; z-index:1; }
-  .traseu-kind{ display:block; font-size:9px; text-transform:none; letter-spacing:0; color:var(--ink-faint); font-weight:400; margin-top:1px; }
-  .traseu-proj-col{ position:sticky; left:0; z-index:3; min-width:170px; }
-  .traseu-row{ cursor:pointer; }
-  .traseu-row:hover td{ background: rgba(255,255,255,0.04); }
-  .traseu-row:hover .traseu-proj-cell{ background: var(--panel-2); }
-  .traseu-proj-cell{ position:sticky; left:0; z-index:2; background:var(--panel); min-width:170px; padding:10px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); vertical-align:middle; }
-  .traseu-proj-cell .t-code{ display:block; }
-  .traseu-client{ display:block; font-size:11.5px; color:var(--ink-dim); margin:1px 0 5px; }
-  .traseu-cell{ min-width:112px; max-width:150px; padding:8px; border-bottom:1px solid var(--border); border-right:1px dashed var(--border); vertical-align:top; }
-  .traseu-here{ color:var(--ok); font-size:20px; line-height:1; }
-  .traseu-pieces{ display:flex; flex-direction:column; gap:3px; }
-  .traseu-piece-chip{ background:var(--panel-3); border-radius:5px; padding:2px 6px; font-size:10.5px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
-
-  /* ---------- REPARATII ---------- */
-  .repair-card{ background: var(--panel-2); border:1px solid var(--border); border-left:3px solid var(--warn); border-radius:8px; padding:11px 12px; cursor:grab; transition: box-shadow var(--dur), transform var(--dur), opacity var(--dur); }
-  .repair-card:hover{ box-shadow: var(--shadow); }
-  .repair-card.dragging{ opacity:0.35; transform: rotate(-1.5deg) scale(0.98); }
-  .repair-card .r-code{ font-family:var(--font); font-size:11.5px; color:var(--accent); font-weight:600; }
-  .repair-card .r-client{ font-weight:600; font-size:13.5px; margin:3px 0 6px; }
-  .repair-card .r-desc{ font-size:12.5px; color:var(--ink-dim); line-height:1.4; margin-bottom:8px; }
-  .repair-card .r-date{ font-size:10.5px; color:var(--ink-faint); font-family:var(--font); margin-bottom:8px; }
-
   /* ---------- MODAL ---------- */
   .modal-overlay{ position:fixed; inset:0; background:rgba(8,11,15,0.7); backdrop-filter: blur(2px); display:flex; align-items:center; justify-content:center; z-index:50; padding:20px; animation: fade 160ms ease both; }
   @keyframes fade{ from{ opacity:0; } to{ opacity:1; } }
@@ -761,7 +579,6 @@
   @media (max-width: 640px){
     .topbar{ padding:12px; gap:10px; }
     .search-input{ width:110px; }
-    .brand-sub{ display:none; }
 
     /* touch targets + legibility */
     .btn{ padding:11px 16px; font-size:14px; }
@@ -770,10 +587,6 @@
     .btn-xs{ padding:7px 11px; font-size:12px; }
     .tabs button{ padding:11px 15px; font-size:13.5px; }
     .search-input{ font-size:14px; padding:11px 12px; }
-    table.proj-table{ font-size:14px; }
-    table.proj-table th{ font-size:11.5px; padding:12px 10px; }
-    table.proj-table td{ padding:13px 10px; }
-    .view-toggle-mini button{ padding:9px 14px; font-size:12.5px; }
     /* 16px prevents iOS Safari from auto-zooming the page on focus */
     .field input, .field select, .field textarea{ font-size:16px; padding:12px 13px; }
     .field-hint{ font-size:12.5px; }
