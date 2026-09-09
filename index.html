@@ -894,9 +894,48 @@
     return cards;
   }
 
+  // rollup Narcis — drumuri: montaje de mâine + ridicări de la furnizori care livrează în ziua planului
+  function deriveNarcisTasks(state, dateIso){
+    var out = [];
+    (state.projects || []).forEach(function(p){
+      if(p.finalizat) return;
+      var stg = currentStageInfo(p) || {};
+      if(stg.cls === 'phase-montaj' && p.adresaMontaj){
+        out.push({ id: 'd:narcis:montaj:' + p.id, text: 'Dus ' + p.cod + ' la ' + p.adresaMontaj + (p.telClient ? ' · ' + p.telClient : ''), skill: 'sofer', projectId: p.id });
+      }
+    });
+    var seen = {};
+    allNeeds().forEach(function(n){
+      if(n.status === 'primit' || !n.supplierId || seen[n.supplierId]) return;
+      if(nextDeliveryDate(n.supplierId) === dateIso){ seen[n.supplierId] = true;
+        out.push({ id: 'd:narcis:luat:' + n.supplierId, text: 'Luat de la ' + supplierName(n.supplierId), skill: 'sofer' });
+      }
+    });
+    return out;
+  }
+  // rollup Gabi — comenzi: poziții de comandat grupate pe furnizor + recepții care sosesc în ziua planului
+  function deriveGabiTasks(state, dateIso){
+    var out = [], bySup = {};
+    allNeeds().forEach(function(n){ if(n.status === 'de-comandat'){ var k = n.supplierId || '_none'; bySup[k] = (bySup[k] || 0) + 1; } });
+    Object.keys(bySup).forEach(function(k){
+      out.push({ id: 'd:gabi:cmd:' + k, text: 'Comandat ' + bySup[k] + (bySup[k] === 1 ? ' poziție' : ' poziții') + ' — ' + (k === '_none' ? 'fără furnizor' : supplierName(k)), skill: 'comenzi' });
+    });
+    var seen = {};
+    allNeeds().forEach(function(n){
+      if(n.status !== 'comandat' || !n.supplierId || seen[n.supplierId]) return;
+      if(nextDeliveryDate(n.supplierId) === dateIso){ seen[n.supplierId] = true;
+        out.push({ id: 'd:gabi:rec:' + n.supplierId, text: 'Recepție ' + supplierName(n.supplierId), skill: 'comenzi' });
+      }
+    });
+    return out;
+  }
+  function allDerivedCards(state, dateIso){
+    return deriveTasks(state, dateIso).concat(deriveNarcisTasks(state, dateIso)).concat(deriveGabiTasks(state, dateIso));
+  }
+
   function assignDerived(card, personId, plan){
     if((plan.tasks || []).some(function(t){ return t.id === card.id; })) return;
-    planTaskAdd(plan, personId, card.text, 'derived', { id: card.id, projectId: card.projectId });
+    planTaskAdd(plan, personId, card.text, 'derived', { id: card.id, projectId: card.projectId || null });
   }
 
   function renderDerivedColumn(plan){
@@ -906,7 +945,7 @@
     if(!cards.length) return '<div class="plan-empty">nimic derivat — toate proiectele curg</div>';
     return cards.map(function(c){
       var who = peopleWithSkill(c.skill).map(function(p){ return p.name; }).slice(0, 4).join(', ');
-      return '<div class="dcard" draggable="true" data-dcard="' + esc(c.id) + '">'
+      return '<div class="dcard" draggable="true" data-dcard="' + esc(c.id) + '" title="Trage pe un om">'
         + '<div class="dcard-t">' + esc(c.text) + '</div>'
         + (c.hint ? '<div class="dcard-h">' + esc(c.hint) + '</div>' : '')
         + (who ? '<div class="dcard-who">→ ' + esc(who) + '</div>' : '')
@@ -965,10 +1004,21 @@
   }
 
   function renderPeopleColumn(plan){
+    var taken = {};
+    (plan.tasks || []).forEach(function(t){ taken[t.id] = true; });
     return '<div class="plan-people">' + peopleSorted().map(function(p){
       var tasks = planTasksFor(plan, p.id);
       var h = '<div class="pcol-person" data-person="' + p.id + '">';
       h += '<div class="pcol-person-h">' + esc(p.name) + ' <span class="pcol-role">' + esc(p.role) + '</span></div>';
+      // rollup automat pentru Narcis (sofer) / Gabi (comenzi) — informativ, click sau drag ca să-l fixezi pe plan
+      var roll = (p.skills || []).indexOf('sofer') !== -1 ? deriveNarcisTasks(state, currentPlanDate)
+               : ((p.skills || []).indexOf('comenzi') !== -1 ? deriveGabiTasks(state, currentPlanDate) : []);
+      roll = roll.filter(function(c){ return !taken[c.id]; });
+      if(roll.length){
+        h += '<div class="pcol-roll">' + roll.map(function(c){
+          return '<div class="dcard dcard-roll" draggable="true" data-dcard="' + esc(c.id) + '" title="Click sau trage ca să pui pe plan"><div class="dcard-t">' + esc(c.text) + '</div></div>';
+        }).join('') + '</div>';
+      }
       h += '<div class="pcol-tasks">';
       tasks.forEach(function(t){
         h += '<div class="ptask" draggable="true" data-ptask-drag="' + t.id + '">'
@@ -1104,6 +1154,13 @@
         card.classList.add('ptask-dragging');
       });
       card.addEventListener('dragend', function(){ card.classList.remove('ptask-dragging'); });
+      // card de rollup din blocul unui om: click = pune-l pe acel om
+      card.addEventListener('click', function(){
+        var zone = card.closest('.pcol-person');
+        if(!zone) return;
+        var c = allDerivedCards(state, currentPlanDate).find(function(x){ return x.id === card.dataset.dcard; });
+        if(c){ assignDerived(c, zone.dataset.person, plan); saveState(); render(); }
+      });
     });
     document.querySelectorAll('.pcol-person').forEach(function(zone){
       zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('pcol-over'); });
@@ -1115,7 +1172,7 @@
         var pid = zone.dataset.person;
         if(data.indexOf('DC::') === 0){
           var cid = data.slice(4);
-          var card = deriveTasks(state, currentPlanDate).find(function(c){ return c.id === cid; });
+          var card = allDerivedCards(state, currentPlanDate).find(function(c){ return c.id === cid; });
           if(card){ assignDerived(card, pid, plan); saveState(); render(); }
           return;
         }
