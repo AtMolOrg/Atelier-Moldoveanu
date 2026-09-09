@@ -44,14 +44,20 @@ Scanează `state.projects`. Pentru fiecare proiect neterminat, deduce **acțiune
 următoare** din pipeline + `projectWarnings()` + piese + comenzi, și scoate carduri
 candidat (nerepartizate):
 
-| Condiție | Card generat | Merge de obicei la |
+Fiecare card poartă un `skill`; asamblorul **sugerează** (nu forțează) oamenii
+activi al căror `skills` conține valoarea aia.
+
+| Condiție | Card generat | `skill` sugerat |
 |---|---|---|
-| piese la Debitare, niciuna la Sudură | „Sudat &lt;proiect&gt;" | sudori |
-| toate piesele la montaj + comenzile primite | „Montaj &lt;proiect&gt; — &lt;adresă&gt; RAL &lt;x&gt;" | echipă montaj |
-| piese `pregatire` alături de piese pornite | „Debitat &lt;proiect&gt; (&lt;n&gt; piese neîncepute)" | Nea Marian / Mircea |
-| proiect la `proiectare`, fără piese definite / nelansate | „Scos de execuție &lt;proiect&gt;" | proiectanți (Bianca, Radian) |
-| `projectWarnings` „comandă neprimită" | „Recepție / urmărit comandă &lt;proiect&gt;" | Gabi |
-| termen &lt; azi și nu e la montaj | „⚠ &lt;proiect&gt; întârziat &lt;N&gt;z" | Nick (de urmărit) |
+| piese la Debitare, niciuna la Sudură | „Sudat &lt;proiect&gt;" | `sudura` |
+| toate piesele la montaj + comenzile primite | „Montaj &lt;proiect&gt; — &lt;adresă&gt; RAL &lt;x&gt;" | `montaj` |
+| piese `pregatire` alături de piese pornite | „Debitat &lt;proiect&gt; (&lt;n&gt; piese neîncepute)" | `debitare` |
+| piese care așteaptă îndoire / abkant | „Îndoit / abkant &lt;proiect&gt;" | `abkant` |
+| piese la Polizare / Șlefuire | „Polizat &lt;proiect&gt;" | `polizat` |
+| proiect la `proiectare`, fără piese definite / nelansate | „Scos de execuție &lt;proiect&gt;" | `proiectare` |
+| `projectWarnings` „comandă neprimită" | „Recepție / urmărit comandă &lt;proiect&gt;" | `comenzi` (Gabi) |
+| montaj mâine cu adresă | „Dus &lt;proiect&gt; la &lt;adresă&gt;" | `sofer` (Narcis) |
+| termen &lt; azi și nu e la montaj | „⚠ &lt;proiect&gt; întârziat &lt;N&gt;z" | `coord` (Nick) |
 
 Proiectanții (Bianca, Radian) **nu** sunt „doar sarcini manuale" — au un rol
 derivabil: sunt cei care mută un proiect din proiectare în producție. Generatorul
@@ -87,19 +93,38 @@ determinist, fără `Date.now()`):
 
 ### 4.1 `state.people` — roster / bază de date de angajați
 ```
-{ id, name, active: true, role: 'atelier' | 'coord' | 'birou' | 'proiectant', order: int, awayDates: [] }
+{ id, name, active: true,
+  role: 'atelier' | 'coord' | 'birou' | 'proiectant' | 'sef',
+  skills: string[],        // ce știe să facă — pe asta se sugerează repartizarea
+  order: int, awayDates: [] }
 ```
 - Cheie **nouă**, separată de `state.workers` (care rămâne doar furnizori — migrarea
   lui îi șterge activ pe ceilalți).
-- **Pre-completat** din numele din cele 6 foi ORGANIZARE (Andrei, Dic, Hadi, Eugen,
-  Alin, Mihăiță/Mihi, Dorin, Nea Marian, Narcis, Vlad, Nick, Mircea, Bianca, Radian,
-  Gabi, Mihai). Nick verifică/curăță o dată.
 - **Funcție reală de administrare:** adaugă / redenumește / dezactivează / șterge
-  membri, reordonează. E o mică bază de date de personal, nu o listă fixă. UI: un
-  sub-panou „Angajați" (în setări sau în tab-ul Planificare — se decide la
-  implementare).
-- Nick, Narcis, Gabi → `role: 'coord'`. Bianca, Radian → `role: 'proiectant'`.
+  membri, reordonează, editează rol + skills. UI: sub-panou „Angajați".
+- `role` = grupare grosieră pentru UI + tratamentul special coord (Narcis/Gabi).
+  `skills` = fin, folosit de generatoare ca să **sugereze** cine primește un card
+  (Nick tot trage unde vrea).
 - `awayDates: []` — zile în care omul lipsește; îl scoate din foaia acelei zile.
+
+**Roster pre-completat** (din cele 6 foi + rolurile reale spuse de Nick):
+
+| Nume | role | skills |
+|---|---|---|
+| Dic, Hadi, Andrei | atelier | `sudura` |
+| Nea Marian | atelier | `debitare`, `strung` |
+| Mircea | atelier | `laser`, `abkant`, `debitare` |
+| Mihai | atelier | `polizat` |
+| Dorin, Mihăiță, Eugen, Alin | atelier | `montaj`, `atelier` |
+| Vlad | atelier | `curatenie` |
+| Bianca, Radian | proiectant | `proiectare` |
+| Narcis | coord | `sofer` |
+| Gabi | birou | `comenzi`, `contabilitate` |
+| Nick | coord | `coord` |
+| Petru | sef | `coord` |
+
+Petru (șeful) apare în roster ca să poți lista/atribui manual, dar **niciun
+generator nu-l țintește**.
 
 ### 4.2 `state.plans` — planul pe zi
 ```

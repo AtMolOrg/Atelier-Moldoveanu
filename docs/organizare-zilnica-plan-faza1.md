@@ -47,8 +47,8 @@ Jurnalul rămâne pe nodul separat `-log`, în afara lui `state`.
 
 **Interfaces:**
 - Produces:
-  - `state.people: Array<{id, name, active, role, order, awayDates}>`
-    — `role ∈ 'atelier'|'coord'|'birou'|'proiectant'`
+  - `state.people: Array<{id, name, active, role, skills:string[], order, awayDates}>`
+    — `role ∈ 'atelier'|'proiectant'|'coord'|'birou'|'sef'`
   - `state.plans: Array<Plan>` (gol la început; formă în Task 3)
   - `state.reminders: Array<string>`
   - `p.adresaMontaj: string`, `p.telClient: string` pe fiecare proiect
@@ -68,34 +68,48 @@ function slug(s){
 }
 ```
 
-2. Constantă cu roster-ul implicit (deterministă, ordinea din foi):
+2. Constantă cu roster-ul implicit (deterministă; `role` grosier + `skills` fin):
 
 ```js
 var DEFAULT_PEOPLE = [
-  { name:'Andrei', role:'atelier' }, { name:'Dic', role:'atelier' },
-  { name:'Hadi', role:'atelier' }, { name:'Eugen', role:'atelier' },
-  { name:'Alin', role:'atelier' }, { name:'Mihăiță', role:'atelier' },
-  { name:'Dorin', role:'atelier' }, { name:'Nea Marian', role:'atelier' },
-  { name:'Mircea', role:'atelier' }, { name:'Mihai', role:'atelier' },
-  { name:'Vlad', role:'atelier' }, { name:'Bianca', role:'proiectant' },
-  { name:'Radian', role:'proiectant' }, { name:'Nick', role:'coord' },
-  { name:'Narcis', role:'coord' }, { name:'Gabi', role:'coord' }
+  { name:'Andrei',      role:'atelier',    skills:['sudura'] },
+  { name:'Dic',         role:'atelier',    skills:['sudura'] },
+  { name:'Hadi',        role:'atelier',    skills:['sudura'] },
+  { name:'Nea Marian',  role:'atelier',    skills:['debitare','strung'] },
+  { name:'Mircea',      role:'atelier',    skills:['laser','abkant','debitare'] },
+  { name:'Mihai',       role:'atelier',    skills:['polizat'] },
+  { name:'Eugen',       role:'atelier',    skills:['montaj','atelier'] },
+  { name:'Dorin',       role:'atelier',    skills:['montaj','atelier'] },
+  { name:'Mihăiță',     role:'atelier',    skills:['montaj','atelier'] },
+  { name:'Alin',        role:'atelier',    skills:['montaj','atelier'] },
+  { name:'Vlad',        role:'atelier',    skills:['curatenie'] },
+  { name:'Bianca',      role:'proiectant', skills:['proiectare'] },
+  { name:'Radian',      role:'proiectant', skills:['proiectare'] },
+  { name:'Nick',        role:'coord',      skills:['coord'] },
+  { name:'Narcis',      role:'coord',      skills:['sofer'] },
+  { name:'Gabi',        role:'birou',      skills:['comenzi','contabilitate'] },
+  { name:'Petru',       role:'sef',        skills:['coord'] }
 ];
 var DEFAULT_REMINDERS = ['Suflat flexurile la final de zi', 'Sa se respecte ordinea taskurilor!'];
 ```
+
+`role ∈ 'atelier'|'proiectant'|'coord'|'birou'|'sef'`. Petru apare în roster dar
+niciun generator nu-l țintește.
 
 3. În `normalizeState(parsed)`, după blocul de `repairs`, adaugă:
 
 ```js
 if(typeof parsed.people === 'undefined'){
   parsed.people = DEFAULT_PEOPLE.map(function(p, i){
-    return { id:'p-'+slug(p.name), name:p.name, active:true, role:p.role, order:i, awayDates:[] };
+    return { id:'p-'+slug(p.name), name:p.name, active:true, role:p.role,
+             skills:p.skills.slice(), order:i, awayDates:[] };
   });
 }
 if(!Array.isArray(parsed.people)) parsed.people = [];
 parsed.people.forEach(function(p, i){
   if(typeof p.active === 'undefined') p.active = true;
   if(typeof p.role !== 'string') p.role = 'atelier';
+  if(!Array.isArray(p.skills)) p.skills = [];
   if(typeof p.order !== 'number') p.order = i;
   if(!Array.isArray(p.awayDates)) p.awayDates = [];
 });
@@ -142,7 +156,9 @@ if(typeof p.telClient !== 'string') p.telClient = '';
 1. `peopleSorted(includeInactive)` și `personById(id)` lângă celelalte helper-e de
    proiect.
 2. `renderRoster()` → string HTML: listă de rânduri, fiecare cu input de nume
-   (`data-person-name="id"`), select de rol (`atelier/proiectant/coord/birou`),
+   (`data-person-name="id"`), select de rol
+   (`atelier/proiectant/coord/birou/sef`), input de skills
+   (`data-person-skills="id"`, virgulă-separat, se salvează ca array trim-uit),
    buton „dezactivează" / „activează" (`data-person-toggle`), buton „șterge"
    (`data-person-del`, cu `confirm()`), mânere de reordonare (drag pe rând,
    `data-person-drag`). Sub listă: input + buton „+ Adaugă".
@@ -272,38 +288,45 @@ if(typeof p.telClient !== 'string') p.telClient = '';
 
 **Interfaces:**
 - Produces:
-  - `function deriveTasks(state, dateIso)` → `Array<{id, text, hint, projectId, suggestPersonRole}>`
+  - `function deriveTasks(state, dateIso)` → `Array<{id, text, hint, projectId, skill}>`
     cu `id = 'd:'+projectId+':'+rule`
+  - `function peopleWithSkill(skill)` → `peopleSorted().filter(p => p.skills.indexOf(skill) !== -1)`
   - `function assignDerived(card, personId)` → dacă nu există deja task cu
     `plan.tasks[].id === card.id`, `planTaskAdd(plan, personId, card.text, 'derived', {projectId})`
     cu `id` forțat la `card.id` (nu `uid()`)
 - Consumes: `currentStageInfo`, `bucketFor`, `projectWarnings`, `stationsFor`,
-  `daysBetween`, `parseDate`
+  `daysBetween`, `parseDate`, `peopleSorted`
 
 **Pași:**
 
 1. `deriveTasks(state, dateIso)` — pentru fiecare `p` din `state.projects` cu
-   `!p.finalizat`, aplică regulile (fiecare = funcție mică ce întoarce un card sau
-   `null`):
+   `!p.finalizat`, aplică regulile (fiecare = funcție mică ce întoarce un card
+   `{id, text, hint, projectId, skill}` sau `null`):
    - **sudură blocată:** are piese în bucket `exec` pe stația „Debitare"* și
-     niciuna mai departe → `'Sudat ' + p.cod + ' ' + p.client`
+     niciuna mai departe → text `'Sudat ' + p.cod + ' ' + p.client`, `skill:'sudura'`
    - **gata de montaj:** `currentStageInfo(p).cls === 'phase-montaj'` și toate
-     comenzile `primit` → `'Montaj ' + p.cod + (p.adresaMontaj ? ' — ' + p.adresaMontaj : '') + ralHint(p)`
+     comenzile `primit` → `'Montaj ' + p.cod + (p.adresaMontaj ? ' — ' + p.adresaMontaj : '') + ralHint(p)`, `skill:'montaj'`
    - **debitare de făcut:** există piese `pregatire` alături de piese pornite →
-     `'Debitat ' + p.cod + ' (' + nPre + ' piese neîncepute)'`
-   - **scos de execuție:** proiect la `proiectare` (`currentStageInfo` cls
-     `phase-proiect`) și `(p.pieces||[]).length === 0` → `'Scos de execuție ' + p.cod`,
-     `suggestPersonRole:'proiectant'`
+     `'Debitat ' + p.cod + ' (' + nPre + ' piese neîncepute)'`, `skill:'debitare'`
+   - **abkant/îndoire:** piese pe o stație al cărei nume conține „abkant" sau
+     „îndoi" → `'Îndoit / abkant ' + p.cod`, `skill:'abkant'`
+   - **polizare:** piese pe o stație al cărei nume conține „poliz" sau „șlef" →
+     `'Polizat ' + p.cod`, `skill:'polizat'`
+   - **scos de execuție:** `currentStageInfo(p).cls === 'phase-proiect'` și
+     `(p.pieces||[]).length === 0` → `'Scos de execuție ' + p.cod`, `skill:'proiectare'`
    - **comandă neprimită:** `projectWarnings(p)` conține „comandă neprimită" →
-     `'Urmărit comandă ' + p.cod`, `suggestPersonRole:'coord'` (Gabi)
-   - **întârziat:** `p.termen` trecut și nu la montaj → `'⚠ ' + p.cod + ' întârziat ' + N + 'z'`, role `coord` (Nick)
+     `'Urmărit comandă ' + p.cod`, `skill:'comenzi'`
+   - **întârziat:** `p.termen` trecut și nu la montaj →
+     `'⚠ ' + p.cod + ' întârziat ' + N + 'z'`, `skill:'coord'`
 
-   *„Debitare"/„Sudură" se identifică după `station.name` (case-insensitive,
-   `indexOf`), nu după id — id-urile diferă per proiect.
+   *numele stațiilor se compară case-insensitive cu `indexOf` — id-urile diferă
+   per proiect.
 
 2. `renderDerivedColumn(plan)`: cardurile din `deriveTasks` care **nu** au deja
    un task cu acel `id` în `plan.tasks`. Fiecare `.dcard` e `draggable`
-   (`dragstart` → `setData('text/plain', 'DC::'+id)`), arată textul + `hint`.
+   (`dragstart` → `setData('text/plain', 'DC::'+id)`), arată textul + `hint` +,
+   estompat, numele oamenilor din `peopleWithSkill(card.skill)` („→ Dic, Hadi,
+   Andrei"). Sugestie vizuală, drop-ul rămâne liber pe orice om.
 3. `drop` pe `.pcol-person` acceptă și `DC::` → găsește cardul în
    `deriveTasks(...)`, `assignDerived(card, personId)`; `saveState(); render()`.
    Cardul dispare din stânga (nu se mai regenerează cât timp task-ul lipit
