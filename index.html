@@ -35,6 +35,7 @@
       <button data-tab="hala" class="active">Hartă atelier</button>
       <button data-tab="comenzi">Comenzi</button>
       <button data-tab="planificare">Planificare</button>
+      <button data-tab="atelier">Atelier</button>
     </div>
     <div class="topbar-actions">
       <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
@@ -835,6 +836,7 @@
     if(tab === 'hala') renderHala();
     else if(tab === 'comenzi') renderComenzi();
     else if(tab === 'planificare') renderPlanificare();
+    else if(tab === 'atelier') renderAtelier();
     updateUndoButtons();
 
     if(focusSel){
@@ -928,6 +930,152 @@
     item.snoozeUntil = isoOf(addDays(parseDate(iso), days || 3));
     if(typeof logEvent === 'function') logEvent('upkeep-snoozed', item.title, { upkeepId: item.id, until: item.snoozeUntil });
   }
+  var atelierFilter = 'toate';   // 'toate' | 'masina' | 'scula' | 'cladire' | 'consumabile' | 'chore' | 'reparatie'
+  var atelierDueOnly = false;
+  var atelierEditId = null;
+  var atelierDoneOpen = false;
+  var UPK_KINDS = [['masina','Mașini'],['scula','Scule'],['cladire','Clădire'],['consumabile','Consumabile'],['chore','Corvezi'],['reparatie','Reparații']];
+  var UPK_RECUR = [['none','o dată'],['zile','la N zile'],['sapt','săptămânal'],['ore-masina','la ore-mașină']];
+
+  function renderAtelier(){
+    var board = document.getElementById('board');
+    board.className = 'plan-board';
+    board.style.display = 'block';
+    board.style.height = 'auto';
+    board.style.minHeight = '100%';
+    var iso = isoToday();
+    var items = (state.upkeep || []).slice().sort(function(a, b){ return (a.order || 0) - (b.order || 0); });
+    var recs = items.filter(function(u){ return u.recur && u.recur.type !== 'none' && u.active; });
+    var oneoffs = items.filter(function(u){ return (!u.recur || u.recur.type === 'none'); });
+    var due = recs.filter(function(u){ return upkeepDue(u, iso); }).length;
+    var overdue = recs.filter(function(u){ return upkeepOverdueDays(u, iso) > 0; }).length;
+    var openOneoff = oneoffs.filter(function(u){ return !u.archived && !u.doneAt; }).length;
+
+    var h = '<div class="plan-wrap"><div class="atl-h">Management atelier '
+      + '<span class="atl-cnt">' + due + ' scadente · ' + overdue + ' restante · ' + openOneoff + ' one-off deschise</span></div>';
+
+    h += '<div class="atl-filters">';
+    h += '<button type="button" class="' + (atelierFilter === 'toate' ? 'on' : '') + '" data-atl-filter="toate">Toate</button>';
+    UPK_KINDS.forEach(function(k){ h += '<button type="button" class="' + (atelierFilter === k[0] ? 'on' : '') + '" data-atl-filter="' + k[0] + '">' + k[1] + '</button>'; });
+    h += '<label class="atl-due"><input type="checkbox" data-atl-dueonly' + (atelierDueOnly ? ' checked' : '') + '> doar scadente</label>';
+    h += '</div>';
+
+    // --- Recurente ---
+    h += '<div class="atl-sec"><div class="plan-col-h">Recurente</div>';
+    var shownRecs = recs.filter(function(u){
+      if(atelierFilter !== 'toate' && u.kind !== atelierFilter) return false;
+      if(atelierDueOnly && !upkeepDue(u, iso)) return false;
+      return true;
+    });
+    if(!shownRecs.length) h += '<div class="plan-empty">nimic aici</div>';
+    shownRecs.forEach(function(u){ h += renderUpkeepRow(u, iso); });
+    h += '<div class="atl-add"><input type="text" id="atl-new-rec" placeholder="element recurent nou…">'
+      + '<select id="atl-new-kind">' + UPK_KINDS.map(function(k){ return '<option value="' + k[0] + '">' + k[1] + '</option>'; }).join('') + '</select>'
+      + '<select id="atl-new-recur"><option value="zile">zilnic</option><option value="sapt">săptămânal</option></select>'
+      + '<button type="button" class="btn btn-sm" data-atl-add="rec">+ Adaugă</button></div>';
+    h += '</div>';
+
+    // --- One-off / reparații ---
+    h += '<div class="atl-sec"><div class="plan-col-h">One-off / reparații atelier</div>';
+    h += '<div class="atl-add"><input type="text" id="atl-new-oneoff" placeholder="ex. dus flex la reparat — Proenerg…"><button type="button" class="btn btn-sm" data-atl-add="oneoff">+ Adaugă</button></div>';
+    var openO = oneoffs.filter(function(u){ return !u.archived; });
+    var doneO = oneoffs.filter(function(u){ return u.archived; });
+    if(!openO.length) h += '<div class="plan-empty">nimic deschis</div>';
+    openO.forEach(function(u){ h += renderUpkeepRow(u, iso); });
+    if(doneO.length){
+      h += '<button type="button" class="atl-donetgl" data-atl-donetgl>' + (atelierDoneOpen ? '▾' : '▸') + ' Rezolvate (' + doneO.length + ')</button>';
+      if(atelierDoneOpen) doneO.forEach(function(u){ h += renderUpkeepRow(u, iso); });
+    }
+    h += '</div>';
+
+    h += '</div>';
+    board.innerHTML = h;
+    attachAtelierEvents();
+  }
+
+  function renderUpkeepRow(u, iso){
+    var editing = atelierEditId === u.id;
+    var od = upkeepOverdueDays(u, iso);
+    var isRec = u.recur && u.recur.type !== 'none';
+    var st = u.archived ? 'done' : (isRec ? (od > 0 ? 'restant' : (upkeepDue(u, iso) ? 'scadent' : 'lazi')) : 'open');
+    var stLbl = { done:'rezolvat', restant:'restant ' + od + 'z', scadent:'scadent', lazi:'la zi', open:'deschis' }[st];
+    var h = '<div class="atl-row atl-' + st + '">';
+    h += '<span class="atl-pill atl-p-' + st + '">' + stLbl + '</span>';
+    if(editing){
+      h += '<input type="text" class="atl-e atl-e-title" data-atl-edit="' + u.id + '::title" value="' + esc(u.title) + '">';
+      h += '<input type="text" class="atl-e" data-atl-edit="' + u.id + '::asset" value="' + esc(u.asset || '') + '" placeholder="mașină/asset">';
+      h += '<select class="atl-e" data-atl-edit="' + u.id + '::kind">' + UPK_KINDS.map(function(k){ return '<option value="' + k[0] + '"' + (u.kind === k[0] ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') + '</select>';
+      h += '<select class="atl-e" data-atl-edit="' + u.id + '::recur.type">' + UPK_RECUR.map(function(k){ return '<option value="' + k[0] + '"' + (u.recur.type === k[0] ? ' selected' : '') + '>' + k[1] + '</option>'; }).join('') + '</select>';
+      h += '<input type="number" min="1" class="atl-e atl-e-n" data-atl-edit="' + u.id + '::recur.every" value="' + (u.recur.every || 1) + '">';
+      h += '<select class="atl-e" data-atl-edit="' + u.id + '::recur.weekday"><option value="">orice zi</option>' + ZI_NAME.map(function(z, i){ return '<option value="' + i + '"' + (u.recur.weekday === i ? ' selected' : '') + '>' + z + '</option>'; }).join('') + '</select>';
+      h += '<input type="text" class="atl-e" data-atl-edit="' + u.id + '::skill" value="' + esc(u.skill || '') + '" placeholder="skill">';
+      h += '<button type="button" class="btn btn-xs btn-primary" data-atl-editdone="' + u.id + '">gata</button>';
+    } else {
+      h += '<span class="atl-title">' + esc(u.title) + (u.asset ? ' <span class="atl-asset">' + esc(u.asset) + '</span>' : '') + '</span>';
+      h += '<span class="atl-rec">' + esc(recurLabel(u.recur)) + '</span>';
+      if(u.lastDoneDate) h += '<span class="atl-last">ultima: ' + esc(fmtShortDate(u.lastDoneDate)) + '</span>';
+      h += '<span class="rs-grow"></span>';
+      if(!u.archived) h += '<button type="button" class="btn btn-xs btn-primary" data-atl-done="' + u.id + '">bifează făcut</button>';
+      if(isRec && !u.archived) h += '<button type="button" class="btn btn-xs" data-atl-snooze="' + u.id + '">amână 3z</button>';
+      h += '<button type="button" class="btn btn-xs" data-atl-editbtn="' + u.id + '">editează</button>';
+      h += '<button type="button" class="btn btn-xs btn-danger-outline" data-atl-del="' + u.id + '">×</button>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function attachAtelierEvents(){
+    document.querySelectorAll('[data-atl-filter]').forEach(function(b){ b.addEventListener('click', function(){ atelierFilter = b.dataset.atlFilter; render(); }); });
+    var dueChk = document.querySelector('[data-atl-dueonly]');
+    if(dueChk) dueChk.addEventListener('change', function(){ atelierDueOnly = dueChk.checked; render(); });
+    var dtgl = document.querySelector('[data-atl-donetgl]');
+    if(dtgl) dtgl.addEventListener('click', function(){ atelierDoneOpen = !atelierDoneOpen; render(); });
+
+    document.querySelectorAll('[data-atl-done]').forEach(function(b){ b.addEventListener('click', function(){
+      upkeepMarkDone(upkeepById(b.dataset.atlDone), isoToday()); saveState(); render();
+    }); });
+    document.querySelectorAll('[data-atl-snooze]').forEach(function(b){ b.addEventListener('click', function(){
+      upkeepSnooze(upkeepById(b.dataset.atlSnooze), isoToday(), 3); saveState(); render();
+    }); });
+    document.querySelectorAll('[data-atl-editbtn]').forEach(function(b){ b.addEventListener('click', function(){ atelierEditId = b.dataset.atlEditbtn; render(); }); });
+    document.querySelectorAll('[data-atl-editdone]').forEach(function(b){ b.addEventListener('click', function(){ atelierEditId = null; saveState(); render(); }); });
+    document.querySelectorAll('[data-atl-del]').forEach(function(b){ b.addEventListener('click', function(){
+      var u = upkeepById(b.dataset.atlDel);
+      if(u && confirm('Ștergi „' + u.title + '"?')){ state.upkeep = state.upkeep.filter(function(x){ return x.id !== u.id; }); saveState(); render(); }
+    }); });
+    document.querySelectorAll('[data-atl-edit]').forEach(function(inp){ inp.addEventListener('change', function(){
+      var parts = inp.dataset.atlEdit.split('::'), u = upkeepById(parts[0]); if(!u) return;
+      var field = parts[1], val = inp.value;
+      if(field.indexOf('recur.') === 0){
+        var rk = field.slice(6);
+        if(rk === 'every') u.recur.every = Math.max(1, parseInt(val, 10) || 1);
+        else if(rk === 'weekday') u.recur.weekday = val === '' ? null : parseInt(val, 10);
+        else u.recur.type = val;
+      } else u[field] = val.trim ? val.trim() : val;
+      saveState(); render();
+    }); });
+    var addBtn = document.querySelectorAll('[data-atl-add]');
+    addBtn.forEach(function(b){ b.addEventListener('click', function(){
+      if(b.dataset.atlAdd === 'rec'){
+        var t = (document.getElementById('atl-new-rec').value || '').trim(); if(!t) return;
+        var kind = document.getElementById('atl-new-kind').value;
+        var rt = document.getElementById('atl-new-recur').value;
+        state.upkeep.push({ id: uid(), title: t, note: '', kind: kind, asset: '',
+          recur: { type: rt, every: 1, weekday: null }, personId: null, skill: '', active: true,
+          order: state.upkeep.length, lastDoneDate: null, lastDoneHours: null, hours: null,
+          snoozeUntil: null, createdAt: new Date().toISOString(), doneAt: null, archived: false });
+      } else {
+        var v = (document.getElementById('atl-new-oneoff').value || '').trim(); if(!v) return;
+        state.upkeep.push({ id: uid(), title: v, note: '', kind: 'reparatie', asset: '',
+          recur: { type: 'none', every: 1, weekday: null }, personId: null, skill: '', active: true,
+          order: state.upkeep.length, lastDoneDate: null, lastDoneHours: null, hours: null,
+          snoozeUntil: null, createdAt: new Date().toISOString(), doneAt: null, archived: false });
+      }
+      if(typeof logEvent === 'function') logEvent('upkeep-added', 'atelier');
+      saveState(); render();
+    }); });
+  }
+
   // carduri candidat pentru asamblorul din Planificare (aceeași formă ca deriveTasks)
   function deriveUpkeepTasks(state, dateIso){
     return (state.upkeep || []).filter(function(u){ return upkeepDue(u, dateIso); }).map(function(u){
