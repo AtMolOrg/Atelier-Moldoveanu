@@ -320,6 +320,20 @@
   .pcol-roll{ display:flex; flex-direction:column; gap:4px; margin-bottom:6px; }
   .dcard-roll{ border-left-color:var(--ph-mtj); background:var(--panel); margin-bottom:0; cursor:pointer; }
   .dcard-roll .dcard-t{ font-size:11.5px; color:var(--ink-dim); }
+  /* foaia crem ORGANIZARE */
+  .plan-col-right .plan-col-h{ display:flex; align-items:center; gap:8px; }
+  .org-sheet{ background:#f4f1ea; color:#202226; border-radius:4px; padding:22px 26px 26px; box-shadow:0 10px 30px rgba(0,0,0,.45);
+    font-family:'Newsreader', Georgia, 'Times New Roman', serif; font-size:14px; line-height:1.5; }
+  .org-sheet .os-brand{ text-align:center; font-weight:600; letter-spacing:.22em; font-size:16px; }
+  .org-sheet .os-date{ text-align:center; color:#5f636b; font-size:13px; margin-top:2px; }
+  .org-sheet .os-rem{ text-align:center; font-style:italic; color:#5f636b; margin-top:4px; }
+  .org-sheet hr{ border:0; border-top:1px solid #c9c3b8; margin:14px 0; }
+  .org-sheet .os-who{ font-weight:600; font-size:14.5px; margin:12px 0 3px; }
+  .org-sheet .os-list{ margin:0 0 6px; padding-left:22px; }
+  .org-sheet .os-list li{ margin:2px 0; }
+  .org-sheet .os-list li:focus{ outline:2px solid rgba(239,143,99,.6); outline-offset:2px; border-radius:2px; }
+  .org-sheet .os-done{ text-decoration:line-through; color:#8a8d93; }
+  .org-sheet .os-empty{ color:#8a8d93; font-style:italic; }
   @media (max-width:1000px){ .plan-cols{ grid-template-columns:1fr; } }
 
   /* comenzi materiale — rânduri într-un panou îngust: stare+text+șterge sus, cantitate+furnizor jos */

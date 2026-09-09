@@ -6,6 +6,7 @@
 <title>Panou de Producție — Atelier</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
@@ -977,7 +978,7 @@
     h += '<div class="plan-cols">';
     h += '<div class="plan-col plan-col-left"><div class="plan-col-h">Sarcini</div>' + renderDerivedColumn(plan) + '</div>';
     h += '<div class="plan-col plan-col-mid"><div class="plan-col-h">Oameni</div>' + renderPeopleColumn(plan) + '</div>';
-    h += '<div class="plan-col plan-col-right"><div class="plan-col-h">Documentul de mâine</div><div id="org-sheet"></div></div>';
+    h += '<div class="plan-col plan-col-right"><div class="plan-col-h">Documentul de mâine ' + (plan.edits && Object.keys(plan.edits).length ? '<button type="button" class="btn btn-xs" data-org-reset>reset editări</button>' : '') + '</div><div id="org-sheet">' + renderOrgSheet(plan) + '</div></div>';
     h += '</div>';
     h += '</div>';
     board.innerHTML = h;
@@ -1032,6 +1033,50 @@
       h += '</div>';
       return h;
     }).join('') + '</div>';
+  }
+
+  function orgTaskText(plan, t){ return (plan.edits && plan.edits[t.id]) || t.text; }
+
+  function renderOrgSheet(plan){
+    var rem = (state.reminders || []).filter(function(r){ return (r || '').trim(); });
+    var h = '<div class="org-sheet"><div class="os-brand">ORGANIZARE</div>';
+    h += '<div class="os-date">' + esc(planDateLabel(plan.date)) + '</div>';
+    rem.forEach(function(r){ h += '<div class="os-rem">' + esc(r) + '</div>'; });
+    h += '<hr>';
+    var any = false;
+    peopleSorted().forEach(function(p){
+      var ts = planTasksFor(plan, p.id);
+      if(!ts.length) return;
+      any = true;
+      h += '<div class="os-who">' + esc(p.name) + '</div><ul class="os-list">';
+      ts.forEach(function(t){
+        h += '<li' + (t.done ? ' class="os-done"' : '') + ' contenteditable="true" data-os-line="' + t.id + '">' + esc(orgTaskText(plan, t)) + '</li>';
+      });
+      h += '</ul>';
+    });
+    if(!any) h += '<div class="os-empty">— nicio sarcină repartizată încă —</div>';
+    var rest = (plan.resturi || []).slice().sort(function(a, b){ return (a.order || 0) - (b.order || 0); });
+    if(rest.length){
+      h += '<div class="os-who">Resturi</div><ul class="os-list">';
+      rest.forEach(function(r){ h += '<li>' + esc(r.text) + '</li>'; });
+      h += '</ul>';
+    }
+    h += '</div>';
+    return h;
+  }
+  function orgSheetText(plan){
+    var out = 'ORGANIZARE — ' + planDateLabel(plan.date) + '\n';
+    (state.reminders || []).forEach(function(r){ if((r || '').trim()) out += r + '\n'; });
+    out += '\n';
+    peopleSorted().forEach(function(p){
+      var ts = planTasksFor(plan, p.id);
+      if(!ts.length) return;
+      out += p.name + ':\n';
+      ts.forEach(function(t){ out += '   • ' + orgTaskText(plan, t) + '\n'; });
+    });
+    var rest = (plan.resturi || []);
+    if(rest.length){ out += 'Resturi:\n'; rest.forEach(function(r){ out += '   • ' + r.text + '\n'; }); }
+    return out;
   }
 
   function attachPlanEvents(){
@@ -1190,6 +1235,18 @@
         saveState(); render();
       });
     });
+
+    // foaia crem — editare pe linii (nu atinge task-ul, doar plan.edits)
+    document.querySelectorAll('[data-os-line]').forEach(function(li){
+      li.addEventListener('input', function(){
+        if(!plan.edits) plan.edits = {};
+        plan.edits[li.dataset.osLine] = li.textContent;
+        commitPlan(plan); saveState(); // fără re-render — ca să nu sară caretul
+      });
+      li.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); li.blur(); } });
+    });
+    var orgReset = document.querySelector('[data-org-reset]');
+    if(orgReset) orgReset.addEventListener('click', function(){ plan.edits = {}; commitPlan(plan); saveState(); render(); });
   }
 
   /* ================= HARTĂ ATELIER ================= */
