@@ -99,6 +99,18 @@
   ];
   var DEFAULT_REMINDERS = ['Suflat flexurile la final de zi', 'Sa se respecte ordinea taskurilor!'];
 
+  // mentenanță atelier — seed o singură dată (intervale prudente, de calibrat cu Nick)
+  var DEFAULT_UPKEEP = [
+    { id:'u-suflat-flexuri',       title:'Suflat flexurile',                       kind:'chore',       recur:{type:'zile', every:1},            skill:'curatenie' },
+    { id:'u-ordine-atelier',       title:'Făcut ordine / măturat atelier',         kind:'chore',       recur:{type:'zile', every:1},            skill:'curatenie' },
+    { id:'u-camera-resturi',       title:'Eliberat camera resturi metale',         kind:'chore',       recur:{type:'sapt', every:1, weekday:5}, skill:'curatenie' },
+    { id:'u-discuri-flexuri',      title:'Verificat discuri și cabluri flexuri',    kind:'scula',       recur:{type:'zile', every:30} },
+    { id:'u-ulei-abkant',          title:'Verificat nivel ulei abkant',            kind:'masina', asset:'abkant',    recur:{type:'zile', every:30}, skill:'abkant' },
+    { id:'u-filtru-laser',         title:'Curățat filtru / lentilă laser CNC',     kind:'masina', asset:'laser CNC', recur:{type:'zile', every:30}, skill:'laser' },
+    { id:'u-butelii-sudura',       title:'Verificat butelii / regulatoare sudură', kind:'masina', asset:'sudură',    recur:{type:'zile', every:14}, skill:'sudura' },
+    { id:'u-lista-suruburi-scule', title:'Făcut listă șuruburi, scule și trolee',   kind:'consumabile', recur:{type:'none'} }
+  ];
+
   /* ---------------- utils ---------------- */
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
   function esc(s){
@@ -373,6 +385,54 @@
     });
     if(!Array.isArray(parsed.plans)) parsed.plans = [];
     if(!Array.isArray(parsed.reminders)) parsed.reminders = DEFAULT_REMINDERS.slice();
+    if(!Array.isArray(parsed.notite)) parsed.notite = [];
+    parsed.notite.forEach(function(n, i){
+      if(typeof n.text !== 'string') n.text = '';
+      if(typeof n.ownerId === 'undefined') n.ownerId = null;
+      if(typeof n.createdAt === 'undefined') n.createdAt = null;
+      if(typeof n.order !== 'number') n.order = i;
+      if(typeof n.status !== 'string') n.status = 'open';
+      if(typeof n.plannedDate === 'undefined') n.plannedDate = null;
+      if(typeof n.plannedTaskId === 'undefined') n.plannedTaskId = null;
+      if(typeof n.doneAt === 'undefined') n.doneAt = null;
+    });
+    if(typeof parsed.playbook !== 'object' || !parsed.playbook) parsed.playbook = { updatedAt: null, text: '' };
+    if(typeof parsed.playbook.text !== 'string') parsed.playbook.text = '';
+    // mentenanță atelier — seed o singură dată; gardă boolean (RTDB curăță array-urile goale, nu true)
+    if(!parsed.upkeepSeeded && typeof parsed.upkeep === 'undefined'){
+      parsed.upkeep = DEFAULT_UPKEEP.map(function(u, i){
+        return { id:u.id, title:u.title, note:'', kind:u.kind||'chore', asset:u.asset||'',
+          recur:{ type:(u.recur&&u.recur.type)||'none', every:(u.recur&&u.recur.every)||1,
+                  weekday:(u.recur&&typeof u.recur.weekday==='number')?u.recur.weekday:null },
+          personId:null, skill:u.skill||'', active:true, order:i,
+          lastDoneDate:null, lastDoneHours:null, hours:null, snoozeUntil:null,
+          createdAt:null, doneAt:null, archived:false };
+      });
+      parsed.upkeepSeeded = true;
+    }
+    if(typeof parsed.upkeepSeeded === 'undefined') parsed.upkeepSeeded = Array.isArray(parsed.upkeep);
+    if(!Array.isArray(parsed.upkeep)) parsed.upkeep = [];
+    parsed.upkeep.forEach(function(u, i){
+      if(typeof u.title !== 'string') u.title = '';
+      if(typeof u.note !== 'string') u.note = '';
+      if(typeof u.kind !== 'string') u.kind = 'chore';
+      if(typeof u.asset !== 'string') u.asset = '';
+      if(!u.recur || typeof u.recur !== 'object') u.recur = { type:'none', every:1, weekday:null };
+      if(typeof u.recur.type !== 'string') u.recur.type = 'none';
+      if(typeof u.recur.every !== 'number' || u.recur.every < 1) u.recur.every = 1;
+      if(typeof u.recur.weekday !== 'number') u.recur.weekday = null;
+      if(typeof u.personId === 'undefined') u.personId = null;
+      if(typeof u.skill !== 'string') u.skill = '';
+      if(typeof u.active === 'undefined') u.active = true;
+      if(typeof u.order !== 'number') u.order = i;
+      if(typeof u.lastDoneDate === 'undefined') u.lastDoneDate = null;
+      if(typeof u.lastDoneHours === 'undefined') u.lastDoneHours = null;
+      if(typeof u.hours === 'undefined') u.hours = null;
+      if(typeof u.snoozeUntil === 'undefined') u.snoozeUntil = null;
+      if(typeof u.createdAt === 'undefined') u.createdAt = null;
+      if(typeof u.doneAt === 'undefined') u.doneAt = null;
+      if(typeof u.archived === 'undefined') u.archived = false;
+    });
     // păstrează doar ultimele ~30 de zile de plan (comparație de string ISO, fără Date)
     if(parsed.plans.length > 30){
       parsed.plans.sort(function(a,b){ return (a.date < b.date) ? 1 : (a.date > b.date ? -1 : 0); });
@@ -810,6 +870,73 @@
   }
   function shiftPlanDate(n){ currentPlanDate = isoOf(addDays(parseDate(ensurePlanDate()), n)); }
   function weekStartIso(iso){ var d = parseDate(iso); var dow = d.getDay(); return isoOf(addDays(d, -(dow === 0 ? 6 : dow - 1))); } // luni
+
+  /* ---- mentenanță atelier: recurență pură, evaluată la render ---- */
+  function upkeepById(id){ return (state.upkeep || []).find(function(u){ return u.id === id; }) || null; }
+  function upkeepDue(item, iso){
+    if(!item.active) return false;
+    if(item.snoozeUntil && iso < item.snoozeUntil) return false;
+    var r = item.recur || { type:'none' };
+    if(r.type === 'none') return !item.archived && !item.doneAt;
+    if(r.type === 'zile'){
+      if(!item.lastDoneDate) return true;
+      return daysBetween(parseDate(item.lastDoneDate), parseDate(iso)) >= (r.every || 1);
+    }
+    if(r.type === 'sapt'){
+      if(typeof r.weekday === 'number'){
+        if(parseDate(iso).getDay() !== r.weekday) return false;
+        return !item.lastDoneDate || item.lastDoneDate < weekStartIso(iso);
+      }
+      if(!item.lastDoneDate) return true;
+      return daysBetween(parseDate(item.lastDoneDate), parseDate(iso)) >= 7 * (r.every || 1);
+    }
+    if(r.type === 'ore-masina'){
+      if(item.lastDoneHours == null || item.hours == null) return false;
+      return (item.hours - item.lastDoneHours) >= (r.every || 1);
+    }
+    return false;
+  }
+  function upkeepOverdueDays(item, iso){
+    if(!item.lastDoneDate) return 0;
+    var r = item.recur || {};
+    if(r.type !== 'zile' && r.type !== 'sapt') return 0;
+    var interval = r.type === 'sapt' ? 7 * (r.every || 1) : (r.every || 1);
+    return Math.max(0, daysBetween(parseDate(item.lastDoneDate), parseDate(iso)) - interval);
+  }
+  function recurLabel(r){
+    r = r || {};
+    if(r.type === 'zile') return r.every === 1 ? 'zilnic' : ('la ' + r.every + ' zile');
+    if(r.type === 'sapt') return typeof r.weekday === 'number' ? (ZI_NAME[r.weekday] + 'a') : (r.every === 1 ? 'săptămânal' : ('la ' + r.every + ' săpt.'));
+    if(r.type === 'ore-masina') return 'la ' + r.every + ' ore-mașină';
+    return 'o singură dată';
+  }
+  function upkeepMarkDone(item, iso){
+    if(!item) return;
+    if(item.recur && item.recur.type !== 'none'){
+      item.lastDoneDate = iso;
+      item.doneAt = new Date().toISOString();
+      item.snoozeUntil = null;
+      if(item.recur.type === 'ore-masina') item.lastDoneHours = item.hours;
+    } else {
+      item.doneAt = new Date().toISOString();
+      item.archived = true;
+    }
+    if(typeof logEvent === 'function') logEvent('upkeep-done', item.title, { upkeepId: item.id, kind: item.kind, on: iso });
+  }
+  function upkeepSnooze(item, iso, days){
+    if(!item) return;
+    item.snoozeUntil = isoOf(addDays(parseDate(iso), days || 3));
+    if(typeof logEvent === 'function') logEvent('upkeep-snoozed', item.title, { upkeepId: item.id, until: item.snoozeUntil });
+  }
+  // carduri candidat pentru asamblorul din Planificare (aceeași formă ca deriveTasks)
+  function deriveUpkeepTasks(state, dateIso){
+    return (state.upkeep || []).filter(function(u){ return upkeepDue(u, dateIso); }).map(function(u){
+      var od = upkeepOverdueDays(u, dateIso);
+      return { id: 'u:' + u.id, text: u.title + (u.asset ? ' — ' + u.asset : ''),
+        hint: recurLabel(u.recur) + (od > 0 ? ' · restant ' + od + 'z' : ''),
+        projectId: null, skill: u.skill, upkeepId: u.id };
+    });
+  }
   // modul de afișare: forțat de utilizator, altfel automat (dimineața te uiți la ce ai de bifat azi)
   function planMode(){
     if(planViewMode) return planViewMode;
@@ -997,23 +1124,27 @@
     return out;
   }
   function allDerivedCards(state, dateIso){
-    return deriveTasks(state, dateIso).concat(deriveNarcisTasks(state, dateIso)).concat(deriveGabiTasks(state, dateIso));
+    return deriveTasks(state, dateIso)
+      .concat(deriveUpkeepTasks(state, dateIso))
+      .concat(deriveNarcisTasks(state, dateIso))
+      .concat(deriveGabiTasks(state, dateIso));
   }
 
   function assignDerived(card, personId, plan){
     if((plan.tasks || []).some(function(t){ return t.id === card.id; })) return;
-    planTaskAdd(plan, personId, card.text, 'derived', { id: card.id, projectId: card.projectId || null });
+    planTaskAdd(plan, personId, card.text, card.upkeepId ? 'upkeep' : 'derived',
+      { id: card.id, projectId: card.projectId || null, upkeepId: card.upkeepId || null });
   }
 
   function renderDerivedColumn(plan){
     var taken = {};
     (plan.tasks || []).forEach(function(t){ taken[t.id] = true; });
-    var cards = deriveTasks(state, currentPlanDate).filter(function(c){ return !taken[c.id]; });
+    var cards = deriveTasks(state, currentPlanDate).concat(deriveUpkeepTasks(state, currentPlanDate)).filter(function(c){ return !taken[c.id]; });
     if(!cards.length) return '<div class="plan-empty">nimic derivat — toate proiectele curg</div>';
     return cards.map(function(c){
       var who = peopleWithSkill(c.skill).map(function(p){ return p.name; }).slice(0, 4).join(', ');
-      return '<div class="dcard" draggable="true" data-dcard="' + esc(c.id) + '" title="Trage pe un om">'
-        + '<div class="dcard-t">' + esc(c.text) + '</div>'
+      return '<div class="dcard' + (c.upkeepId ? ' dcard-upk' : '') + '" draggable="true" data-dcard="' + esc(c.id) + '" title="Trage pe un om">'
+        + '<div class="dcard-t">' + (c.upkeepId ? '🔧 ' : '') + esc(c.text) + '</div>'
         + (c.hint ? '<div class="dcard-h">' + esc(c.hint) + '</div>' : '')
         + (who ? '<div class="dcard-who">→ ' + esc(who) + '</div>' : '')
         + '</div>';
@@ -1290,8 +1421,10 @@
       var mx = 0;
       (next.tasks || []).forEach(function(x){ if(x.personId === t.personId && (x.order || 0) > mx) mx = x.order || 0; });
       if(!Array.isArray(next.tasks)) next.tasks = [];
-      next.tasks.push({ id: uid(), text: t.text, personId: t.personId, projectId: t.projectId || null,
-        order: mx + 1, done: false, doneAt: null, source: 'carryover', carriedFrom: dateIso });
+      var ct = { id: uid(), text: t.text, personId: t.personId, projectId: t.projectId || null,
+        order: mx + 1, done: false, doneAt: null, source: 'carryover', carriedFrom: dateIso };
+      if(t.upkeepId) ct.upkeepId = t.upkeepId; // păstrează legătura cu mentenanța
+      next.tasks.push(ct);
       carried++;
     });
     if(carried) commitPlan(next);
@@ -1394,6 +1527,8 @@
         t.done = cb.checked;
         t.doneAt = cb.checked ? new Date().toISOString() : null;
         if(typeof logEvent === 'function') logEvent('plan-task-bifat', t.text, { date: plan.date, taskId: t.id, personId: t.personId, done: t.done });
+        // mentenanță: bifarea explicită avansează scadența (nu programarea)
+        if(t.source === 'upkeep' && t.upkeepId && cb.checked) upkeepMarkDone(upkeepById(t.upkeepId), plan.date);
         commitPlan(plan); saveState(); render();
       });
     });
@@ -3315,9 +3450,14 @@
     e.preventDefault();
     if(k === 'y' || e.shiftKey) doRedo(); else doUndo();
   });
+  var PLAN_TAB_PASS = 'nickmari=3';
   document.querySelectorAll('#tabs button').forEach(function(b){
     b.addEventListener('click', function(){
       if(tab === b.dataset.tab) return;
+      if(b.dataset.tab === 'planificare'){
+        // acces protejat — se cere parola la fiecare intrare în tab
+        if(window.prompt('Parolă Planificare:') !== PLAN_TAB_PASS) return;
+      }
       tab = b.dataset.tab;
       document.querySelectorAll('#tabs button').forEach(function(x){ x.classList.toggle('active', x === b); });
       setAddButton();
