@@ -65,7 +65,7 @@ export default {
     let system, user, maxTokens;
 
     if (task === "summary") {
-      maxTokens = 400;
+      maxTokens = 900; // generos: unele modele ard tokeni pe „reasoning" înainte de text
       system =
         "Ești asistentul unui manager de atelier de metal (tâmplărie metalică, balustrade, " +
         "structuri). Primești starea unui proiect, deja rezumată pe scurt, plus câteva detalii " +
