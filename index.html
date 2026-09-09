@@ -970,9 +970,11 @@
     h += '<button type="button" class="btn btn-sm" data-plan-day="next" title="Ziua următoare">›</button>';
     h += '<button type="button" class="btn btn-sm" data-plan-day="today">mâine</button>';
     h += '<span class="rs-grow"></span>';
+    h += '<button type="button" class="btn btn-sm' + (planSettingsOpen ? ' btn-primary' : '') + '" data-plan-settings title="Reminder-e fixe">⚙</button>';
     h += '<button type="button" class="btn btn-sm' + (rosterOpen ? ' btn-primary' : '') + '" data-plan-roster>Angajați</button>';
     h += '</div>';
 
+    if(planSettingsOpen) h += renderReminderSettings();
     if(rosterOpen) h += renderRoster();
 
     h += '<div class="plan-cols">';
@@ -993,6 +995,16 @@
     h += '</div>';
     board.innerHTML = h;
     attachPlanEvents();
+  }
+
+  function renderReminderSettings(){
+    var h = '<div class="roster-panel"><div class="plan-col-h">Reminder-e fixe — apar pe fiecare foaie</div>';
+    (state.reminders || []).forEach(function(r, i){
+      h += '<div class="rem-row"><input type="text" class="rst-name" data-reminder="' + i + '" value="' + esc(r) + '">'
+        + '<button type="button" class="btn btn-xs btn-danger-outline" data-reminder-del="' + i + '" title="Șterge">×</button></div>';
+    });
+    h += '<div class="rst-add"><button type="button" class="btn btn-sm" data-reminder-add>+ Adaugă rând</button></div></div>';
+    return h;
   }
 
   function renderRoster(){
@@ -1145,6 +1157,24 @@
 
     var rosterBtn = document.querySelector('[data-plan-roster]');
     if(rosterBtn) rosterBtn.addEventListener('click', function(){ rosterOpen = !rosterOpen; render(); });
+    var setBtn = document.querySelector('[data-plan-settings]');
+    if(setBtn) setBtn.addEventListener('click', function(){ planSettingsOpen = !planSettingsOpen; render(); });
+
+    document.querySelectorAll('[data-reminder]').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        state.reminders[parseInt(inp.dataset.reminder, 10)] = inp.value;
+        saveState(); // fără re-render în timpul tastării — caret
+      });
+      inp.addEventListener('change', function(){ render(); }); // la blur — foaia prinde din urmă
+    });
+    document.querySelectorAll('[data-reminder-del]').forEach(function(b){
+      b.addEventListener('click', function(){
+        state.reminders.splice(parseInt(b.dataset.reminderDel, 10), 1);
+        saveState(); render();
+      });
+    });
+    var remAdd = document.querySelector('[data-reminder-add]');
+    if(remAdd) remAdd.addEventListener('click', function(){ state.reminders.push(''); saveState(); render(); });
 
     document.querySelectorAll('[data-person-name]').forEach(function(inp){
       inp.addEventListener('input', function(){
