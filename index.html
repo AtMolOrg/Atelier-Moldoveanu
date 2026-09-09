@@ -2909,6 +2909,8 @@
 
     html += '<div class="field"><label>Notițe</label><textarea id="f-notite" placeholder="Detalii, cotă, observații…">'+esc(editing?(proj.notite||''):'')+'</textarea></div>';
     html += '<div class="field"><label>Necesar montaj</label><textarea id="f-montaj" placeholder="Ce se pregătește / se duce pentru ziua montajului (șuruburi, scule, dibluri…)">'+esc(editing?(proj.montajNotes||''):'')+'</textarea></div>';
+    html += '<div class="field-row"><div class="field"><label>Adresă montaj</label><input id="f-adresa-montaj" value="'+esc(editing?(proj.adresaMontaj||''):'')+'" placeholder="stradă, nr., bl., localitate"></div>';
+    html += '<div class="field"><label>Telefon client</label><input id="f-tel-client" value="'+esc(editing?(proj.telClient||''):'')+'" placeholder="07…"></div></div>';
     html += '<div class="field"><label>Listă piese</label><div class="pieces-editor" id="pieces-editor"></div>';
     html += '<button type="button" class="btn btn-sm btn-ghost" id="btn-add-piece" style="margin-top:8px;">+ Adaugă piesă</button>';
     html += '<div class="field-hint">Piesele pornesc în prima etapă a proiectului; le muți mai departe din pipeline-ul rândului desfășurat.</div>';
@@ -2965,6 +2967,8 @@
       var tip = document.getElementById('f-tip').value.trim();
       var notite = document.getElementById('f-notite').value.trim();
       var montajNotes = document.getElementById('f-montaj').value.trim();
+      var adresaMontaj = document.getElementById('f-adresa-montaj').value.trim();
+      var telClient = document.getElementById('f-tel-client').value.trim();
 
       var fallbackStationId = editing
         ? firstStationIdOf(proj)
@@ -2980,6 +2984,7 @@
       if(editing){
         proj.cod=cod; proj.client=client; proj.termen=termen; proj.tip=tip;
         proj.notite=notite; proj.montajNotes=montajNotes; proj.pieces=pieces;
+        proj.adresaMontaj=adresaMontaj; proj.telClient=telClient;
         var stageSel = document.getElementById('f-stage');
         if(stageSel){ proj.stationId = stageSel.value; proj.lane = null; }
       } else {
@@ -2990,7 +2995,8 @@
           id: uid(), cod:cod, client:client, termen:termen, tip:tip,
           stations: newStations,
           stationId: stageSelNew ? stageSelNew.value : (firstProiect ? firstProiect.id : null),
-          finalizat:false, notite:notite, pieces:pieces, orders:[], montajNotes:montajNotes, createdAt: isoToday()
+          finalizat:false, notite:notite, pieces:pieces, orders:[], montajNotes:montajNotes,
+          adresaMontaj:adresaMontaj, telClient:telClient, createdAt: isoToday()
         });
         logEvent('proiect-nou', cod + ' · ' + client);
       }
