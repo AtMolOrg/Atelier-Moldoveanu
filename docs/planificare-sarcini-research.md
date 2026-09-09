@@ -215,6 +215,14 @@ rând cu rezumatul (întâi șablon determinist, apoi narativ LLM).
 - `deriveTasks` **se retrage** din coloana stângă. Îl păstrăm doar ca text pentru linia
   „ce urmează" din rând, formulat ca observație (**„așteaptă sudura"**, nu „Sudat X") —
   și doar când e neambiguu. Când nu e, nu afișăm nimic pe linia aia.
+- **Rezumatul DESCRIE, nu instruiește.** Fără „mută-l", fără presupuneri de ce e un
+  cartonaș unde e — un cartonaș la Proiectare cu piese deja la montaj poate fi
+  intenționat (o comandă nouă la același client, o reparație, re-lucru). Rezumatul
+  spune faptul („cartonaș la Proiectare, 2 piese la montaj") și lasă Nick să
+  interpreteze. Judecata („pare că…") stă doar în stratul LLM, și tot cu „pare", nu la
+  imperativ.
+- **Domeniul schimbării: DOAR coloana stângă.** Coloana „Oameni" și „Documentul de
+  mâine" (foaia crem) rămân neatinse.
 - **Rollup-urile Narcis/Gabi rămân** ca acum (alea *sunt* utile: „Dus 0010 la adresă",
   „Comandat 2 poziții").
 - **Cardurile 🔧 mentenanță și 📝 notițe rămân** ca secțiuni proprii sub digest — alea
