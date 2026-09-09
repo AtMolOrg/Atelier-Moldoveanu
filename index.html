@@ -1223,16 +1223,21 @@
         }
       });
     });
-    // drag & drop — the project itself, dragged by the head of its current "proiect" stage column
+    // în timpul unui drag în pipeline: mărește zonele unde poți „da drumul" (coloanele goale sunt altfel un fir de 32px)
+    function pipeDndOn(){ document.body.classList.add('pipe-dnd'); }
+    function pipeDndOff(){ document.body.classList.remove('pipe-dnd'); }
+    // drag & drop — the project itself, dragged by the head of its current stage column
     document.querySelectorAll('[data-proj-drag]').forEach(function(el){
       el.addEventListener('dragstart', function(e){
         var payload = 'PRJ::' + el.dataset.projDrag;
         draggingData = payload;
         el.closest('.proj-stage-box').classList.add('dragging');
+        pipeDndOn();
         e.dataTransfer.setData('text/plain', payload);
       });
       el.addEventListener('dragend', function(){
         el.closest('.proj-stage-box') && el.closest('.proj-stage-box').classList.remove('dragging');
+        pipeDndOff();
         draggingData = null;
       });
     });
@@ -1242,9 +1247,10 @@
         var payload = 'PC::' + card.dataset.piece;
         draggingData = payload;
         card.classList.add('dragging');
+        pipeDndOn();
         e.dataTransfer.setData('text/plain', payload);
       });
-      card.addEventListener('dragend', function(){ card.classList.remove('dragging'); draggingData=null; });
+      card.addEventListener('dragend', function(){ card.classList.remove('dragging'); pipeDndOff(); draggingData=null; });
     });
 
     // project orders panel — materiale de comandat
