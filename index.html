@@ -978,7 +978,17 @@
     h += '<div class="plan-cols">';
     h += '<div class="plan-col plan-col-left"><div class="plan-col-h">Sarcini</div>' + renderDerivedColumn(plan) + '</div>';
     h += '<div class="plan-col plan-col-mid"><div class="plan-col-h">Oameni</div>' + renderPeopleColumn(plan) + '</div>';
-    h += '<div class="plan-col plan-col-right"><div class="plan-col-h">Documentul de mâine ' + (plan.edits && Object.keys(plan.edits).length ? '<button type="button" class="btn btn-xs" data-org-reset>reset editări</button>' : '') + '</div><div id="org-sheet">' + renderOrgSheet(plan) + '</div></div>';
+    h += '<div class="plan-col plan-col-right"><div class="plan-col-h">Documentul de mâine ' + (plan.edits && Object.keys(plan.edits).length ? '<button type="button" class="btn btn-xs" data-org-reset>reset editări</button>' : '') + '</div>';
+    h += '<div id="org-sheet">' + renderOrgSheet(plan) + '</div>';
+    h += '<div class="org-actions">';
+    h += '<button type="button" class="btn btn-sm" data-org="pdf">Descarcă PDF</button>';
+    h += '<button type="button" class="btn btn-sm" data-org="word">Descarcă pentru Word</button>';
+    h += '<button type="button" class="btn btn-sm" data-org="copy">Copiază</button>';
+    h += '<span class="rs-grow"></span>';
+    if(plan.finalizedAt) h += '<span class="org-final">finalizat ' + esc(fmtDateTime(plan.finalizedAt)) + '</span>';
+    else h += '<button type="button" class="btn btn-sm btn-primary" data-org="final">Finalizează ziua</button>';
+    h += '</div>';
+    h += '</div>';
     h += '</div>';
     h += '</div>';
     board.innerHTML = h;
@@ -1064,6 +1074,50 @@
     h += '</div>';
     return h;
   }
+  function orgSheetWordHtml(plan){
+    var body = renderOrgSheet(plan).replace(/ contenteditable="true"/g, '').replace(/ data-os-line="[^"]*"/g, '');
+    return '<!doctype html><html><head><meta charset="utf-8"><title>ORGANIZARE ' + esc(plan.date) + '</title>'
+      + '<style>body{font-family:Georgia,"Times New Roman",serif;color:#202226;font-size:14px;line-height:1.5;padding:24px}'
+      + '.os-brand{text-align:center;font-weight:600;letter-spacing:.22em;font-size:16px}'
+      + '.os-date,.os-rem{text-align:center;color:#5f636b}.os-rem{font-style:italic}'
+      + 'hr{border:0;border-top:1px solid #c9c3b8;margin:14px 0}.os-who{font-weight:600;margin:12px 0 3px}'
+      + '.os-list{margin:0 0 6px;padding-left:22px}.os-done{text-decoration:line-through;color:#8a8d93}</style></head><body>'
+      + body + '</body></html>';
+  }
+  function downloadBlob(name, mime, text){
+    try {
+      var blob = new Blob([text], { type: mime });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+    } catch(e){ showToast('Descărcarea a eșuat.', true); }
+  }
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ showToast('Copiat.'); }, function(){ execCopy(text); });
+    } else execCopy(text);
+  }
+  function execCopy(text){
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showToast('Copiat.'); } catch(e){ showToast('Nu am putut copia.', true); }
+    document.body.removeChild(ta);
+  }
+  function finalizeDay(dateIso){
+    var plan = planFor(dateIso);
+    plan.finalizedAt = new Date().toISOString();
+    commitPlan(plan);
+    if(typeof logEvent === 'function') logEvent('plan-finalizat', dateIso, { date: dateIso, tasks: (plan.tasks || []).length });
+    if(typeof pruneLog === 'function') pruneLog();
+    saveState();
+    currentPlanDate = isoOf(addDays(parseDate(dateIso), 1));
+    render();
+    showToast('Ziua finalizată. Trecut la ' + planDateLabel(currentPlanDate) + '.');
+  }
+
   function orgSheetText(plan){
     var out = 'ORGANIZARE — ' + planDateLabel(plan.date) + '\n';
     (state.reminders || []).forEach(function(r){ if((r || '').trim()) out += r + '\n'; });
@@ -1247,6 +1301,16 @@
     });
     var orgReset = document.querySelector('[data-org-reset]');
     if(orgReset) orgReset.addEventListener('click', function(){ plan.edits = {}; commitPlan(plan); saveState(); render(); });
+
+    document.querySelectorAll('[data-org]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var act = b.dataset.org;
+        if(act === 'pdf'){ document.body.classList.add('printing-org'); window.print(); setTimeout(function(){ document.body.classList.remove('printing-org'); }, 400); }
+        else if(act === 'word'){ downloadBlob('ORGANIZARE-' + plan.date + '.doc', 'application/msword', orgSheetWordHtml(plan)); }
+        else if(act === 'copy'){ copyText(orgSheetText(plan)); }
+        else if(act === 'final'){ if(confirm('Finalizezi planul pentru ' + planDateLabel(plan.date) + '?')) finalizeDay(plan.date); }
+      });
+    });
   }
 
   /* ================= HARTĂ ATELIER ================= */

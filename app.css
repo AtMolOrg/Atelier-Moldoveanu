@@ -334,6 +334,16 @@
   .org-sheet .os-list li:focus{ outline:2px solid rgba(239,143,99,.6); outline-offset:2px; border-radius:2px; }
   .org-sheet .os-done{ text-decoration:line-through; color:#8a8d93; }
   .org-sheet .os-empty{ color:#8a8d93; font-style:italic; }
+  .org-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:12px; }
+  .org-final{ font-size:11px; color:var(--ok-ink); }
+  @media print{
+    .topbar, #main > *:not(#board){ display:none !important; }
+    body, #main, #board, .plan-board, .plan-wrap{ background:#fff !important; padding:0 !important; margin:0 !important; }
+    .plan-datebar, .roster-panel, .plan-col-left, .plan-col-mid, .plan-col-h, .org-actions{ display:none !important; }
+    .plan-cols{ display:block !important; }
+    .plan-col-right{ border:0 !important; padding:0 !important; background:#fff !important; }
+    .org-sheet{ box-shadow:none !important; border-radius:0 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
   @media (max-width:1000px){ .plan-cols{ grid-template-columns:1fr; } }
 
   /* comenzi materiale — rânduri într-un panou îngust: stare+text+șterge sus, cantitate+furnizor jos */
