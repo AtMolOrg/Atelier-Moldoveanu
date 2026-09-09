@@ -2,7 +2,7 @@
 
 **Autor:** Nick (manager de atelier) + Claude
 **Data:** 2026-09-09
-**Stare:** schiță pentru revizuire
+**Stare:** decizii luate (secțiunea 11), gata de plan de implementare
 
 ---
 
@@ -49,8 +49,13 @@ candidat (nerepartizate):
 | piese la Debitare, niciuna la Sudură | „Sudat &lt;proiect&gt;" | sudori |
 | toate piesele la montaj + comenzile primite | „Montaj &lt;proiect&gt; — &lt;adresă&gt; RAL &lt;x&gt;" | echipă montaj |
 | piese `pregatire` alături de piese pornite | „Debitat &lt;proiect&gt; (&lt;n&gt; piese neîncepute)" | Nea Marian / Mircea |
+| proiect la `proiectare`, fără piese definite / nelansate | „Scos de execuție &lt;proiect&gt;" | proiectanți (Bianca, Radian) |
 | `projectWarnings` „comandă neprimită" | „Recepție / urmărit comandă &lt;proiect&gt;" | Gabi |
 | termen &lt; azi și nu e la montaj | „⚠ &lt;proiect&gt; întârziat &lt;N&gt;z" | Nick (de urmărit) |
+
+Proiectanții (Bianca, Radian) **nu** sunt „doar sarcini manuale" — au un rol
+derivabil: sunt cei care mută un proiect din proiectare în producție. Generatorul
+„Scos de execuție" este frontul pipeline-ului.
 
 Cardul se trage în dreapta pe un om. După repartizare dispare din stânga (sau se
 estompează cu „→ &lt;nume&gt;"). Cardurile nederivabile (ex. „Prototip ușă Orsay")
@@ -63,9 +68,9 @@ sarcină liberă direct. Narcis și Gabi vin pre-completați cu rollup-urile lor
 O bifă „azi lipsește" scoate omul din foaie și îi mută sarcinile în Resturi.
 
 ### 3.3 Dreapta — Documentul de mâine (foaia crem)
-Randare live a foii ORGANIZARE: antet + reminder-e fixe, apoi un bloc per om în
-ordinea roster-ului, apoi „Resturi". Fiecare linie e **editabilă pe loc**
-(`contenteditable`) — ajustezi o formulare fără să atingi datele. Butoane:
+Randare live a foii ORGANIZARE: antet + **reminder-e fixe** (secțiunea 4.5), apoi un
+bloc per om în ordinea roster-ului, apoi „Resturi". Fiecare linie e **editabilă pe
+loc** (`contenteditable`) — ajustezi o formulare fără să atingi datele. Butoane:
 
 - **Descarcă PDF** — `window.print()` cu stil de print care arată doar foaia crem;
   browserul face PDF-ul, cu fonturile intacte. Zero dependințe.
@@ -80,15 +85,21 @@ ordinea roster-ului, apoi „Resturi". Fiecare linie e **editabilă pe loc**
 `DATA_VERSION` rămâne **8**. Chei noi, completate în `normalizeState` (idempotent,
 determinist, fără `Date.now()`):
 
-### 4.1 `state.people` — roster
+### 4.1 `state.people` — roster / bază de date de angajați
 ```
-{ id, name, active: true, role: 'atelier' | 'coord' | 'birou', order: int, awayDates: [] }
+{ id, name, active: true, role: 'atelier' | 'coord' | 'birou' | 'proiectant', order: int, awayDates: [] }
 ```
 - Cheie **nouă**, separată de `state.workers` (care rămâne doar furnizori — migrarea
   lui îi șterge activ pe ceilalți).
-- Seed inițial: gol; Nick adaugă oamenii o dată. Sau seed din numele văzute în
-  ultimele foi, dacă Nick vrea.
-- Nick, Narcis, Gabi → `role: 'coord'`.
+- **Pre-completat** din numele din cele 6 foi ORGANIZARE (Andrei, Dic, Hadi, Eugen,
+  Alin, Mihăiță/Mihi, Dorin, Nea Marian, Narcis, Vlad, Nick, Mircea, Bianca, Radian,
+  Gabi, Mihai). Nick verifică/curăță o dată.
+- **Funcție reală de administrare:** adaugă / redenumește / dezactivează / șterge
+  membri, reordonează. E o mică bază de date de personal, nu o listă fixă. UI: un
+  sub-panou „Angajați" (în setări sau în tab-ul Planificare — se decide la
+  implementare).
+- Nick, Narcis, Gabi → `role: 'coord'`. Bianca, Radian → `role: 'proiectant'`.
+- `awayDates: []` — zile în care omul lipsește; îl scoate din foaia acelei zile.
 
 ### 4.2 `state.plans` — planul pe zi
 ```
@@ -127,11 +138,32 @@ undo-ul. Acum e subutilizat (4 tipuri). Extindem:
 - Cap la scriere: nodul nu se șterge singur; adăugăm o curățare periodică
   (păstrează ultimele ~3000 sau ultimele 90 de zile) rulată la `Finalizează ziua`.
 
-### 4.4 `state.playbook` — caietul de atelier (faza 4)
+### 4.4 `state.playbook` — caietul de atelier (faza 5)
 ```
 { updatedAt, text: '<markdown: cum lucrează atelierul ăsta>' }
 ```
 Panou read-only în tab, editabil de Nick, actualizat de un pas LLM de seară.
+
+### 4.5 `state.reminders` — rândurile fixe din capul foii
+```
+[ 'Suflat flexurile la final de zi', 'Sa se respecte ordinea taskurilor!' ]
+```
+- Apar pe **fiecare** foaie, indiferent de zi.
+- **Editabile** — Nick le schimbă / adaugă / șterge dintr-un loc mic în setări.
+  Default: cele două de mai sus.
+- Pe `state` (se sincronizează), nu pe fiecare `plan`. Un `plan` poate suprascrie
+  local lista pentru o zi anume, dar cazul normal e lista globală.
+
+### 4.6 Câmpuri noi pe proiect
+```
+p.adresaMontaj : ''   // adresa unde se face montajul — pentru rollup-ul lui Narcis
+p.telClient    : ''   // numărul de telefon al clientului — Narcis sună clienții
+```
+- Ambele în modalul de proiect (Editează / Proiect nou).
+- `adresaMontaj` intră în cardul „Montaj &lt;proiect&gt; — &lt;adresă&gt; RAL &lt;x&gt;"
+  și în secțiunea lui Narcis.
+- `telClient` apare lângă adresă pe foaie, unde e cazul.
+- Backfill `''` în `normalizeState`.
 
 ## 5. Sarcini derivate — generatoare (stânga)
 
@@ -145,8 +177,7 @@ mică; Nick poate dezactiva reguli dacă zgomotesc.
 ## 6. Rollup Narcis & Gabi
 
 `deriveNarcisTasks(state, date)`:
-- montajele de mâine → „Dus &lt;proiect&gt; la &lt;adresă&gt;" (adresa: câmp nou
-  `p.adresaMontaj`, sau din `montajNotes` până există câmpul)
+- montajele de mâine → „Dus &lt;proiect&gt; la &lt;p.adresaMontaj&gt;" (+ `p.telClient`)
 - comenzi care sosesc mâine (din `deliveryDay` al furnizorului) → „Luat de la &lt;furnizor&gt;"
 - reparații/note cu termen mâine care implică transport
 
@@ -173,7 +204,7 @@ planul zilei e `finalizedAt`):
 **Regula de siguranță:** învață → **sugerează** → Nick confirmă. Ce s-a învățat e
 vizibil și editabil. Niciodată aplicat automat, niciodată cutie neagră.
 
-### 8.1 Statistică pe jurnal (faza 3, fără LLM)
+### 8.1 Statistică pe jurnal (faza 4, fără LLM)
 `fetchLog(90)` + agregări:
 - mediană zile per etapă, per fel de proiect → termene mai realiste, avertisment
   „de obicei sudura vine la 2 zile după debitare"
@@ -181,7 +212,7 @@ vizibil și editabil. Niciodată aplicat automat, niciodată cutie neagră.
 - ridicări recurente → „RAL 5011 se ia de la Tanti Vitan, 2 tuburi" (apărut de 3×)
 Afișate ca sugestii estompate lângă cardurile relevante; un click le acceptă.
 
-### 8.2 Caietul de atelier (faza 4, cu LLM)
+### 8.2 Caietul de atelier (faza 5, cu LLM)
 Un pas de seară (buton „Actualizează caietul" sau Firebase Cloud Function
 declanșată de `plan-finalizat`, cu debounce): Claude citește evenimentele zilei +
 `state.playbook`, propune diff pe caiet, Nick confirmă. Data viitoare, asamblorul
@@ -189,7 +220,8 @@ citește caietul ca context pentru sugestii. **Nu** mereu-pornit: o dată pe sea
 
 ## 9. Migrări și constrângeri
 
-- `DATA_VERSION` = 8, neschimbat. `state.people`, `state.plans`, `state.playbook`
+- `DATA_VERSION` = 8, neschimbat. `state.people`, `state.plans`, `state.reminders`,
+  `state.playbook` și câmpurile noi de proiect (`adresaMontaj`, `telClient`)
   completate în `normalizeState` cu `typeof === 'undefined'` guard, idempotent,
   determinist, fără date curente.
 - Tăiere: `state.plans` la ultimele ~30 de zile; nodul `-log` la ~90 de zile / 3000
@@ -205,26 +237,29 @@ citește caietul ca context pentru sugestii. **Nu** mereu-pornit: o dată pe sea
 
 ## 10. Fazare
 
-1. **Faza 1 (nucleul util):** roster + asamblor 3 coloane + rollup Narcis/Gabi +
-   foaia crem + export PDF/Word + extinderea jurnalului. Fără învățare.
-2. **Faza 2:** modul de dimineață + bifat + ↻ carryover.
-3. **Faza 3:** sugestii statistice din jurnal.
-4. **Faza 4:** caietul de atelier + pasul LLM de seară.
+1. **Faza 1 (nucleul util):** roster + administrare angajați + câmpuri noi pe
+   proiect (adresă montaj, tel client) + reminder-e editabile + asamblor 3 coloane
+   (cu generatorul „Scos de execuție") + rollup Narcis/Gabi + foaia crem + export
+   PDF/Word + extinderea jurnalului. Fără învățare.
+2. **Faza 2:** modul de dimineață (comută automat după oră) + bifat + ↻ carryover.
+3. **Faza 3:** vederea de săptămână — pregătești mai multe zile în avans (luni
+   vinerea), foaia zilnică rămâne unitatea.
+4. **Faza 4:** sugestii statistice din jurnal.
+5. **Faza 5:** caietul de atelier + pasul LLM de seară.
 
 Fiecare fază = software funcțional, testabil singur.
 
-## 11. Întrebări deschise pentru Nick
+## 11. Decizii (Nick, 2026-09-09)
 
-1. **Adresa de montaj:** câmp nou `p.adresaMontaj` pe proiect, sau lăsăm în
-   `montajNotes` până se strânge nevoia?
-2. **Roster:** îl populezi tu manual o dată, sau vrei să-l pre-completez din numele
-   din ultimele 6 foi ORGANIZARE?
-3. **Reminder-ele fixe** din antet („Suflat flexurile…", „Sa se respecte ordinea…") —
-   listă editabilă în setări, sau hardcodate?
-4. **Modul de dimineață:** comutator manual, sau se schimbă singur după oră / după ce
-   apeși „Finalizează ziua"?
-5. **Rolurile birou** (Bianca, Radian) — au sarcini greu de derivat („scos de
-   execuție", „caiet proiect"). Le tratăm ca oameni normali cu sarcini doar manuale,
-   sau merită un generator separat mai târziu?
-6. **Zilele libere / weekend:** planul e strict „mâine", sau vrei să poți pregăti și
-   „luni" vinerea?
+1. **Adresă montaj + telefon client** → câmpuri noi pe proiect (`p.adresaMontaj`,
+   `p.telClient`), în modal, folosite de rollup-ul lui Narcis. (§4.6)
+2. **Roster** → pre-completat din cele 6 foi + **funcție de administrare** completă
+   (adaugă / scoate / editează angajați) — o mică bază de date de personal. (§4.1)
+3. **Reminder-ele fixe** → rămân fixe pe foaie, dar **editabile** dintr-un loc mic în
+   setări; Nick le schimbă când e cazul. (§4.5)
+4. **Modul de dimineață** → seara faci planul; dimineața doar bifezi. Comutarea
+   seară↔dimineață se face **automat după oră**. E faza 2.
+5. **Bianca & Radian** = proiectanți → **au generator** („Scos de execuție &lt;proiect&gt;"
+   la frontul pipeline-ului), nu doar sarcini manuale. (§5, tabel 3.1)
+6. **Săptămână** → se pregătește și „luni" vinerea; în plus, o **vedere de
+   săptămână** ca fază proprie (faza 3).
