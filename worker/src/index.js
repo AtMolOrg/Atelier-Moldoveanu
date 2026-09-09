@@ -44,7 +44,7 @@ export default {
     let system, user, maxTokens;
 
     if (task === "summary") {
-      maxTokens = 320;
+      maxTokens = 600;
       system =
         "Ești asistentul unui manager de atelier de metal (tâmplărie metalică, balustrade, " +
         "structuri). Primești starea unui proiect ca date structurate. Rezumă în 2–4 propoziții " +
@@ -81,7 +81,12 @@ export default {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents: [{ role: "user", parts: [{ text: user }] }],
-          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4 },
+          generationConfig: {
+            maxOutputTokens: maxTokens,
+            temperature: 0.4,
+            // modelele noi Gemini „gândesc" pe tokeni de output; fără asta iese trunchiat
+            thinkingConfig: { thinkingBudget: 0 },
+          },
         }),
       });
       data = await g.json();
@@ -90,8 +95,10 @@ export default {
     }
     if (!g.ok) return json({ error: "gemini", status: g.status, detail: data }, 502);
 
-    const parts = (((data.candidates || [])[0] || {}).content || {}).parts || [];
+    const cand = (data.candidates || [])[0] || {};
+    const parts = (cand.content || {}).parts || [];
     const text = parts.map((p) => p.text || "").join("").trim();
+    if (!text) return json({ error: "gol", finishReason: cand.finishReason || null, detail: data }, 502);
     return json({ text });
   },
 };
