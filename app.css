@@ -276,6 +276,18 @@
   .rep-sb.rezolvata{ color:var(--ok-ink); border-color:var(--ok-line); }
   .rep-del{ background:none; border:0; color:var(--ink-faint); cursor:pointer; font-size:14px; line-height:1; padding:0 2px; }
   .rep-del:hover{ color:var(--accent); }
+  .rep-piece-btn{ flex:none; background:var(--panel-2); border:1px solid var(--border); color:var(--ink-dim);
+    border-radius:6px; padding:2px 7px; cursor:pointer; font-size:11px; font-family:inherit; white-space:nowrap; }
+  .rep-piece-btn:hover{ border-color:var(--border-strong); color:var(--ink); }
+  .rep-pieces{ display:inline-flex; flex-wrap:wrap; gap:4px; vertical-align:middle; margin-left:2px; }
+  .rep-piece-chip{ font-size:10px; background:var(--panel-3); border:1px solid var(--border); color:var(--ink-dim);
+    border-radius:5px; padding:1px 6px; white-space:nowrap; }
+  .rep-piece-pick{ display:flex; flex-wrap:wrap; gap:5px 8px; padding:6px 2px 8px; border-top:1px dashed var(--hair); }
+  .rep-piece-opt{ display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-dim);
+    background:var(--panel-2); border:1px solid var(--border); border-radius:6px; padding:3px 8px; cursor:pointer; }
+  .rep-piece-opt.on{ border-color:var(--montaj-ink); color:var(--ink); }
+  .rep-piece-opt .rp-col{ color:var(--ink-faint); font-size:10px; }
+  .rep-piece-opt input{ margin:0; accent-color:var(--accent); }
   .rep-add{ display:flex; gap:8px; margin-top:9px; align-items:center; }
   .rep-add-inp{ flex:1; min-width:0; background:transparent; border:0; border-bottom:1px solid var(--hair);
     color:var(--ink); font-family:inherit; border-radius:0; padding:5px 2px; font-size:11.5px; }

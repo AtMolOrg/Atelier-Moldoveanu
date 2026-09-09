@@ -71,6 +71,7 @@
   var regMoreOpen = {}; // "<projectId>" -> true while that row's ⋯ details/edit box is open (transient; not persisted)
   var regFilter = 'active'; // 'active' | 'done' | 'reps' | 'all' — registru filter (transient; not persisted)
   var regSort = 'termen';   // 'termen' | 'urgenta' | 'cod' | 'faza' — sort in fiecare găleată (transient; not persisted)
+  var repPieceOpen = {};    // "<repairId>" -> true cât timp e deschisă lista de piese a reparației (transient)
   var PIECE_MONTAJ = '__montaj__'; // pc.stationId sentinel: piece is done on the floor, sent to montaj
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
@@ -268,9 +269,17 @@
     if(!Array.isArray(parsed.repairs)) parsed.repairs = [];
     // reparațiile se leagă de proiect prin projectId; codul rămâne doar etichetă de rezervă
     parsed.repairs.forEach(function(r){
-      if(r.projectId || !r.cod) return;
-      var target = (parsed.projects || []).find(function(p){ return (p.cod || '').trim().toLowerCase() === (r.cod || '').trim().toLowerCase(); });
-      if(target) r.projectId = target.id;
+      if(!r.projectId && r.cod){
+        var target = (parsed.projects || []).find(function(p){ return (p.cod || '').trim().toLowerCase() === (r.cod || '').trim().toLowerCase(); });
+        if(target) r.projectId = target.id;
+      }
+      // o reparație poate viza una sau mai multe piese ale proiectului
+      if(!Array.isArray(r.pieceIds)) r.pieceIds = [];
+      var proj = r.projectId ? (parsed.projects || []).find(function(p){ return p.id === r.projectId; }) : null;
+      if(proj){
+        var ids = {}; (proj.pieces || []).forEach(function(pc){ ids[pc.id] = true; });
+        r.pieceIds = r.pieceIds.filter(function(id){ return ids[id]; }); // scapă de piesele șterse între timp
+      }
     });
     if(!Array.isArray(parsed.workers)) parsed.workers = [];
     // funcția de echipă/oameni a fost scoasă — păstrăm doar furnizorii, aruncăm restul
@@ -902,14 +911,28 @@
     var h = '<div class="reg-reps">';
     h += '<div class="reg-reps-h">🔧 Reparații <span>(' + reps.length + ')</span></div>';
     if(!reps.length) h += '<div class="reg-reps-none">Nicio reparație.</div>';
+    var pieces = p.pieces || [];
+    var pieceName = function(id){ var pc = pieces.find(function(x){ return x.id === id; }); return pc ? pc.name : '?'; };
     reps.forEach(function(r){
       var cls = r.status === 'deschisa' ? 'deschisa' : (r.status === 'in-lucru' ? 'lucru' : 'rezolvata');
       var lbl = r.status === 'deschisa' ? 'deschisă' : (r.status === 'in-lucru' ? 'în lucru' : 'rezolvată');
+      var pids = Array.isArray(r.pieceIds) ? r.pieceIds : [];
       h += '<div class="rep-line' + (r.status === 'rezolvata' ? ' res' : '') + '">';
       h += '<button type="button" class="rep-sb ' + cls + '" data-rep-cyc="' + r.id + '">' + lbl + '</button>';
-      h += '<span class="rep-d">' + esc(r.descriere || '') + '</span>';
+      h += '<span class="rep-d">' + esc(r.descriere || '');
+      if(pids.length) h += ' <span class="rep-pieces">' + pids.map(function(id){ return '<span class="rep-piece-chip">' + esc(pieceName(id)) + '</span>'; }).join('') + '</span>';
+      h += '</span>';
+      if(pieces.length) h += '<button type="button" class="rep-piece-btn" data-rep-piece-toggle="' + r.id + '" title="Piese vizate">🧩' + (pids.length ? ' ' + pids.length : '') + '</button>';
       h += '<button type="button" class="rep-del" data-rep-del="' + r.id + '" title="Șterge reparația">×</button>';
       h += '</div>';
+      if(pieces.length && repPieceOpen[r.id]){
+        h += '<div class="rep-piece-pick">';
+        h += pieces.map(function(pc){
+          var on = pids.indexOf(pc.id) !== -1;
+          return '<label class="rep-piece-opt' + (on ? ' on' : '') + '"><input type="checkbox" data-rep-piece="' + r.id + '::' + pc.id + '"' + (on ? ' checked' : '') + '>' + esc(pc.name) + (pc.colorCode ? ' <span class="rp-col">' + esc(pc.colorCode) + '</span>' : '') + '</label>';
+        }).join('');
+        h += '</div>';
+      }
     });
     h += '<div class="rep-add"><input type="text" class="rep-add-inp" data-rep-new="' + p.id + '" placeholder="problemă nouă la ' + esc(p.cod) + '…"><button type="button" class="btn btn-xs" data-rep-add="' + p.id + '">+ Reparație</button></div>';
     h += '</div>';
@@ -1389,7 +1412,7 @@
         var v = inp ? inp.value.trim() : '';
         if(!v){ if(inp) inp.classList.add('bad'); return; }
         if(!Array.isArray(state.repairs)) state.repairs = [];
-        state.repairs.push({ id: uid(), projectId: pid, cod: p ? p.cod : '', client: p ? p.client : '', descriere: v, data: isoToday(), status: 'deschisa' });
+        state.repairs.push({ id: uid(), projectId: pid, cod: p ? p.cod : '', client: p ? p.client : '', descriere: v, data: isoToday(), status: 'deschisa', pieceIds: [] });
         saveState(); render();
       });
     });
@@ -1401,6 +1424,28 @@
         if(btn) btn.click();
       });
       inp.addEventListener('click', function(e){ e.stopPropagation(); });
+    });
+    document.querySelectorAll('[data-rep-piece-toggle]').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = b.dataset.repPieceToggle;
+        repPieceOpen[id] = !repPieceOpen[id];
+        render();
+      });
+    });
+    document.querySelectorAll('[data-rep-piece]').forEach(function(cb){
+      cb.addEventListener('change', function(e){
+        e.stopPropagation();
+        var parts = cb.dataset.repPiece.split('::');
+        var r = (state.repairs || []).find(function(x){ return x.id === parts[0]; });
+        if(!r) return;
+        if(!Array.isArray(r.pieceIds)) r.pieceIds = [];
+        var i = r.pieceIds.indexOf(parts[1]);
+        if(cb.checked && i === -1) r.pieceIds.push(parts[1]);
+        else if(!cb.checked && i !== -1) r.pieceIds.splice(i, 1);
+        saveState(); render();
+      });
+      cb.addEventListener('click', function(e){ e.stopPropagation(); });
     });
   }
 
