@@ -22,9 +22,5 @@
   },
   "database": {
     "rules": "database.rules.json"
-  },
-  "functions": {
-    "source": "functions",
-    "ignore": ["node_modules", ".git", "*.log"]
   }
 }

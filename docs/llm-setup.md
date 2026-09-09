@@ -1,54 +1,61 @@
-# Activarea rezumatelor AI (Cloud Function „llm")
+# Activarea rezumatelor AI — Cloudflare Worker + Gemini (tot gratis)
 
 Rezumatele **descriptive** din tab-ul Planificare merg fără nimic. Pasul ăsta
 adaugă **rezumatele narative AI** (butoanele ↻) și „Propune actualizare" pentru
-caietul de atelier. Se face **o singură dată**.
+caietul de atelier. **0 lei**, fără card nicăieri. Se face **o singură dată**.
 
-## Ce e
+## De ce așa
 
-`functions/index.js` = o funcție HTTPS pe Firebase care ține cheia API Anthropic
-și cheamă Claude. Aplicația web nu poate chema Claude direct — cheia ar fi publică.
+O aplicație web nu poate chema direct un LLM — cheia API ar fi vizibilă oricui.
+Deci trece printr-un mic server care ține cheia. Alegerea: **Cloudflare Worker**
+(free, fără card) care cheamă **Gemini API** (free tier, fără card). Zero Firebase
+Blaze, zero facturare.
 
-Endpoint după deploy: `https://europe-west1-atelier-m-cccb6.cloudfunctions.net/llm`
-(deja pus în `index.html`, `LLM_URL`).
+`worker/src/index.js` = codul. Contractul e același ca înainte
+(`POST {task, ...} → {text}`), deci se poate schimba oricând pe alt LLM.
 
-## Setup (Nick, în terminal, din rădăcina proiectului)
+## Setup (Nick, din folderul `worker/`)
 
-**1. Plan Blaze.** Cloud Functions nu merg pe planul gratuit Spark. Din consola
-Firebase → proiectul `atelier-m-cccb6` → Upgrade → Blaze (pay-as-you-go). Ai și
-un buget de alertă dacă vrei (ex. 5 USD/lună — n-o să-l atingi).
+**1. Cheie Gemini.** <https://aistudio.google.com/apikey> → „Create API key".
+Gratis, fără card, fără proiect de facturare.
 
-**2. Cheia API.** Din <https://console.anthropic.com> → API Keys → creezi una.
-Apoi:
+**2. Wrangler (CLI Cloudflare):**
 ```
-firebase functions:secrets:set ANTHROPIC_API_KEY
+npm install -g wrangler
 ```
-Lipești cheia când o cere. Rămâne la Google (Secret Manager), **nu** în cod, nu
-în git, nu la altcineva.
+(sau folosești `npx wrangler ...` peste tot mai jos, fără install)
 
-**3. Dependințe + deploy:**
+**3. Login + secret + deploy:**
 ```
-cd functions && npm install && cd ..
-firebase deploy --only functions
+cd worker
+npx wrangler login
+npx wrangler secret put GEMINI_API_KEY     # lipești cheia când o cere
+npx wrangler deploy
 ```
-Dacă `firebase` nu e instalat: `npm install -g firebase-tools` apoi `firebase login`.
+Ultima comandă afișează URL-ul, de forma:
+`https://atelier-llm.NUMELE-TAU.workers.dev`
 
-**4. Gata.** În tab-ul Planificare apar butoanele **↻** pe fiecare rând care „cere
-atenție" + **↻ rezumă tot** în cap. Click → rezumatul narativ. Se regenerează doar
-când faptele proiectului s-au schimbat.
+**4. Pui URL-ul în aplicație.** În `index.html`, constanta `LLM_URL` (caută
+`var LLM_URL`), lipești URL-ul între ghilimele. Commit + push.
 
-## Cost
+**5. Gata.** În tab-ul Planificare apar butoanele **↻** pe rândurile care „cer
+atenție" + **↻ rezumă tot** în cap. Se regenerează doar când faptele proiectului
+s-au schimbat.
 
-Model `haiku` (în `functions/index.js`, constanta `MODEL`). ~15 apeluri per
-sesiune de planificare = câțiva cenți pe zi. Dacă vrei rezumate mai bune, schimbă
-`MODEL` în `claude-sonnet-5` — de câteva ori mai scump, tot mărunt.
+## Limite free tier
+
+- **Cloudflare Workers:** 100.000 cereri/zi. Nici pe departe o problemă.
+- **Gemini `gemini-2.5-flash`:** ~10 cereri/minut, câteva sute/zi pe free tier.
+  Pentru ~15 rezumate per sesiune de planificare e mult peste nevoie. Dacă vreodată
+  atingi limita, schimbă `MODEL` în `worker/src/index.js` pe `gemini-2.0-flash` sau
+  `gemini-2.5-flash-lite` (limite mai mari).
 
 ## Dacă nu faci pasul ăsta
 
-Nimic nu se strică. Butoanele ↻ apar dar dau „apel eșuat" la click, iar rezumatul
-determinist rămâne — care oricum e ~70% din valoare.
+Nimic nu se strică. `LLM_URL` gol → butoanele ↻ nici nu apar, rămâne rezumatul
+determinist (care e ~70% din valoare).
 
-## Contract (dacă vrei să modifici funcția)
+## Contract (dacă modifici worker-ul)
 
 `POST` cu unul din:
 - `{ task: "summary", cod, facts, playbook }` → `{ text }` (2–4 propoziții)

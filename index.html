@@ -970,10 +970,10 @@
   // Faza 5 — caiet de atelier: un pas LLM de seară actualizează state.playbook.
   // Pune aici URL-ul unei Firebase Cloud Function (sau alt endpoint) care primește
   // { events, playbook } și întoarce { text } — textul nou propus. Gol = pas manual.
-  // Cloud Function „llm" (functions/index.js) — ține cheia API și cheamă Claude.
-  // Merge doar după ce Nick a făcut setup-ul (plan Blaze + secret ANTHROPIC_API_KEY + deploy).
-  // Până atunci: butoanele ↻ apar dar dau eroare la click; rezumatul determinist rămâne.
-  var LLM_URL = 'https://europe-west1-atelier-m-cccb6.cloudfunctions.net/llm';
+  // Endpoint LLM = Cloudflare Worker (worker/src/index.js) care ține cheia Gemini.
+  // Tot gratis (Workers free + Gemini free tier). După `npx wrangler deploy`, lipești
+  // aici URL-ul „…workers.dev" și dai push. Gol / nemodificat = doar rezumatul determinist.
+  var LLM_URL = ''; // ex: 'https://atelier-llm.NUMELE-TAU.workers.dev'
   var PLAYBOOK_LLM_URL = LLM_URL;
   var SUMMARY_LLM_URL = LLM_URL;
   var caietOpen = false;
