@@ -33,6 +33,7 @@
     <div class="tabs" id="tabs">
       <button data-tab="hala" class="active">Hartă atelier</button>
       <button data-tab="comenzi">Comenzi</button>
+      <button data-tab="planificare">Planificare</button>
     </div>
     <div class="topbar-actions">
       <button class="btn btn-primary" id="btn-add">+ Proiect nou</button>
@@ -740,6 +741,7 @@
     board.style.minHeight = '';
     if(tab === 'hala') renderHala();
     else if(tab === 'comenzi') renderComenzi();
+    else if(tab === 'planificare') renderPlanificare();
     updateUndoButtons();
 
     if(focusSel){
@@ -752,6 +754,87 @@
       }
     }
     if(mainEl) mainEl.scrollTop = scrollTop;
+  }
+
+  /* ================= PLANIFICARE (organizare zilnică) ================= */
+  var currentPlanDate = null; // 'YYYY-MM-DD' — inițializat lazy la ziua de mâine
+  var planSettingsOpen = false;
+  var MON_SHORT = ['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','noi','dec'];
+
+  function planTomorrowIso(){ return isoOf(addDays(todayDate(), 1)); }
+  function ensurePlanDate(){ if(!currentPlanDate) currentPlanDate = planTomorrowIso(); return currentPlanDate; }
+  function shiftPlanDate(n){ currentPlanDate = isoOf(addDays(parseDate(ensurePlanDate()), n)); }
+
+  function peopleSorted(includeInactive){
+    return (state.people || []).filter(function(p){ return includeInactive || p.active; })
+      .slice().sort(function(a, b){ return (a.order || 0) - (b.order || 0); });
+  }
+  function personById(id){ return (state.people || []).find(function(p){ return p.id === id; }) || null; }
+
+  // planul unei zile; NU e împins în state.plans până nu se scrie ceva (commitPlan)
+  function planFor(dateIso){
+    var found = (state.plans || []).find(function(pl){ return pl.date === dateIso; });
+    if(found) return found;
+    return { date: dateIso, tasks: [], resturi: [], edits: {}, finalizedAt: null };
+  }
+  function commitPlan(plan){
+    if(!Array.isArray(state.plans)) state.plans = [];
+    if(state.plans.indexOf(plan) === -1 && !state.plans.some(function(pl){ return pl.date === plan.date; })){
+      state.plans.push(plan);
+    }
+  }
+
+  function planDateLabel(iso){
+    var d = parseDate(iso); if(!d) return iso;
+    var zi = ZI_NAME[d.getDay()];
+    return zi.charAt(0).toUpperCase() + zi.slice(1) + ' ' + d.getDate() + ' ' + MON_SHORT[d.getMonth()];
+  }
+
+  function renderPlanificare(){
+    var board = document.getElementById('board');
+    board.className = 'plan-board';
+    board.style.display = 'block';
+    board.style.height = 'auto';
+    board.style.minHeight = '100%';
+    ensurePlanDate();
+    var plan = planFor(currentPlanDate);
+
+    var h = '<div class="plan-wrap">';
+    h += '<div class="plan-datebar">';
+    h += '<button type="button" class="btn btn-sm" data-plan-day="prev" title="Ziua anterioară">‹</button>';
+    h += '<span class="pd-label">plan pentru <b>' + esc(planDateLabel(currentPlanDate)) + '</b></span>';
+    h += '<button type="button" class="btn btn-sm" data-plan-day="next" title="Ziua următoare">›</button>';
+    h += '<button type="button" class="btn btn-sm" data-plan-day="today">mâine</button>';
+    h += '</div>';
+
+    h += '<div class="plan-cols">';
+    h += '<div class="plan-col plan-col-left"><div class="plan-col-h">Sarcini</div><div class="plan-derived-slot"></div></div>';
+    h += '<div class="plan-col plan-col-mid"><div class="plan-col-h">Oameni</div>' + renderPeopleColumn(plan) + '</div>';
+    h += '<div class="plan-col plan-col-right"><div class="plan-col-h">Documentul de mâine</div><div id="org-sheet"></div></div>';
+    h += '</div>';
+    h += '</div>';
+    board.innerHTML = h;
+    attachPlanEvents();
+  }
+
+  // stub — Task 4 îl umple cu sarcini + editare
+  function renderPeopleColumn(plan){
+    return '<div class="plan-people">' + peopleSorted().map(function(p){
+      return '<div class="pcol-person" data-person="' + p.id + '">'
+        + '<div class="pcol-person-h">' + esc(p.name) + ' <span class="pcol-role">' + esc(p.role) + '</span></div>'
+        + '</div>';
+    }).join('') + '</div>';
+  }
+
+  function attachPlanEvents(){
+    document.querySelectorAll('[data-plan-day]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var d = b.dataset.planDay;
+        if(d === 'today') currentPlanDate = planTomorrowIso();
+        else shiftPlanDate(d === 'prev' ? -1 : 1);
+        render();
+      });
+    });
   }
 
   /* ================= HARTĂ ATELIER ================= */
