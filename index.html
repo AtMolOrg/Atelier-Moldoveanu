@@ -358,13 +358,21 @@
     return parsed;
   }
   function resolveVersioned(parsed){
-    if(!parsed) return defaultState();
+    if(!parsed || typeof parsed !== 'object') return defaultState();
     if(parsed.version === DATA_VERSION) return normalizeState(parsed);
     if(parsed.version === 7) return normalizeState(migrateV7toV8(parsed));
     if(parsed.version === 6) return normalizeState(migrateV7toV8(migrateV6toV7(parsed)));
     if(parsed.version === 5) return normalizeState(migrateV7toV8(migrateV6toV7(migrateV5toV6(parsed))));
     if(parsed.version === 4) return normalizeState(migrateV7toV8(migrateV6toV7(migrateV5toV6(migrateV4toV5(parsed)))));
     if(parsed.version === 3) return normalizeState(migrateV7toV8(migrateV6toV7(migrateV5toV6(migrateV4toV5(migrateV3toV4(parsed))))));
+    // versiune nerecunoscută — de regulă un build mai nou care a scris deja în DB.
+    // NU șterge tabloul echipei: schema e mereu aditivă, deci normalizează best-effort ce a venit.
+    // defaultState() doar dacă într-adevăr nu e nimic salvat.
+    if((parsed.projects && parsed.projects.length) || (parsed.stations && parsed.stations.length) ||
+       (parsed.repairs && parsed.repairs.length) || (parsed.checklists && parsed.checklists.length)){
+      if(window.console && console.warn) console.warn('[data] versiune necunoscută (' + parsed.version + ') — păstrez datele, normalizez best-effort');
+      return normalizeState(parsed);
+    }
     return defaultState();
   }
   function parseOrDefault(raw){
