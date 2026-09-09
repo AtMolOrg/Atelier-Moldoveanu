@@ -16,7 +16,7 @@
  *   POST { task:"playbook", events, playbook }      -> { text }   (caietul actualizat)
  */
 
-const MODEL = "gemini-2.5-flash"; // gratis; alternativ "gemini-2.0-flash" sau "-flash-lite" (limite mai mari)
+const MODEL = "gemini-3.6-flash"; // gratis; dacă Google zice că nu mai e disponibil, pune numele pe care ți-l sugerează în eroare
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
