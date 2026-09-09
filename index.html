@@ -951,9 +951,9 @@
     var h = '<button type="button" class="reg-row ph-' + pk + '" data-toggle-reg="' + p.id + '" aria-controls="reg-detail-' + p.id + '" aria-expanded="' + (!!registryOpen[p.id]) + '">';
     h += '<i class="rr-edge"></i>';
     h += '<span class="rr-tag">' + regPhaseTag(pk) + '</span>';
-    h += '<span class="rr-cod">' + esc(p.cod) + (nr ? ' <span class="rr-rep">🔧' + nr + '</span>' : '') + '</span>';
+    h += '<span class="rr-cod">' + esc(p.cod) + '</span>';
     var cli = (p.client || '').trim();
-    h += '<span class="rr-cli">' + (cli && cli !== '-' && cli !== '—' ? esc(cli) : '') + '</span>';
+    h += '<span class="rr-cli">' + (cli && cli !== '-' && cli !== '—' ? esc(cli) : '') + (nr ? ' <span class="rr-rep">🔧' + nr + '</span>' : '') + '</span>';
     h += '<span class="rr-sigwrap">' + (att ? '<i class="rr-dot"></i>' : '') + '<span class="rr-sig k-' + sig.k + '">' + esc(sig.t) + '</span></span>';
     h += '<span class="rr-term' + (late ? ' late' : '') + '">' + (p.finalizat ? (p.finalizatAt ? esc(fmtShortDate(p.finalizatAt.slice(0,10))) : '') : (td ? esc(fmtShortDate(p.termen)) : '')) + '</span>';
     h += '</button>';

@@ -589,23 +589,26 @@ globală). Amândouă fără planul. Restul sunt incremente curate.
 
 ---
 
-## 8. Întrebări deschise pentru Nick
+## 8. Întrebări
 
-**Primele 3 (blochează Faza 1):**
+**Primele 3 — RĂSPUNSE (Nick, 2026-09-09):**
 
-1. **Când contează un element de mentenanță drept „făcut"** — când îl pui pe cineva
-   pentru mâine, sau doar când cineva îl bifează? (Decide dacă Faza 1 are nevoie de
-   bifă de dimineață / un confirm „s-a făcut?" la finalizarea zilei, sau poate avansa
-   scadența la programare.)
-2. **„Resturi" de pe foaia crem: viu sau înghețat?** Blocul „Resturi" de pe foaie e
-   inbox-ul tău permanent de notițe (deci „Usa Traian 83-75" tot apare până îl
-   omori), sau o listă per zi pe care o reumpli în fiecare seară? (Schimbă dacă
-   `plan.resturi` e store-ul viu sau doar un snapshot la finalize — §4.4.)
-3. **Captura rapidă: rămâne doar-Nick, sau per-persoană de la început?** (Ai zis „eu"
-   — confirmă; per-persoană e ieftin de adăugat mai târziu, dar schimbă UI-ul din
-   roster.)
+1. **Când e „făcut" un element de mentenanță** → **doar la bifare explicită.**
+   `lastDoneDate` avansează numai când cineva apasă „bifează făcut" (pe tab-ul
+   Atelier oricând; pentru itemele de pe foaie — bifă de dimineață în Faza 2, sau
+   un confirm „ce mentenanță s-a făcut azi?" la `finalizeDay()` până atunci).
+   Programarea pe foaie NU avansează scadența.
+2. **„Resturi" de pe foaia crem** → **inbox permanent.** `state.notite` e lista
+   vie; blocul „Resturi" de pe foaie se randează din ea (deschise, `ownerId==null`)
+   și itemele rămân până Nick le bifează/aruncă. La `finalizeDay(N)` acele linii se
+   **copiază** (snapshot înghețat) în `plan.resturi` al zilei N pentru arhiva
+   tipărită. `plan.resturi` = doar snapshot; `state.notite` = adevărul viu.
+   → ajustează §3.3 / §4.2 din `docs/organizare-zilnica-design.md`.
+3. **Captura rapidă** → **A: o singură listă, a lui Nick** (`ownerId` mereu `null`
+   în Faza 1). Câmpul `ownerId` rămâne în model pentru un B ulterior (căsuță per om
+   în roster), fără migrare.
 
-**Restul:**
+**Restul (neblocante):**
 
 4. Ce mașini/scule primesc chiar mentenanță programată azi și la ce interval?
    (flexuri, laser CNC, abkant, fierăstrău, aparate de sudură, compresor, trolee?)

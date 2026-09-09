@@ -75,8 +75,17 @@ O bifă „azi lipsește" scoate omul din foaie și îi mută sarcinile în Rest
 
 ### 3.3 Dreapta — Documentul de mâine (foaia crem)
 Randare live a foii ORGANIZARE: antet + **reminder-e fixe** (secțiunea 4.5), apoi un
-bloc per om în ordinea roster-ului, apoi „Resturi". Fiecare linie e **editabilă pe
-loc** (`contenteditable`) — ajustezi o formulare fără să atingi datele. Butoane:
+bloc per om în ordinea roster-ului, apoi **„Resturi"**. Fiecare linie e **editabilă
+pe loc** (`contenteditable`) — ajustezi o formulare fără să atingi datele.
+
+**„Resturi" = inbox permanent** (decizie Nick, 2026-09-09): blocul se randează din
+`state.notite` (deschise, `ownerId==null` — vezi `docs/management-atelier-research.md`
+§4), nu din `plan.resturi`. Itemele rămân pe fiecare foaie până Nick le bifează /
+aruncă. La **Finalizează ziua**, liniile deschise se **copiază** ca snapshot înghețat
+în `plan.resturi` al acelei zile, pentru arhiva tipărită. `plan.resturi` = doar
+snapshot; `state.notite` = lista vie.
+
+Butoane:
 
 - **Descarcă PDF** — `window.print()` cu stil de print care arată doar foaia crem;
   browserul face PDF-ul, cu fonturile intacte. Zero dependințe.
@@ -136,7 +145,7 @@ generator nu-l țintește**.
       source: 'manual' | 'derived' | 'carryover',
       carriedFrom: 'YYYY-MM-DD' | null }
   ],
-  resturi: [ { id, text, order } ],
+  resturi: [ { id, text, order } ],   // DOAR snapshot înghețat la finalizeDay — sursa vie e state.notite (§3.3)
   reminders: [ 'Suflat flexurile la final de zi', 'Sa se respecte ordinea taskurilor!' ],
   edits: { '<lineKey>': 'text editat manual pe foaie' },
   finalizedAt: null
