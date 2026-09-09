@@ -759,6 +759,8 @@
   /* ================= PLANIFICARE (organizare zilnică) ================= */
   var currentPlanDate = null; // 'YYYY-MM-DD' — inițializat lazy la ziua de mâine
   var planSettingsOpen = false;
+  var rosterOpen = false;
+  var PERSON_ROLES = ['atelier', 'proiectant', 'coord', 'birou', 'sef'];
   var MON_SHORT = ['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','noi','dec'];
 
   function planTomorrowIso(){ return isoOf(addDays(todayDate(), 1)); }
@@ -841,7 +843,11 @@
     h += '<span class="pd-label">plan pentru <b>' + esc(planDateLabel(currentPlanDate)) + '</b></span>';
     h += '<button type="button" class="btn btn-sm" data-plan-day="next" title="Ziua următoare">›</button>';
     h += '<button type="button" class="btn btn-sm" data-plan-day="today">mâine</button>';
+    h += '<span class="rs-grow"></span>';
+    h += '<button type="button" class="btn btn-sm' + (rosterOpen ? ' btn-primary' : '') + '" data-plan-roster>Angajați</button>';
     h += '</div>';
+
+    if(rosterOpen) h += renderRoster();
 
     h += '<div class="plan-cols">';
     h += '<div class="plan-col plan-col-left"><div class="plan-col-h">Sarcini</div><div class="plan-derived-slot"></div></div>';
@@ -851,6 +857,25 @@
     h += '</div>';
     board.innerHTML = h;
     attachPlanEvents();
+  }
+
+  function renderRoster(){
+    var h = '<div class="roster-panel"><div class="plan-col-h">Angajați — ' + peopleSorted(true).length + '</div>';
+    peopleSorted(true).forEach(function(p){
+      h += '<div class="rst-row' + (p.active ? '' : ' rst-off') + '" data-rst-drag="' + p.id + '" draggable="true">';
+      h += '<span class="rst-grip">⠿</span>';
+      h += '<input type="text" class="rst-name" data-person-name="' + p.id + '" value="' + esc(p.name) + '">';
+      h += '<select class="rst-role" data-person-role="' + p.id + '">' + PERSON_ROLES.map(function(r){
+        return '<option value="' + r + '"' + (p.role === r ? ' selected' : '') + '>' + r + '</option>';
+      }).join('') + '</select>';
+      h += '<input type="text" class="rst-skills" data-person-skills="' + p.id + '" value="' + esc((p.skills || []).join(', ')) + '" placeholder="skills, virgulă">';
+      h += '<button type="button" class="btn btn-xs" data-person-toggle="' + p.id + '">' + (p.active ? 'dezactivează' : 'activează') + '</button>';
+      h += '<button type="button" class="btn btn-xs btn-danger-outline" data-person-del="' + p.id + '" title="Șterge">×</button>';
+      h += '</div>';
+    });
+    h += '<div class="rst-add"><input type="text" class="rst-name" id="rst-new-name" placeholder="nume angajat nou…"><button type="button" class="btn btn-sm" data-person-add>+ Adaugă</button></div>';
+    h += '</div>';
+    return h;
   }
 
   function renderPeopleColumn(plan){
@@ -880,6 +905,75 @@
         if(d === 'today') currentPlanDate = planTomorrowIso();
         else shiftPlanDate(d === 'prev' ? -1 : 1);
         render();
+      });
+    });
+
+    var rosterBtn = document.querySelector('[data-plan-roster]');
+    if(rosterBtn) rosterBtn.addEventListener('click', function(){ rosterOpen = !rosterOpen; render(); });
+
+    document.querySelectorAll('[data-person-name]').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var p = personById(inp.dataset.personName);
+        if(p){ p.name = inp.value; saveState(); } // fără re-render — ca să nu sară caretul
+      });
+    });
+    document.querySelectorAll('[data-person-role]').forEach(function(sel){
+      sel.addEventListener('change', function(){
+        var p = personById(sel.dataset.personRole);
+        if(p){ p.role = sel.value; saveState(); render(); }
+      });
+    });
+    document.querySelectorAll('[data-person-skills]').forEach(function(inp){
+      inp.addEventListener('change', function(){
+        var p = personById(inp.dataset.personSkills);
+        if(!p) return;
+        p.skills = inp.value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-person-toggle]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var p = personById(b.dataset.personToggle);
+        if(!p) return;
+        p.active = !p.active;
+        if(!p.active) moveTasksToResturi(p.id, planFor(ensurePlanDate()));
+        saveState(); render();
+      });
+    });
+    document.querySelectorAll('[data-person-del]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var p = personById(b.dataset.personDel);
+        if(p && confirm('Ștergi angajatul „' + p.name + '"?')){
+          state.people = (state.people || []).filter(function(x){ return x.id !== p.id; });
+          saveState(); render();
+        }
+      });
+    });
+    var addBtn = document.querySelector('[data-person-add]');
+    if(addBtn) addBtn.addEventListener('click', function(){
+      var el = document.getElementById('rst-new-name');
+      var nm = (el.value || '').trim();
+      if(!nm) return;
+      state.people.push({ id: uid(), name: nm, active: true, role: 'atelier', skills: [], order: state.people.length, awayDates: [] });
+      saveState(); render();
+    });
+    // reordonare roster prin drag
+    var rDrag = null;
+    document.querySelectorAll('[data-rst-drag]').forEach(function(row){
+      row.addEventListener('dragstart', function(e){ rDrag = row.dataset.rstDrag; e.dataTransfer.setData('text/plain', 'RST::' + rDrag); row.classList.add('rst-dragging'); });
+      row.addEventListener('dragend', function(){ row.classList.remove('rst-dragging'); });
+      row.addEventListener('dragover', function(e){ e.preventDefault(); });
+      row.addEventListener('drop', function(e){
+        e.preventDefault();
+        var data = e.dataTransfer.getData('text/plain') || (rDrag ? 'RST::' + rDrag : '');
+        if(data.indexOf('RST::') !== 0) return;
+        var id = data.slice(5);
+        if(id === row.dataset.rstDrag) return;
+        var ids = peopleSorted(true).map(function(x){ return x.id; }).filter(function(x){ return x !== id; });
+        var at = ids.indexOf(row.dataset.rstDrag);
+        ids.splice(at, 0, id);
+        ids.forEach(function(pid, i){ var p = personById(pid); if(p) p.order = i; });
+        saveState(); render();
       });
     });
 
