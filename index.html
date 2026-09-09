@@ -828,6 +828,92 @@
     return zi.charAt(0).toUpperCase() + zi.slice(1) + ' ' + d.getDate() + ' ' + MON_SHORT[d.getMonth()];
   }
 
+  function peopleWithSkill(skill){
+    if(!skill) return [];
+    return peopleSorted().filter(function(p){ return (p.skills || []).indexOf(skill) !== -1; });
+  }
+  function stName(p, re){ return stationsFor(p).filter(function(s){ return re.test((s.name || '').toLowerCase()); }).map(function(s){ return s.id; }); }
+  function piecesOnStations(p, ids){ return (p.pieces || []).filter(function(pc){ return ids.indexOf(pc.stationId) !== -1; }); }
+
+  // Sarcini candidat derivate din starea proiectelor. id stabil -> nu se dublează, repartizarea se lipește.
+  function deriveTasks(state, dateIso){
+    var cards = [];
+    (state.projects || []).forEach(function(p){
+      if(p.finalizat) return;
+      var stg = currentStageInfo(p) || {};
+      var pcs = p.pieces || [];
+      var buckets = pcs.map(function(pc){ return bucketFor(p, pc.stationId); });
+      var anyMontaj = buckets.indexOf('montaj') !== -1;
+      var anyExec = buckets.indexOf('exec') !== -1;
+      var anyPreg = buckets.indexOf('pregatire') !== -1;
+      var warns = projectWarnings(p);
+      var lbl = p.cod + (p.client && p.client !== '-' ? ' ' + p.client : '');
+
+      function add(rule, text, skill, hint){ cards.push({ id: 'd:' + p.id + ':' + rule, text: text, hint: hint || '', projectId: p.id, skill: skill }); }
+
+      // scos de execuție: proiect la proiectare, fără piese definite
+      if(stg.cls === 'phase-proiect' && pcs.length === 0){
+        add('scos', 'Scos de execuție ' + lbl, 'proiectare');
+      }
+      // debitare de făcut: piese neîncepute alături de piese pornite
+      if(anyPreg && (anyExec || anyMontaj)){
+        var nPre = buckets.filter(function(b){ return b === 'pregatire'; }).length;
+        add('debit', 'Debitat ' + lbl + ' (' + nPre + (nPre === 1 ? ' piesă neîncepută' : ' piese neîncepute') + ')', 'debitare');
+      }
+      // sudură: piese la debitare, nimic mai departe
+      if(piecesOnStations(p, stName(p, /debit|laser|fier[aă]str/)).length && !anyMontaj && stName(p, /sud/).length && !piecesOnStations(p, stName(p, /sud/)).length){
+        add('sud', 'Sudat ' + lbl, 'sudura');
+      }
+      // abkant / îndoire
+      if(piecesOnStations(p, stName(p, /abkant|[iî]ndoi/)).length){
+        add('abkant', 'Îndoit / abkant ' + lbl, 'abkant');
+      }
+      // polizare / șlefuire
+      if(piecesOnStations(p, stName(p, /poliz|[sș]lef/)).length){
+        add('poliz', 'Polizat ' + lbl, 'polizat');
+      }
+      // gata de montaj
+      if(stg.cls === 'phase-montaj'){
+        var ordersOk = !(p.orders || []).some(function(o){ return o.status !== 'primit'; });
+        if(ordersOk){
+          var code = pcs.map(function(pc){ return pc.colorCode; }).filter(Boolean)[0] || '';
+          add('montaj', 'Montaj ' + lbl + (p.adresaMontaj ? ' — ' + p.adresaMontaj : '') + (code ? ' · ' + code : ''), 'montaj',
+            p.telClient ? p.telClient : '');
+        }
+      }
+      // comandă neprimită
+      if(warns.some(function(w){ return /neprimit/.test(w); })){
+        add('cmd', 'Urmărit comandă ' + lbl, 'comenzi');
+      }
+      // întârziat
+      if(p.termen && stg.cls !== 'phase-montaj'){
+        var n = daysBetween(todayDate(), parseDate(p.termen));
+        if(n < 0) add('late', '⚠ ' + p.cod + ' întârziat ' + Math.abs(n) + 'z', 'coord');
+      }
+    });
+    return cards;
+  }
+
+  function assignDerived(card, personId, plan){
+    if((plan.tasks || []).some(function(t){ return t.id === card.id; })) return;
+    planTaskAdd(plan, personId, card.text, 'derived', { id: card.id, projectId: card.projectId });
+  }
+
+  function renderDerivedColumn(plan){
+    var taken = {};
+    (plan.tasks || []).forEach(function(t){ taken[t.id] = true; });
+    var cards = deriveTasks(state, currentPlanDate).filter(function(c){ return !taken[c.id]; });
+    if(!cards.length) return '<div class="plan-empty">nimic derivat — toate proiectele curg</div>';
+    return cards.map(function(c){
+      var who = peopleWithSkill(c.skill).map(function(p){ return p.name; }).slice(0, 4).join(', ');
+      return '<div class="dcard" draggable="true" data-dcard="' + esc(c.id) + '">'
+        + '<div class="dcard-t">' + esc(c.text) + '</div>'
+        + (c.hint ? '<div class="dcard-h">' + esc(c.hint) + '</div>' : '')
+        + (who ? '<div class="dcard-who">→ ' + esc(who) + '</div>' : '')
+        + '</div>';
+    }).join('');
+  }
+
   function renderPlanificare(){
     var board = document.getElementById('board');
     board.className = 'plan-board';
@@ -850,7 +936,7 @@
     if(rosterOpen) h += renderRoster();
 
     h += '<div class="plan-cols">';
-    h += '<div class="plan-col plan-col-left"><div class="plan-col-h">Sarcini</div><div class="plan-derived-slot"></div></div>';
+    h += '<div class="plan-col plan-col-left"><div class="plan-col-h">Sarcini</div>' + renderDerivedColumn(plan) + '</div>';
     h += '<div class="plan-col plan-col-mid"><div class="plan-col-h">Oameni</div>' + renderPeopleColumn(plan) + '</div>';
     h += '<div class="plan-col plan-col-right"><div class="plan-col-h">Documentul de mâine</div><div id="org-sheet"></div></div>';
     h += '</div>';
@@ -1011,6 +1097,14 @@
       });
       card.addEventListener('dragend', function(){ card.classList.remove('ptask-dragging'); });
     });
+    document.querySelectorAll('[data-dcard]').forEach(function(card){
+      card.addEventListener('dragstart', function(e){
+        e.dataTransfer.setData('text/plain', 'DC::' + card.dataset.dcard);
+        e.dataTransfer.effectAllowed = 'copy';
+        card.classList.add('ptask-dragging');
+      });
+      card.addEventListener('dragend', function(){ card.classList.remove('ptask-dragging'); });
+    });
     document.querySelectorAll('.pcol-person').forEach(function(zone){
       zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('pcol-over'); });
       zone.addEventListener('dragleave', function(){ zone.classList.remove('pcol-over'); });
@@ -1018,11 +1112,17 @@
         e.preventDefault();
         zone.classList.remove('pcol-over');
         var data = e.dataTransfer.getData('text/plain') || (dragId ? 'PT::' + dragId : '');
+        var pid = zone.dataset.person;
+        if(data.indexOf('DC::') === 0){
+          var cid = data.slice(4);
+          var card = deriveTasks(state, currentPlanDate).find(function(c){ return c.id === cid; });
+          if(card){ assignDerived(card, pid, plan); saveState(); render(); }
+          return;
+        }
         if(data.indexOf('PT::') !== 0) return;
         var id = data.slice(4);
         var t = (plan.tasks || []).find(function(x){ return x.id === id; });
         if(!t) return;
-        var pid = zone.dataset.person;
         // poziția de inserare = după cardul peste care s-a dat drop
         var after = e.target.closest ? e.target.closest('[data-ptask-drag]') : null;
         var ids = planTasksFor(plan, pid).map(function(x){ return x.id; }).filter(function(x){ return x !== id; });
