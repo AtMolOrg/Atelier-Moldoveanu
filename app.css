@@ -269,7 +269,9 @@
   .reg-detail-pipe .piece-card{ flex:0 0 146px; padding:6px 9px; border-radius:6px; }
   .reg-detail-pipe .piece-card .p-name{ font-size:12.5px; margin:0; line-height:1.25; }
   .reg-detail-pipe .piece-card .p-color{ font-size:10.5px; margin:1px 0 0; }
-  .reg-detail-pipe .proj-stage-box.is-here{ box-shadow: inset 0 3px 0 var(--accent); }
+  /* marcaj „aici e cartonașul proiectului" — poziție, nu fază: gri neutru + ⌖, ca să nu fure coralul */
+  .reg-detail-pipe .proj-stage-box.is-here{ box-shadow: inset 0 3px 0 var(--ink-dim); }
+  .reg-detail-pipe .proj-stage-box.is-here .proj-stage-head > span::after{ content:' ⌖'; color:var(--ink-dim); font-weight:700; }
   .reg-detail-pipe .proj-stage-head[draggable="true"]{ cursor:grab; }
   .reg-detail-pipe .proj-stage-head[draggable="true"]:active{ cursor:grabbing; }
   .proj-stage-box.dragging{ opacity:0.4; }
@@ -317,7 +319,10 @@
 
   /* ---------- PIECE CARD (compact, on the floor) ---------- */
   .piece-card{ position:relative; background: var(--panel-2); border:1px solid var(--border); border-left:3px solid var(--steel); border-radius:7px; padding:9px 10px; cursor:grab; transition: box-shadow var(--dur), transform var(--dur), opacity var(--dur); }
-  .piece-card.back-to-design{ border-left-color: var(--accent); }
+  /* marginea = faza piesei, aceeași scară ca eticheta rândului: ardezie → gri deschis → coral */
+  .piece-card.pc-ante{   border-left-color: var(--ph-ante); }
+  .piece-card.pc-exec{   border-left-color: var(--ph-exec); }
+  .piece-card.pc-montaj{ border-left-color: var(--ph-mtj); }
   .piece-card:hover{ box-shadow: var(--shadow); }
   .piece-card.dragging{ opacity:0.35; transform: rotate(-1.5deg) scale(0.98); }
   .piece-card .p-name{ font-size:13px; font-weight:600; }
