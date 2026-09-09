@@ -878,7 +878,7 @@
       out += '<div class="reg-ghead' + (bk[0] === 'late' ? ' late' : '') + '">' + bk[1] + ' <span class="n">' + g.length + '</span></div>';
       g.forEach(function(p){
         out += renderRegRow(p);
-        if(registryOpen[p.id]) out += '<div class="reg-detail" id="reg-detail-' + p.id + '">' + renderRegHead(p) + renderRegPipe(p) + renderRegReps(p) + '</div>';
+        if(registryOpen[p.id]) out += '<div class="reg-detail" id="reg-detail-' + p.id + '">' + renderRegHead(p) + renderRegPipe(p) + renderRegReps(p) + renderRegMontajNote(p) + '</div>';
       });
       out += '</div>';
     });
@@ -1012,12 +1012,14 @@
       h += '</div>';
     }
 
-    // necesar montaj — „cota de subsol" a rândului, editabilă direct
-    h += '<div class="reg-mn"><label>Necesar montaj</label>'
-       + '<textarea class="reg-mn-inp" data-mn="' + p.id + '" rows="1" placeholder="cote, șuruburi, scule, dibluri pentru ziua montajului…">' + esc(p.montajNotes || '') + '</textarea></div>';
-
     h += '</div>'; // .reg-detail-head
     return h;
+  }
+
+  // „cota de subsol" a rândului desfășurat: Necesar montaj, editabil direct — se pune ULTIMUL
+  function renderRegMontajNote(p){
+    return '<div class="reg-mn"><label>Necesar montaj</label>'
+      + '<textarea class="reg-mn-inp" data-mn="' + p.id + '" rows="1" placeholder="cote, șuruburi, scule, dibluri pentru ziua montajului…">' + esc(p.montajNotes || '') + '</textarea></div>';
   }
 
   // Pipeline-ul de etape din rândul desfăcut al registrului: coloane de etape, lane-uri,
@@ -1429,7 +1431,11 @@
       inp.addEventListener('click', function(e){ e.stopPropagation(); });
     });
     document.querySelectorAll('[data-mn]').forEach(function(ta){
-      var grow = function(){ ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px'; };
+      var grow = function(){
+        if(ta.offsetWidth < 40) return; // încă nelayout-at (tab ascuns / viewport 0) — nu fixa o înălțime aiurea
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight + 2, 360) + 'px';
+      };
       grow();
       ta.addEventListener('click', function(e){ e.stopPropagation(); });
       ta.addEventListener('input', function(){
