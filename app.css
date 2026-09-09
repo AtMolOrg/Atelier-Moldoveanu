@@ -311,6 +311,14 @@
   .reg-strip .rs-more{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:2px 9px; cursor:pointer; font-size:14px; line-height:1; }
   .reg-attn{ display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; background:var(--danger-wash); border:1px solid var(--danger-line); color:var(--montaj-ink); border-radius:8px; padding:6px 11px; font-size:12px; }
   .reg-more-body{ display:flex; flex-direction:column; gap:8px; }
+  /* necesar montaj — cotă de subsol editabilă */
+  .reg-mn{ display:flex; align-items:baseline; gap:8px; margin-top:10px; padding-top:8px; border-top:1px dashed var(--hair); }
+  .reg-mn label{ flex:none; font-size:9.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); }
+  .reg-mn-inp{ flex:1; min-width:0; background:transparent; border:0; color:var(--ink-dim); font-family:inherit;
+    font-size:11.5px; line-height:1.4; padding:2px 3px; border-radius:5px; resize:none; overflow:hidden; }
+  .reg-mn-inp:hover{ background:var(--panel); }
+  .reg-mn-inp:focus{ outline:0; background:var(--panel); color:var(--ink); box-shadow:0 0 0 1px var(--border-strong); }
+  .reg-mn-inp::placeholder{ color:var(--ink-faint); opacity:.7; }
   .reg-detail-pipe{ display:flex; align-items:flex-start; gap:6px; overflow-x:auto; padding-top:10px; }
   /* coloanele se auto-dimensionează la conținut, nu înghit spațiul rămas */
   .reg-detail-pipe .proj-stage-box{ flex:0 0 auto; min-width:130px; }

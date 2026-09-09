@@ -986,13 +986,15 @@
     h += '<button type="button" class="rs-k reg-orders-toggle" data-toggle-orders="' + p.id + '">📋 ' + esc(matLabel) + '</button>';
     h += '<span class="rs-grow"></span>';
 
-    // acțiunea principală — avansul e doar prin drag; aici rămâne finalizarea / redeschiderea
+    // acțiuni de proiect — finalizare/redeschidere + editează + șterge, toate aici
     if(p.finalizat){
       h += '<button class="btn btn-sm" data-reopen-project="' + p.id + '">↩ Redeschide</button>';
     } else if(finalizabil){
       h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează ✓</button>';
     }
-    h += '<button type="button" class="rs-more" data-reg-more="' + p.id + '" title="Detalii / editare">⋯</button>';
+    h += '<button class="btn btn-sm" data-edit="' + p.id + '" title="Editează proiectul">Editează</button>';
+    h += '<button class="btn btn-sm btn-danger-outline" data-del="' + p.id + '" title="Șterge proiectul">Șterge</button>';
+    if((p.notite || '').trim()) h += '<button type="button" class="rs-more" data-reg-more="' + p.id + '" title="Notițe">⋯</button>';
     h += '</div>'; // .reg-strip
 
     // rândurile de comandă, ascunse până la toggle (neschimbat)
@@ -1003,15 +1005,16 @@
       h += '<div class="reg-attn">⚠ ' + warns.map(function(x){ return esc(x); }).join(' <span style="opacity:.5">·</span> ') + '</div>';
     }
 
-    // secundar, ascuns până la ⋯
-    h += '<div class="reg-more-body" id="reg-more-' + p.id + '"' + (regMoreOpen[p.id] ? '' : ' hidden') + '>';
-    if((p.notite || '').trim()) h += '<div class="card-notes">' + esc(p.notite) + '</div>';
-    if((p.montajNotes || '').trim()) h += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
-    h += '<div class="card-actions">';
-    h += '<button class="btn btn-sm" data-edit="' + p.id + '">Editează</button>';
-    h += '<button class="btn btn-sm btn-danger-outline" data-del="' + p.id + '">Șterge</button>';
-    h += '</div>';
-    h += '</div>'; // .reg-more-body
+    // notițe — ascunse până la ⋯ (doar dacă există)
+    if((p.notite || '').trim()){
+      h += '<div class="reg-more-body" id="reg-more-' + p.id + '"' + (regMoreOpen[p.id] ? '' : ' hidden') + '>';
+      h += '<div class="card-notes">' + esc(p.notite) + '</div>';
+      h += '</div>';
+    }
+
+    // necesar montaj — „cota de subsol" a rândului, editabilă direct
+    h += '<div class="reg-mn"><label>Necesar montaj</label>'
+       + '<textarea class="reg-mn-inp" data-mn="' + p.id + '" rows="1" placeholder="cote, șuruburi, scule, dibluri pentru ziua montajului…">' + esc(p.montajNotes || '') + '</textarea></div>';
 
     h += '</div>'; // .reg-detail-head
     return h;
@@ -1424,6 +1427,18 @@
         if(btn) btn.click();
       });
       inp.addEventListener('click', function(e){ e.stopPropagation(); });
+    });
+    document.querySelectorAll('[data-mn]').forEach(function(ta){
+      var grow = function(){ ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px'; };
+      grow();
+      ta.addEventListener('click', function(e){ e.stopPropagation(); });
+      ta.addEventListener('input', function(){
+        grow();
+        var p = state.projects.find(function(x){ return x.id === ta.dataset.mn; });
+        if(!p) return;
+        p.montajNotes = ta.value;
+        saveState(); // fără re-render — ca să nu sară cursorul
+      });
     });
     document.querySelectorAll('[data-rep-piece-toggle]').forEach(function(b){
       b.addEventListener('click', function(e){
