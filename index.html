@@ -558,16 +558,26 @@
     if(idx === -1) return null;
     var cur = a[idx];
     var lp = lastPiesaIndexFor(p);
-    if(cur.type === 'piesa') return { cls:'phase-piesa', name: cur.name };      // (defensiv) cartonasul chiar pe o etapa de piesa
-    if(lp !== -1 && idx > lp) return { cls:'phase-montaj', name: cur.name };    // etapa de proiect dupa piese = Montaj -> rosu
-    var piesaIds = {};
-    a.forEach(function(s){ if(s.type === 'piesa') piesaIds[s.id] = true; });
-    if((p.pieces || []).some(function(pc){ return piesaIds[pc.stationId]; }))
-      return { cls:'phase-piesa', name:'Execuție' };                            // piese pe podea, desi cartonasul e la proiectare -> portocaliu
+    // faza reală o dau piesele: proiectul nu trece de execuție cât timp o piesă e încă în lucru (gât de sticlă).
     var pcs = p.pieces || [];
-    if(pcs.length && pcs.every(function(pc){ return bucketFor(p, pc.stationId) === 'montaj'; }))
-      return { cls:'phase-montaj', name:'Montaj' };                             // toate piesele au trecut la montaj, desi cartonasul e in urma -> rosu
-    return { cls:'phase-proiect', name: cur.name };                            // proiectare / anteproiect -> albastru
+    if(pcs.length){
+      var execIdx = [], anyMontaj = false, anyPregatire = false;
+      pcs.forEach(function(pc){
+        var b = bucketFor(p, pc.stationId);
+        if(b === 'montaj') anyMontaj = true;
+        else if(b === 'exec'){ var si = a.findIndex(function(s){ return s.id === pc.stationId; }); if(si !== -1) execIdx.push(si); }
+        else anyPregatire = true;
+      });
+      if(execIdx.length) return { cls:'phase-piesa', name: a[Math.min.apply(null, execIdx)].name }; // piesa cea mai puțin avansată din execuție
+      if(anyMontaj) return anyPregatire
+        ? { cls:'phase-piesa', name:'Execuție' }                                // unele la montaj, altele neîncepute → net: încă în execuție
+        : { cls:'phase-montaj', name:'Montaj' };                               // toate piesele la montaj
+      // altfel: toate piesele încă în pregătire → cade pe poziția cartonașului
+    }
+
+    if(cur.type === 'piesa') return { cls:'phase-piesa', name: cur.name };      // (defensiv) cartonașul chiar pe o etapă de piesă
+    if(lp !== -1 && idx > lp) return { cls:'phase-montaj', name: cur.name };    // cartonașul pe etapă de proiect după piese = Montaj
+    return { cls:'phase-proiect', name: cur.name };                            // proiectare / anteproiect
   }
   /* things that are "missing" on a project — surfaced as a loud warning on the folder */
   function projectWarnings(p){
