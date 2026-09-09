@@ -16,7 +16,14 @@
  *   POST { task:"playbook", events, playbook }      -> { text }   (caietul actualizat)
  */
 
-const MODEL = "gemini-3.6-flash"; // gratis; dacă Google zice că nu mai e disponibil, pune numele pe care ți-l sugerează în eroare
+// Se încearcă pe rând; dacă unul dă 404 (nu mai există) sau 503 (supraîncărcat), trece la următorul.
+const MODELS = [
+  "gemini-flash-latest",
+  "gemini-2.0-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash-lite",
+  "gemini-3.6-flash",
+];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -69,32 +76,38 @@ export default {
         "\n\nEvenimente recente:\n" + JSON.stringify(body.events || [], null, 1);
     }
 
-    const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL +
-      ":generateContent?key=" + env.GEMINI_API_KEY;
+    const reqBody = JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      // maxOutputTokens generos: modelele noi consumă tokeni pe „gândire" înainte de text
+      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4 },
+    });
 
-    let g, data;
-    try {
-      g = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: system }] },
-          contents: [{ role: "user", parts: [{ text: user }] }],
-          // maxOutputTokens generos: modelele noi consumă tokeni pe „gândire" înainte de text
-          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4 },
-        }),
-      });
-      data = await g.json();
-    } catch (e) {
-      return json({ error: "fetch gemini", detail: String(e) }, 502);
+    let lastErr = null;
+    for (const model of MODELS) {
+      let g, data;
+      try {
+        g = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/" + model +
+            ":generateContent?key=" + env.GEMINI_API_KEY,
+          { method: "POST", headers: { "content-type": "application/json" }, body: reqBody }
+        );
+        data = await g.json();
+      } catch (e) {
+        lastErr = { error: "fetch", model, detail: String(e) };
+        continue;
+      }
+      if (g.status === 404 || g.status === 503) {
+        lastErr = { error: "gemini", model, status: g.status, detail: data };
+        continue; // model dispărut sau supraîncărcat -> încearcă următorul
+      }
+      if (!g.ok) return json({ error: "gemini", model, status: g.status, detail: data }, 502);
+      const cand = (data.candidates || [])[0] || {};
+      const parts = (cand.content || {}).parts || [];
+      const text = parts.map((p) => p.text || "").join("").trim();
+      if (text) return json({ text, model });
+      lastErr = { error: "gol", model, finishReason: cand.finishReason || null, detail: data };
     }
-    if (!g.ok) return json({ error: "gemini", status: g.status, detail: data }, 502);
-
-    const cand = (data.candidates || [])[0] || {};
-    const parts = (cand.content || {}).parts || [];
-    const text = parts.map((p) => p.text || "").join("").trim();
-    if (!text) return json({ error: "gol", finishReason: cand.finishReason || null, detail: data }, 502);
-    return json({ text });
+    return json(lastErr || { error: "toate modelele au eșuat" }, 502);
   },
 };
