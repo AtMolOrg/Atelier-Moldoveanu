@@ -657,8 +657,33 @@
   }
 
   /* ---------------- render dispatcher ---------------- */
+  // selector stabil pentru un element din #board, din tag + toate atributele data-* (id-uri, chei de rând etc.)
+  function focusSelectorFor(el){
+    if(!el || !el.attributes) return null;
+    var parts = [el.tagName.toLowerCase()], hasData = false;
+    for(var i = 0; i < el.attributes.length; i++){
+      var a = el.attributes[i];
+      if(a.name.indexOf('data-') !== 0) continue;
+      hasData = true;
+      var v = (window.CSS && CSS.escape) ? CSS.escape(a.value) : a.value.replace(/["\\]/g, '\\$&');
+      parts.push('[' + a.name + '="' + v + '"]');
+    }
+    return hasData ? parts.join('') : null;
+  }
   function render(){
     var board = document.getElementById('board');
+    // păstrează focusul de la tastatură + caretul + scroll-ul peste re-render (board.innerHTML se reconstruiește integral)
+    var focusSel = null, selStart = null, selEnd = null;
+    var ae = document.activeElement;
+    if(ae && ae !== document.body && board.contains(ae)){
+      focusSel = focusSelectorFor(ae);
+      if(ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA'){
+        try { selStart = ae.selectionStart; selEnd = ae.selectionEnd; } catch(e){}
+      }
+    }
+    var mainEl = document.getElementById('main');
+    var scrollTop = mainEl ? mainEl.scrollTop : 0;
+
     board.className = 'board';
     board.style.display = 'flex';
     board.style.flexDirection = '';
@@ -668,6 +693,17 @@
     if(tab === 'hala') renderHala();
     else if(tab === 'comenzi') renderComenzi();
     updateUndoButtons();
+
+    if(focusSel){
+      var back = board.querySelector(focusSel);
+      if(back){
+        try { back.focus({ preventScroll: true }); } catch(e){ back.focus(); }
+        if(selStart != null && (back.tagName === 'INPUT' || back.tagName === 'TEXTAREA')){
+          try { back.setSelectionRange(selStart, selEnd); } catch(e){}
+        }
+      }
+    }
+    if(mainEl) mainEl.scrollTop = scrollTop;
   }
 
   /* ================= HARTĂ ATELIER ================= */
