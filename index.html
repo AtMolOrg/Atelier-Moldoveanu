@@ -487,12 +487,6 @@
     var st = stationByIdFor(p, stationId);
     return (st && st.type === 'piesa') ? 'exec' : 'pregatire';
   }
-  function pieceFlowFor(p){
-    var a = stationsFor(p);
-    var fp = firstPiesaIndexFor(p);
-    var pre = fp === -1 ? [] : a.slice(0, fp).filter(function(s){ return s.type === 'proiect'; });
-    return pre.concat(piesaStationsFor(p));
-  }
   function firstStationIdOf(proj){
     var a = stationsFor(proj);
     return a[0] ? a[0].id : null;
@@ -1146,14 +1140,11 @@
   }
 
   function renderPieceCard(piece, project){
-    var flow = pieceFlowFor(project);
-    var flowIdx = flow.findIndex(function(s){ return s.id === piece.stationId; });
-    var curStation = stationByIdFor(project, piece.stationId);
-    var inProiectStage = !!(curStation && curStation.type === 'proiect');
-    var isBack = flowIdx === 0 && inProiectStage; // la prima etapă din flux, etapă de proiect
     // card slim: doar nume + cod culoare — codul/clientul proiectului sunt deja în antetul rândului.
-    // Poziția (coloana) + culoarea marginii spun etapa. Se mută doar prin drag.
-    var html = '<div class="piece-card' + (isBack ? ' back-to-design' : '') + '" draggable="true" data-piece="' + project.id + '::' + piece.id + '">';
+    // Poziția (coloana) + culoarea marginii spun faza — aceeași scară ca eticheta rândului. Se mută doar prin drag.
+    var b = bucketFor(project, piece.stationId); // 'pregatire' | 'exec' | 'montaj'
+    var phCls = b === 'montaj' ? ' pc-montaj' : (b === 'exec' ? ' pc-exec' : ' pc-ante');
+    var html = '<div class="piece-card' + phCls + '" draggable="true" data-piece="' + project.id + '::' + piece.id + '">';
     html += '<div class="p-name">' + esc(piece.name) + '</div>';
     if(piece.colorCode) html += '<div class="p-color">' + esc(piece.colorCode) + '</div>';
     html += '</div>';
