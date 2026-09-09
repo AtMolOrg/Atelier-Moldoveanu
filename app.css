@@ -35,6 +35,11 @@
     --ok-soft: rgba(143,192,161,0.14);
     --ok-line: rgba(143,192,161,0.38);
 
+    /* stări de aprovizionare (Comenzi): necesar → trimis → primit */
+    --st-need:#dcc487; --st-need-wash: rgba(220,196,135,0.13); --st-need-line: rgba(220,196,135,0.38);
+    --st-sent:#a6b6c5; --st-sent-wash: rgba(122,139,154,0.20); --st-sent-line: rgba(166,182,197,0.34);
+    --st-recv:#8fc0a1; --st-recv-wash: rgba(143,192,161,0.13); --st-recv-line: rgba(143,192,161,0.36);
+
     --radius: 10px;
     --shadow: 0 8px 22px rgba(0,0,0,0.5);
     --dur: 180ms;
@@ -460,25 +465,195 @@
   table.proj-table th{ text-align:left; font-family:var(--font); text-transform:uppercase; letter-spacing:0.03em; font-size:11px; color:var(--ink-faint); padding:12px 14px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--panel); }
   table.proj-table td{ padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
   table.proj-table tr:hover td{ background: rgba(255,255,255,0.04); }
-  .comenzi-table tr.comenzi-group:hover td{ background:var(--panel-2); }
-  .comenzi-table .comenzi-group td{ background:var(--panel-2); font-family:var(--font); text-transform:uppercase; letter-spacing:0.03em; font-size:11px; font-weight:700; color:var(--ink-dim); padding:8px 14px; }
-  .comenzi-group-n{ color:var(--ink-faint); font-weight:600; margin-left:6px; }
-  .cmz-inp{ width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:6px 8px; border-radius:6px; font-size:12.5px; }
-  .cmz-proj{ cursor:pointer; white-space:nowrap; }
-  .cmz-proj:hover .t-code{ text-decoration:underline; }
-  .furn-panel{ border:1px solid var(--border); border-radius:8px; margin-bottom:14px; background:var(--panel); }
+  .furn-panel{ border:1px solid var(--border); border-radius:8px; background:var(--panel); }
   .furn-panel-head{ display:flex; align-items:center; gap:8px; width:100%; background:none; border:0; padding:9px 12px; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; }
   .furn-count{ color:var(--ink-dim); font-weight:400; }
   .furn-chev{ margin-left:auto; color:var(--ink-dim); transition:transform .15s; }
   .furn-panel-head[aria-expanded="true"] .furn-chev, .furn-panel.open .furn-chev{ transform:rotate(90deg); }
   .furn-panel-body{ padding:4px 12px 12px; display:flex; flex-direction:column; gap:6px; }
-  .furn-row{ display:grid; grid-template-columns:1.4fr 1.4fr 2fr 32px; gap:8px; align-items:center; }
+  .furn-row{ display:grid; grid-template-columns:1.3fr 1.3fr 120px 1.3fr 1.3fr 32px; gap:8px; align-items:center; }
   .furn-row-head{ font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--ink-dim); padding:0 2px; }
-  .furn-inp{ background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:6px 9px; border-radius:6px; font-size:12.5px; }
+  .furn-inp{ min-width:0; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); padding:6px 9px; border-radius:6px; font-size:12.5px; }
   .furn-del{ background:transparent; border:1px solid var(--border); color:var(--ink-faint); border-radius:6px; width:28px; height:28px; cursor:pointer; }
   .furn-del:hover:not([disabled]){ color:var(--danger); border-color:var(--danger-line); }
   .furn-del[disabled]{ opacity:.35; cursor:not-allowed; }
-  @media (max-width:640px){ .furn-row{ grid-template-columns:1fr 1fr; } .furn-row > *:nth-child(3){ grid-column:1 / -1; } .furn-row-head{ display:none; } }
+  @media (max-width:900px){ .furn-row{ grid-template-columns:1fr 1fr 32px; } .furn-row-head{ display:none; } }
+  @media (max-width:640px){ .furn-row{ grid-template-columns:1fr 32px; } }
+
+  /* ================= COMENZI — tabelul viu de aprovizionare ================= */
+  /* Totul aici e prefixat .cmz-* și trăiește doar în tab-ul Comenzi (#board.cmz).
+     Nimic din ce e mai sus nu se re-stilizează. */
+  .cmz{ display:flex; flex-direction:column; gap:12px; align-items:stretch; font-size:12px; }
+  .cmz select{ max-width:100%; }
+  /* niciun text nu se taie: cuvintele lungi se rup, nu ies din chenar */
+  .cmz-rl .g, .cmz-hl .g, .cmz-grp .cat, .cmz-matnote{ overflow-wrap:anywhere; }
+  .cmz-sg-i{ overflow-wrap:break-word; }
+
+  .cmz-hd{ display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; }
+  .cmz-hd h2{ margin:0; font-size:13px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
+  .cmz-hd .sub{ font-size:11.5px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+  .cmz-hd .sp{ flex:1; }
+  .cmz-note{ font-size:10.5px; color:var(--ink-faint); }
+  .cmz-num{ font-variant-numeric:tabular-nums; }
+
+  .cmz-icob{ background:transparent; border:0; color:var(--ink-faint); font-size:13px; line-height:1; padding:3px 6px; border-radius:5px; }
+  .cmz-icob:hover{ color:var(--montaj-ink); background:var(--panel-3); }
+
+  .cmz-in{ font-size:11.5px; background:var(--panel-2); border:1px solid var(--border); color:var(--ink); border-radius:6px; padding:5px 8px; min-width:0; }
+  .cmz-in:hover{ border-color:var(--border-strong); }
+  .cmz-in::placeholder{ color:var(--ink-faint); }
+  .cmz-in.flat{ background:transparent; border-color:transparent; padding:4px 6px; }
+  .cmz-in.flat:hover, .cmz-in.flat:focus{ background:var(--panel-2); border-color:var(--border); }
+  select.cmz-in.flat{ color:var(--ink-dim); }
+  select.cmz-in.flat:hover, select.cmz-in.flat:focus{ color:var(--ink); }
+
+  .cmz-pill{ font-size:9.5px; font-weight:700; letter-spacing:.05em; padding:3px 9px; border-radius:999px;
+    border:1px solid transparent; white-space:nowrap; display:inline-block; }
+  .cmz-pill.need{ background:var(--st-need-wash); color:var(--st-need); border-color:var(--st-need-line); }
+  .cmz-pill.sent{ background:var(--st-sent-wash); color:var(--st-sent); border-color:var(--st-sent-line); }
+  .cmz-pill.recv{ background:var(--st-recv-wash); color:var(--st-recv); border-color:var(--st-recv-line); }
+  button.cmz-pill:hover{ border-color:var(--border-strong); }
+
+  .cmz-chip{ font-size:9.5px; font-weight:600; padding:3px 8px; border-radius:5px; background:var(--panel-3);
+    color:var(--ink-dim); border:1px solid var(--border); white-space:nowrap; display:inline-block; }
+  .cmz-chip.late{ background:var(--danger-wash); color:var(--montaj-ink); border-color:var(--danger-line); }
+  .cmz-chip.soon{ background:var(--warn-soft); color:var(--warn); border-color:var(--warn-line); }
+  .cmz-chip.sup{ color:var(--ante-ink); }
+  button.cmz-chip:hover{ border-color:var(--border-strong); color:var(--ink); }
+
+  .cmz-qty{ font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; }
+  .cmz-qty small{ font-weight:400; color:var(--ink-faint); font-size:10px; margin-left:3px; }
+
+  .cmz-sect{ font-size:9.5px; text-transform:uppercase; letter-spacing:.09em; color:var(--ink-faint);
+    display:flex; align-items:center; gap:8px; }
+  .cmz-sect::after{ content:""; flex:1; height:1px; background:var(--border); }
+  .cmz-empty{ padding:16px; text-align:center; color:var(--ink-faint); font-size:11.5px;
+    border:1px dashed var(--border); border-radius:9px; }
+
+  /* --- banda registru --- */
+  .cmz-signal{ border:1px solid var(--danger-line); background:var(--danger-wash); border-radius:9px;
+    padding:8px 11px; display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; font-size:11.5px; }
+  .cmz-sg-t{ font-weight:700; color:var(--montaj-ink); text-transform:uppercase; letter-spacing:.05em; font-size:10px; }
+  .cmz-sg-i{ display:flex; align-items:center; flex-wrap:wrap; gap:2px 6px; background:rgba(0,0,0,.18);
+    border:1px solid var(--danger-line); border-radius:6px; padding:4px 9px; color:var(--ink); font-size:11.5px; }
+  .cmz-sg-i b{ font-weight:700; }
+  .cmz-sg-i .d{ color:var(--montaj-ink); }
+  .cmz-signal.clear{ border-color:var(--st-recv-line); background:var(--st-recv-wash); }
+  .cmz-signal.clear .cmz-sg-t{ color:var(--ok-ink); }
+
+  /* --- flash --- */
+  .cmz-flash{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; font-size:11.5px;
+    border:1px solid var(--st-recv-line); background:var(--st-recv-wash); border-radius:9px; padding:7px 11px; }
+  .cmz-flash b{ color:var(--ok-ink); }
+  .cmz-flash .sp{ flex:1; }
+
+  /* --- bara de unelte --- */
+  .cmz-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+  .cmz-seg{ display:inline-flex; flex-wrap:wrap; max-width:100%; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+  .cmz-seg button{ font-size:11px; font-weight:600; color:var(--ink-dim); background:var(--panel-2);
+    border:0; border-right:1px solid var(--border); padding:6px 11px; white-space:nowrap; }
+  .cmz-seg button:last-child{ border-right:0; }
+  .cmz-seg button:hover{ color:var(--ink); }
+  .cmz-seg button.on{ background:var(--panel-3); color:var(--ink); }
+  .cmz-seg button i{ font-style:normal; font-weight:700; color:var(--ink-faint); margin-left:5px; font-size:9.5px; }
+  .cmz-seg button.on i{ color:var(--accent); }
+  .cmz-bar .cmz-in[data-cmz="f-q"]{ flex:1 1 160px; max-width:240px; }
+  .cmz-bar select.cmz-in{ max-width:160px; }
+  .cmz-bar .sp{ flex:1 1 0; min-width:0; }
+
+  .cmz-addf{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; background:var(--panel-2);
+    border:1px solid var(--st-need-line); border-radius:9px; padding:9px 10px; }
+  .cmz-addf .cmz-in[data-cmzadd="text"]{ flex:2 1 200px; }
+  .cmz-addf .cmz-in[data-cmzadd="qty"]{ width:70px; text-align:right; }
+  .cmz-addf select.cmz-in{ flex:0 1 auto; max-width:190px; }
+  .cmz-addf .lbl{ font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--st-need); font-weight:700; }
+
+  /* --- tabelul --- */
+  .cmz-tw{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; background:var(--panel); }
+  table.cmz-t{ border-collapse:collapse; width:100%; min-width:980px; font-size:11.5px; }
+  table.cmz-t th{ text-align:left; font-size:9.5px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-faint); font-weight:600; padding:8px 9px; background:var(--panel-3);
+    border-bottom:1px solid var(--border); white-space:nowrap; }
+  table.cmz-t th.sortable{ cursor:pointer; }
+  table.cmz-t th.sortable:hover{ color:var(--ink); }
+  table.cmz-t th .ar{ color:var(--accent); }
+  table.cmz-t td{ padding:5px 9px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  table.cmz-t tr.row{ box-shadow:inset 2px 0 0 transparent; }
+  table.cmz-t tr.row:hover td{ background:rgba(255,255,255,.025); }
+  table.cmz-t tr.row.blk{ box-shadow:inset 2px 0 0 var(--montaj); }
+  table.cmz-t tr.row.blk-soft{ box-shadow:inset 2px 0 0 rgba(239,143,99,.34); }
+  table.cmz-t tr.row.on td{ background:rgba(239,143,99,.08); }
+  table.cmz-t tr.row.dimr td{ opacity:.62; }
+  table.cmz-t td.mat{ min-width:240px; }
+  table.cmz-t td .cmz-in.flat{ width:100%; }
+  table.cmz-t td.q .cmz-in{ width:64px; text-align:right; }
+  table.cmz-t td.acts{ white-space:nowrap; text-align:right; }
+  table.cmz-t select.cmz-in.flat{ max-width:150px; }
+  .cmz-matnote{ font-size:10px; color:var(--ink-faint); padding-left:6px; }
+  .cmz-selall{ margin:0; }
+
+  /* antet de grup, în interiorul tabelului */
+  table.cmz-t tr.grow td{ padding:0; border-bottom:1px solid var(--border); background:var(--panel-3); }
+  .cmz-grp{ display:flex; flex-wrap:wrap; align-items:center; gap:5px 10px; padding:8px 10px;
+    border-left:3px solid var(--st-sent-line); }
+  .cmz-grp.due{ border-left-color:var(--st-need); background:rgba(220,196,135,.06); }
+  .cmz-grp.got{ border-left-color:var(--st-recv-line); }
+  .cmz-grp .nm{ font-weight:700; font-size:12.5px; }
+  .cmz-grp .cat{ font-size:10px; color:var(--ink-faint); }
+  .cmz-grp .when{ font-size:9.5px; font-weight:700; letter-spacing:.04em; padding:3px 9px; border-radius:5px;
+    background:var(--st-need-wash); color:var(--st-need); border:1px solid var(--st-need-line); white-space:nowrap; }
+  .cmz-grp .when.pick{ background:transparent; color:var(--ink-faint); border-color:var(--border); }
+  .cmz-grp .sp{ flex:1 1 40px; }
+  .cmz-grp .cnt{ font-size:10px; color:var(--ink-dim); font-variant-numeric:tabular-nums; }
+
+  /* --- recepție --- */
+  .cmz-track{ display:flex; flex-direction:column; gap:8px; }
+  .cmz-trk{ border:1px solid var(--st-sent-line); border-radius:9px; background:var(--panel-2); overflow:hidden; }
+  .cmz-trk.full{ border-color:var(--st-recv-line); }
+  .cmz-trk-h{ display:flex; align-items:center; flex-wrap:wrap; gap:5px 9px; padding:8px 11px;
+    background:var(--st-sent-wash); font-size:11.5px; }
+  .cmz-trk.full .cmz-trk-h{ background:var(--st-recv-wash); }
+  .cmz-trk-h .nr{ font-weight:700; font-size:12px; letter-spacing:.04em; }
+  .cmz-trk-h .sup{ color:var(--ante-ink); }
+  .cmz-trk-h .sp{ flex:1 1 20px; }
+  .cmz-rl{ display:flex; align-items:center; flex-wrap:wrap; gap:5px 9px; padding:7px 11px;
+    border-top:1px solid var(--border); font-size:11.5px; }
+  .cmz-rl .g{ flex:1 1 160px; min-width:0; }
+  .cmz-rl.done{ background:rgba(143,192,161,.05); }
+  .cmz-prog{ display:flex; align-items:center; gap:6px; font-size:10px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+  .cmz-prog .bar{ width:64px; height:5px; border-radius:3px; background:var(--panel); overflow:hidden; border:1px solid var(--border); }
+  .cmz-prog .bar i{ display:block; height:100%; background:var(--st-recv); }
+
+  /* --- istoric --- */
+  .cmz-hist-h{ display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:var(--panel-2);
+    border:1px solid var(--border); border-radius:9px; padding:8px 11px; color:var(--ink); font-size:11.5px; }
+  .cmz-hist-h:hover{ border-color:var(--border-strong); }
+  .cmz-hist-h .ar{ color:var(--ink-faint); font-size:10px; }
+  .cmz-hist-h .sp{ flex:1; }
+  .cmz-hist{ display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+  .cmz-hl{ display:flex; align-items:center; flex-wrap:wrap; gap:4px 9px; width:100%; text-align:left;
+    padding:6px 10px; border:1px solid var(--border); border-radius:7px; background:var(--panel);
+    font-size:11px; color:var(--ink-dim); }
+  .cmz-hl:hover{ border-color:var(--border-strong); background:var(--panel-2); }
+  .cmz-hl.on{ border-color:var(--accent); }
+  .cmz-hl b{ color:var(--ink); font-size:11.5px; letter-spacing:.04em; }
+  .cmz-hl .g{ flex:1 1 120px; min-width:0; }
+  .cmz-hl .sp{ flex:1 1 10px; }
+
+  /* --- coș --- */
+  .cmz-cart{ position:sticky; bottom:0; z-index:20; border:1px solid var(--accent); border-radius:10px;
+    background:linear-gradient(180deg,#23262c,#1c1f24); box-shadow:0 -6px 18px rgba(0,0,0,.45);
+    padding:10px 12px; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+  .cmz-cart .ttl{ font-size:11.5px; font-weight:700; }
+  .cmz-cart .sp{ flex:1 1 20px; }
+  .cmz-cart .grp{ display:flex; flex-wrap:wrap; gap:5px; }
+
+  @media (max-width:640px){
+    .cmz-bar .cmz-in[data-cmz="f-q"]{ max-width:none; flex:1 1 100%; }
+    .cmz-seg button{ padding:8px 11px; font-size:12px; }
+    .cmz-in{ font-size:12.5px; }
+    .cmz-addf select.cmz-in, .cmz-bar select.cmz-in{ max-width:none; flex:1 1 130px; }
+  }
   .t-code{ font-family:var(--font); color:var(--accent); font-weight:600; }
   .t-badges span{ font-family:var(--font); font-size:10.5px; color:var(--ink-dim); background:var(--panel-2); border-radius:5px; padding:2px 6px; margin-right:4px; display:inline-block; margin-bottom:3px; }
   .toolbar-row{ display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:12.5px; color:var(--ink-dim); flex-wrap:wrap; }
