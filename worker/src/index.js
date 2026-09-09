@@ -65,7 +65,7 @@ export default {
     let system, user, maxTokens;
 
     if (task === "strategie") {
-      maxTokens = 2000;
+      maxTokens = 3500;
       system =
         "Ești managerul de producție al unui atelier de metal (tâmplărie metalică, balustrade, " +
         "structuri; ~15 oameni). Primești starea TUTUROR proiectelor active, echipa (cu meserii) și " +
@@ -92,7 +92,7 @@ export default {
         "Azi: " + (body.azi || "?") + "\n\nPROIECTE ACTIVE:\n" + P + "\n\nECHIPA:\n" + O +
         (body.caiet ? "\n\nCAIET DE ATELIER (context):\n" + body.caiet : "");
     } else if (task === "summary") {
-      maxTokens = 900; // generos: unele modele ard tokeni pe „reasoning" înainte de text
+      maxTokens = 1200;
       system =
         "Ești asistentul unui manager de atelier de metal (tâmplărie metalică, balustrade, " +
         "structuri). Primești starea unui proiect, deja rezumată pe scurt, plus câteva detalii " +
@@ -111,7 +111,7 @@ export default {
           .join("\n") +
         (body.playbook ? "\n\nContext general (caiet de atelier):\n" + body.playbook : "");
     } else {
-      maxTokens = 1600;
+      maxTokens = 3500;
       system =
         "Ești asistentul unui manager de atelier. Primești «caietul de atelier» curent (reguli și " +
         "preferințe învățate în timp) și o listă de evenimente recente din aplicație. Propune o " +
@@ -145,7 +145,8 @@ export default {
             "content-type": "application/json",
             authorization: "Bearer " + env.GROQ_API_KEY,
           },
-          body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.4 }),
+          // reasoning_effort: modelele gpt-oss altfel consumă tot bugetul pe „gândire" și lasă răspunsul gol
+        body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.4, reasoning_effort: "low" }),
         });
         data = await g.json();
       } catch (e) {
