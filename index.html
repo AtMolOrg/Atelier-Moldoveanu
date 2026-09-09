@@ -970,11 +970,12 @@
   // Faza 5 — caiet de atelier: un pas LLM de seară actualizează state.playbook.
   // Pune aici URL-ul unei Firebase Cloud Function (sau alt endpoint) care primește
   // { events, playbook } și întoarce { text } — textul nou propus. Gol = pas manual.
-  var PLAYBOOK_LLM_URL = '';
-  // Faza D5 strat 2 — rezumat narativ per proiect. Cloud Function care primește
-  // { facts, playbook, cod } și întoarce { text } (2–4 propoziții, descriptiv, „pare" nu imperativ).
-  // Gol = doar rezumatul determinist.
-  var SUMMARY_LLM_URL = '';
+  // Cloud Function „llm" (functions/index.js) — ține cheia API și cheamă Claude.
+  // Merge doar după ce Nick a făcut setup-ul (plan Blaze + secret ANTHROPIC_API_KEY + deploy).
+  // Până atunci: butoanele ↻ apar dar dau eroare la click; rezumatul determinist rămâne.
+  var LLM_URL = 'https://europe-west1-atelier-m-cccb6.cloudfunctions.net/llm';
+  var PLAYBOOK_LLM_URL = LLM_URL;
+  var SUMMARY_LLM_URL = LLM_URL;
   var caietOpen = false;
   function proposePlaybookUpdate(){
     if(!PLAYBOOK_LLM_URL){
@@ -984,7 +985,7 @@
     showToast('Cer o propunere pentru caiet…');
     fetchLog(30).then(function(events){
       return fetch(PLAYBOOK_LLM_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events: events, playbook: (state.playbook && state.playbook.text) || '' }) });
+        body: JSON.stringify({ task: 'playbook', events: events, playbook: (state.playbook && state.playbook.text) || '' }) });
     }).then(function(r){ return r.json(); }).then(function(res){
       var proposed = res && typeof res.text === 'string' ? res.text : null;
       if(!proposed){ showToast('Propunere goală.', true); return; }
@@ -1433,7 +1434,7 @@
   function refreshSummary(p, cb){
     if(!SUMMARY_LLM_URL){ if(cb) cb(false); return; }
     fetch(SUMMARY_LLM_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cod: p.cod, facts: projectFacts(p), playbook: (state.playbook && state.playbook.text) || '' }) })
+      body: JSON.stringify({ task: 'summary', cod: p.cod, facts: projectFacts(p), playbook: (state.playbook && state.playbook.text) || '' }) })
       .then(function(r){ return r.json(); }).then(function(res){
         if(res && typeof res.text === 'string' && res.text.trim()){
           p.aiSummary = { text: res.text.trim(), at: new Date().toISOString(), factsHash: factsHash(p) };

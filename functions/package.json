@@ -1,0 +1,10 @@
+{
+  "name": "atelier-functions",
+  "description": "LLM helper pentru Atelier Moldoveanu (rezumate proiect + caiet de atelier)",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-functions": "^5.1.1"
+  },
+  "private": true
+}
