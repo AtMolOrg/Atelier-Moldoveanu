@@ -44,7 +44,7 @@ export default {
     let system, user, maxTokens;
 
     if (task === "summary") {
-      maxTokens = 600;
+      maxTokens = 2000;
       system =
         "Ești asistentul unui manager de atelier de metal (tâmplărie metalică, balustrade, " +
         "structuri). Primești starea unui proiect ca date structurate. Rezumă în 2–4 propoziții " +
@@ -57,7 +57,7 @@ export default {
         "Date (facts):\n" + JSON.stringify(body.facts || {}, null, 1) +
         (body.playbook ? "\n\nContext general (caiet de atelier):\n" + body.playbook : "");
     } else {
-      maxTokens = 1400;
+      maxTokens = 6000;
       system =
         "Ești asistentul unui manager de atelier. Primești «caietul de atelier» curent (reguli și " +
         "preferințe învățate în timp) și o listă de evenimente recente din aplicație. Propune o " +
@@ -81,12 +81,8 @@ export default {
         body: JSON.stringify({
           system_instruction: { parts: [{ text: system }] },
           contents: [{ role: "user", parts: [{ text: user }] }],
-          generationConfig: {
-            maxOutputTokens: maxTokens,
-            temperature: 0.4,
-            // modelele noi Gemini „gândesc" pe tokeni de output; fără asta iese trunchiat
-            thinkingConfig: { thinkingBudget: 0 },
-          },
+          // maxOutputTokens generos: modelele noi consumă tokeni pe „gândire" înainte de text
+          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4 },
         }),
       });
       data = await g.json();
