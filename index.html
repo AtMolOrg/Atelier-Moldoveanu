@@ -461,6 +461,8 @@
   function piesaStationsFor(p){ return stationsFor(p).filter(function(s){ return s.type === 'piesa'; }); }
   function bucketFor(p, stationId){
     if(stationId === PIECE_MONTAJ) return 'montaj';
+    // o piesă pusă liber pe Montaj (sau orice etapă post-execuție) = montaj, nu pregătire
+    if(isPostExecStationFor(p, stationId)) return 'montaj';
     var st = stationByIdFor(p, stationId);
     return (st && st.type === 'piesa') ? 'exec' : 'pregatire';
   }
@@ -1003,7 +1005,7 @@
       // coloana Montaj (etapă de proiect după ultima etapă de piesă) — arată și piesele trimise la montaj
       var isMontajCol = station.type === 'proiect' && isPostExecStationFor(p, station.id);
       var montajPieces = isMontajCol ? (p.pieces||[]).filter(function(pc){ return pc.stationId === PIECE_MONTAJ; }) : [];
-      var isHere = (station.type === 'proiect' && p.stationId === station.id);
+      var isHere = (p.stationId === station.id); // cartonașul poate sta pe orice etapă acum
       // coloană „goală" — se subțiază: fără piese aici, fără piese la montaj, nu e etapa curentă
       var piecesHere = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
       var pieceCount = piecesHere.length + montajPieces.length;
@@ -1298,38 +1300,20 @@
         var data = e.dataTransfer.getData('text/plain') || draggingData;
         if(!data) return;
         zone.classList.remove('drag-over');
-        var kind = zone.dataset.kind;
         if(data.indexOf('PC::') === 0){
           var parts = data.slice(4).split('::');
           var p = state.projects.find(function(x){ return x.id === parts[0]; });
           if(!p) return;
           var pc = p.pieces.find(function(x){ return x.id === parts[1]; });
           if(!pc) return;
-          if(kind === 'piesa'){
-            pc.stationId = zone.dataset.station; pc.lane = zone.dataset.lane || null;
-
-            saveState(); render();
-          } else if(kind === 'proiect'){
-            var fp = firstPiesaIndexFor(p);
-            var stIdx = stationsFor(p).findIndex(function(s){ return s.id === zone.dataset.station; });
-            if(isPostExecStationFor(p, zone.dataset.station)){
-              // dropping a piece onto Montaj (or any post-execution stage) sends the whole project there
-              p.stationId = zone.dataset.station; p.lane = zone.dataset.lane || null;
-
-              saveState(); render();
-            } else if(fp === -1 || stIdx < fp){
-              // parking a piece in an early proiect-type stage
-              pc.stationId = zone.dataset.station; pc.lane = zone.dataset.lane || null;
-
-              saveState(); render();
-            }
-          }
+          // piesele se mută liber pe orice etapă (proiect sau piesă)
+          pc.stationId = zone.dataset.station; pc.lane = zone.dataset.lane || null;
+          saveState(); render();
         } else if(data.indexOf('PRJ::') === 0){
-          if(kind !== 'proiect') return;
           var proj = state.projects.find(function(x){ return x.id === data.slice(5); });
           if(proj){
+            // cartonașul proiectului se mută liber pe orice etapă
             proj.stationId = zone.dataset.station; proj.lane = zone.dataset.lane || null;
-
             saveState(); render();
           }
         }
