@@ -72,7 +72,6 @@
   var regFilter = 'active'; // 'active' | 'done' | 'reps' | 'all' — registru filter (transient; not persisted)
   var regSort = 'termen';   // 'termen' | 'urgenta' | 'cod' | 'faza' — sort in fiecare găleată (transient; not persisted)
   var repPieceOpen = {};    // "<repairId>" -> true cât timp e deschisă lista de piese a reparației (transient)
-  var PIECE_MONTAJ = '__montaj__'; // pc.stationId sentinel: piece is done on the floor, sent to montaj
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
 
@@ -319,11 +318,17 @@
         p.stations = JSON.parse(JSON.stringify(parsed.stations || []));
       }
       // o piesă fără etapă — sau cu o etapă care nu mai există în fluxul proiectului — ar rămâne
-      // invizibilă în pipeline; o aducem înapoi la prima etapă. (PIECE_MONTAJ e sentinel, nu etapă.)
+      // invizibilă în pipeline; o aducem înapoi la prima etapă.
       var stIds = {};
       (p.stations || []).forEach(function(s){ stIds[s.id] = true; });
+      // sentinelul vechi „__montaj__" (piesă trimisă la montaj) → prima etapă de proiect de după piese
+      var lpN = lastPiesaIndexFor(p);
+      var montajStN = lpN !== -1 ? (p.stations || []).slice(lpN + 1).find(function(s){ return s.type === 'proiect'; }) : null;
       (p.pieces||[]).forEach(function(pc){
-        if(pc.stationId !== PIECE_MONTAJ && !stIds[pc.stationId]){
+        if(pc.stationId === '__montaj__'){
+          pc.stationId = montajStN ? montajStN.id : ((p.stations && p.stations[0]) ? p.stations[0].id : null);
+        }
+        if(!stIds[pc.stationId]){
           pc.stationId = (p.stations && p.stations[0]) ? p.stations[0].id : null;
           pc.lane = null;
         }
@@ -477,7 +482,6 @@
   function stationByIdFor(p, id){ return stationsFor(p).find(function(s){ return s.id === id; }); }
   function piesaStationsFor(p){ return stationsFor(p).filter(function(s){ return s.type === 'piesa'; }); }
   function bucketFor(p, stationId){
-    if(stationId === PIECE_MONTAJ) return 'montaj';
     // o piesă pusă liber pe Montaj (sau orice etapă post-execuție) = montaj, nu pregătire
     if(isPostExecStationFor(p, stationId)) return 'montaj';
     var st = stationByIdFor(p, stationId);
@@ -1056,13 +1060,10 @@
     pStations.forEach(function(station, sIdx){
       var projLanes = projectLanesFor(p, station);
       var hasLanes = projLanes.length > 0;
-      // coloana Montaj (etapă de proiect după ultima etapă de piesă) — arată și piesele trimise la montaj
-      var isMontajCol = station.type === 'proiect' && isPostExecStationFor(p, station.id);
-      var montajPieces = isMontajCol ? (p.pieces||[]).filter(function(pc){ return pc.stationId === PIECE_MONTAJ; }) : [];
       var isHere = (p.stationId === station.id); // cartonașul poate sta pe orice etapă acum
-      // coloană „goală" — se subțiază: fără piese aici, fără piese la montaj, nu e etapa curentă
+      // coloană „goală" — se subțiază: fără piese aici și nu e etapa curentă
       var piecesHere = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
-      var pieceCount = piecesHere.length + montajPieces.length;
+      var pieceCount = piecesHere.length;
       var hasPieces = pieceCount > 0;
       var thin = !isHere && !hasPieces;
       out += '<div class="proj-stage-box ' + station.type + (isHere ? ' is-here' : '') + (thin ? ' thin' : '') + (hasPieces ? ' has-pieces' : '') + (pieceCount >= 4 ? ' has-many' : '') + '">';
@@ -1080,21 +1081,11 @@
         out += '<div class="lanes-row">';
         projLanes.forEach(function(lane){
           var items = [];
-          if(station.type === 'proiect'){
-            // etapa curentă a proiectului e marcată de bara accent din capul coloanei, nu ca item în lane — nu-l numărăm
-            (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
-            montajPieces.forEach(function(pc){ if((pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
-          } else {
-            (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
-          }
+          (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) items.push(pc); });
           out += '<div class="lane">';
           out += '<div class="lane-head"><input class="lane-title" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" value="' + esc(lane.name) + '"><span class="col-count">' + items.length + '</span><button class="lane-del" data-act="lanedel" data-station="' + station.id + '" data-lane="' + lane.id + '" data-project="' + p.id + '" title="Șterge partiția">✕</button></div>';
           out += '<div class="col-body lane-body" data-station="' + station.id + '" data-kind="' + station.type + '" data-lane="' + lane.id + '">';
           if(items.length === 0){ if(!thin) out += '<div class="col-empty">—</div>'; }
-          else if(station.type === 'proiect'){
-            (p.pieces||[]).forEach(function(pc){ if(pc.stationId === station.id && (pc.lane||defaultLaneId(projLanes)) === lane.id) out += renderPieceCard(pc, p); });
-            montajPieces.forEach(function(pc){ if((pc.lane||defaultLaneId(projLanes)) === lane.id) out += renderPieceCard(pc, p); });
-          }
           else items.forEach(function(pc){ out += renderPieceCard(pc, p); });
           out += '</div></div>';
         });
@@ -1104,8 +1095,7 @@
       if(station.type === 'proiect'){
         var parked = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
         parked.forEach(function(pc){ out += renderPieceCard(pc, p); });
-        montajPieces.forEach(function(pc){ out += renderPieceCard(pc, p); });
-        if(!thin && p.stationId !== station.id && !parked.length && !montajPieces.length) out += '<div class="col-empty">—</div>';
+        if(!thin && p.stationId !== station.id && !parked.length) out += '<div class="col-empty">—</div>';
       } else {
         var pieces = (p.pieces||[]).filter(function(pc){ return pc.stationId === station.id; });
         if(pieces.length) pieces.forEach(function(pc){ out += renderPieceCard(pc, p); });
