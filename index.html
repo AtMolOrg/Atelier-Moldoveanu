@@ -966,6 +966,30 @@
     item.snoozeUntil = isoOf(addDays(parseDate(iso), days || 3));
     if(typeof logEvent === 'function') logEvent('upkeep-snoozed', item.title, { upkeepId: item.id, until: item.snoozeUntil });
   }
+  // Faza 5 — caiet de atelier: un pas LLM de seară actualizează state.playbook.
+  // Pune aici URL-ul unei Firebase Cloud Function (sau alt endpoint) care primește
+  // { events, playbook } și întoarce { text } — textul nou propus. Gol = pas manual.
+  var PLAYBOOK_LLM_URL = '';
+  var caietOpen = false;
+  function proposePlaybookUpdate(){
+    if(!PLAYBOOK_LLM_URL){
+      showToast('Fără endpoint LLM configurat. Editează caietul manual sau setează PLAYBOOK_LLM_URL în cod.', true);
+      return;
+    }
+    showToast('Cer o propunere pentru caiet…');
+    fetchLog(30).then(function(events){
+      return fetch(PLAYBOOK_LLM_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events: events, playbook: (state.playbook && state.playbook.text) || '' }) });
+    }).then(function(r){ return r.json(); }).then(function(res){
+      var proposed = res && typeof res.text === 'string' ? res.text : null;
+      if(!proposed){ showToast('Propunere goală.', true); return; }
+      if(confirm('Aplic propunerea pe caiet? (o poți edita după)\n\n' + proposed.slice(0, 400) + (proposed.length > 400 ? '…' : ''))){
+        state.playbook = { updatedAt: new Date().toISOString(), text: proposed };
+        saveState(); render();
+      }
+    }).catch(function(){ showToast('Nu am putut contacta endpoint-ul LLM.', true); });
+  }
+
   var atelierFilter = 'toate';   // 'toate' | 'masina' | 'scula' | 'cladire' | 'consumabile' | 'chore' | 'reparatie'
   var atelierDueOnly = false;
   var atelierEditId = null;
@@ -1022,6 +1046,17 @@
     if(doneO.length){
       h += '<button type="button" class="atl-donetgl" data-atl-donetgl>' + (atelierDoneOpen ? '▾' : '▸') + ' Rezolvate (' + doneO.length + ')</button>';
       if(atelierDoneOpen) doneO.forEach(function(u){ h += renderUpkeepRow(u, iso); });
+    }
+    h += '</div>';
+
+    // --- Caiet de atelier (Faza 5) ---
+    var pb = state.playbook || { text: '', updatedAt: null };
+    h += '<div class="atl-sec"><button type="button" class="atl-donetgl" data-caiet-tgl>' + (caietOpen ? '▾' : '▸') + ' 📓 Caiet de atelier'
+      + (pb.updatedAt ? ' <span class="atl-rec">actualizat ' + esc(fmtShortDate(pb.updatedAt.slice(0, 10))) + '</span>' : '') + '</button>';
+    if(caietOpen){
+      h += '<textarea class="caiet-txt" id="caiet-txt" placeholder="Cum lucrează atelierul ăsta — reguli, preferințe, ce s-a învățat…">' + esc(pb.text || '') + '</textarea>';
+      h += '<div class="atl-add" style="border-top:0;padding-top:0;"><button type="button" class="btn btn-sm" data-caiet-llm>Propune actualizare (LLM)</button>'
+        + '<span class="field-hint" style="margin:0;align-self:center;">' + (PLAYBOOK_LLM_URL ? 'endpoint configurat' : 'fără endpoint LLM — editare manuală') + '</span></div>';
     }
     h += '</div>';
 
@@ -1122,6 +1157,16 @@
       if(typeof logEvent === 'function') logEvent('upkeep-added', 'atelier');
       saveState(); render();
     }); });
+
+    var caietTgl = document.querySelector('[data-caiet-tgl]');
+    if(caietTgl) caietTgl.addEventListener('click', function(){ caietOpen = !caietOpen; render(); });
+    var caietTxt = document.getElementById('caiet-txt');
+    if(caietTxt) caietTxt.addEventListener('input', function(){
+      state.playbook = { updatedAt: new Date().toISOString(), text: caietTxt.value };
+      saveState(); // fără re-render — caret
+    });
+    var caietLlm = document.querySelector('[data-caiet-llm]');
+    if(caietLlm) caietLlm.addEventListener('click', proposePlaybookUpdate);
   }
 
   // carduri candidat pentru asamblorul din Planificare (aceeași formă ca deriveTasks)
