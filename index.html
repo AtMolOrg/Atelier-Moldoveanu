@@ -71,6 +71,7 @@
   var regMoreOpen = {}; // "<projectId>" -> true while that row's ⋯ details/edit box is open (transient; not persisted)
   var regFilter = 'active'; // 'active' | 'done' | 'reps' | 'all' — registru filter (transient; not persisted)
   var regSort = 'termen';   // 'termen' | 'urgenta' | 'cod' | 'faza' — sort in fiecare găleată (transient; not persisted)
+  var repPieceOpen = {};    // "<repairId>" -> true cât timp e deschisă lista de piese a reparației (transient)
   var PIECE_MONTAJ = '__montaj__'; // pc.stationId sentinel: piece is done on the floor, sent to montaj
   var ORDER_STATUSES = ['de-comandat', 'comandat', 'primit'];
   var ORDER_STATUS_LABEL = { 'de-comandat': 'De comandat', 'comandat': 'Comandat', 'primit': 'Primit' };
@@ -268,9 +269,17 @@
     if(!Array.isArray(parsed.repairs)) parsed.repairs = [];
     // reparațiile se leagă de proiect prin projectId; codul rămâne doar etichetă de rezervă
     parsed.repairs.forEach(function(r){
-      if(r.projectId || !r.cod) return;
-      var target = (parsed.projects || []).find(function(p){ return (p.cod || '').trim().toLowerCase() === (r.cod || '').trim().toLowerCase(); });
-      if(target) r.projectId = target.id;
+      if(!r.projectId && r.cod){
+        var target = (parsed.projects || []).find(function(p){ return (p.cod || '').trim().toLowerCase() === (r.cod || '').trim().toLowerCase(); });
+        if(target) r.projectId = target.id;
+      }
+      // o reparație poate viza una sau mai multe piese ale proiectului
+      if(!Array.isArray(r.pieceIds)) r.pieceIds = [];
+      var proj = r.projectId ? (parsed.projects || []).find(function(p){ return p.id === r.projectId; }) : null;
+      if(proj){
+        var ids = {}; (proj.pieces || []).forEach(function(pc){ ids[pc.id] = true; });
+        r.pieceIds = r.pieceIds.filter(function(id){ return ids[id]; }); // scapă de piesele șterse între timp
+      }
     });
     if(!Array.isArray(parsed.workers)) parsed.workers = [];
     // funcția de echipă/oameni a fost scoasă — păstrăm doar furnizorii, aruncăm restul
@@ -902,14 +911,28 @@
     var h = '<div class="reg-reps">';
     h += '<div class="reg-reps-h">🔧 Reparații <span>(' + reps.length + ')</span></div>';
     if(!reps.length) h += '<div class="reg-reps-none">Nicio reparație.</div>';
+    var pieces = p.pieces || [];
+    var pieceName = function(id){ var pc = pieces.find(function(x){ return x.id === id; }); return pc ? pc.name : '?'; };
     reps.forEach(function(r){
       var cls = r.status === 'deschisa' ? 'deschisa' : (r.status === 'in-lucru' ? 'lucru' : 'rezolvata');
       var lbl = r.status === 'deschisa' ? 'deschisă' : (r.status === 'in-lucru' ? 'în lucru' : 'rezolvată');
+      var pids = Array.isArray(r.pieceIds) ? r.pieceIds : [];
       h += '<div class="rep-line' + (r.status === 'rezolvata' ? ' res' : '') + '">';
       h += '<button type="button" class="rep-sb ' + cls + '" data-rep-cyc="' + r.id + '">' + lbl + '</button>';
-      h += '<span class="rep-d">' + esc(r.descriere || '') + '</span>';
+      h += '<span class="rep-d">' + esc(r.descriere || '');
+      if(pids.length) h += ' <span class="rep-pieces">' + pids.map(function(id){ return '<span class="rep-piece-chip">' + esc(pieceName(id)) + '</span>'; }).join('') + '</span>';
+      h += '</span>';
+      if(pieces.length) h += '<button type="button" class="rep-piece-btn" data-rep-piece-toggle="' + r.id + '" title="Piese vizate">🧩' + (pids.length ? ' ' + pids.length : '') + '</button>';
       h += '<button type="button" class="rep-del" data-rep-del="' + r.id + '" title="Șterge reparația">×</button>';
       h += '</div>';
+      if(pieces.length && repPieceOpen[r.id]){
+        h += '<div class="rep-piece-pick">';
+        h += pieces.map(function(pc){
+          var on = pids.indexOf(pc.id) !== -1;
+          return '<label class="rep-piece-opt' + (on ? ' on' : '') + '"><input type="checkbox" data-rep-piece="' + r.id + '::' + pc.id + '"' + (on ? ' checked' : '') + '>' + esc(pc.name) + (pc.colorCode ? ' <span class="rp-col">' + esc(pc.colorCode) + '</span>' : '') + '</label>';
+        }).join('');
+        h += '</div>';
+      }
     });
     h += '<div class="rep-add"><input type="text" class="rep-add-inp" data-rep-new="' + p.id + '" placeholder="problemă nouă la ' + esc(p.cod) + '…"><button type="button" class="btn btn-xs" data-rep-add="' + p.id + '">+ Reparație</button></div>';
     h += '</div>';
@@ -963,13 +986,15 @@
     h += '<button type="button" class="rs-k reg-orders-toggle" data-toggle-orders="' + p.id + '">📋 ' + esc(matLabel) + '</button>';
     h += '<span class="rs-grow"></span>';
 
-    // acțiunea principală — avansul e doar prin drag; aici rămâne finalizarea / redeschiderea
+    // acțiuni de proiect — finalizare/redeschidere + editează + șterge, toate aici
     if(p.finalizat){
       h += '<button class="btn btn-sm" data-reopen-project="' + p.id + '">↩ Redeschide</button>';
     } else if(finalizabil){
       h += '<button class="btn btn-sm btn-primary" data-close-project="' + p.id + '">Finalizează ✓</button>';
     }
-    h += '<button type="button" class="rs-more" data-reg-more="' + p.id + '" title="Detalii / editare">⋯</button>';
+    h += '<button class="btn btn-sm" data-edit="' + p.id + '" title="Editează proiectul">Editează</button>';
+    h += '<button class="btn btn-sm btn-danger-outline" data-del="' + p.id + '" title="Șterge proiectul">Șterge</button>';
+    if((p.notite || '').trim()) h += '<button type="button" class="rs-more" data-reg-more="' + p.id + '" title="Notițe">⋯</button>';
     h += '</div>'; // .reg-strip
 
     // rândurile de comandă, ascunse până la toggle (neschimbat)
@@ -980,15 +1005,16 @@
       h += '<div class="reg-attn">⚠ ' + warns.map(function(x){ return esc(x); }).join(' <span style="opacity:.5">·</span> ') + '</div>';
     }
 
-    // secundar, ascuns până la ⋯
-    h += '<div class="reg-more-body" id="reg-more-' + p.id + '"' + (regMoreOpen[p.id] ? '' : ' hidden') + '>';
-    if((p.notite || '').trim()) h += '<div class="card-notes">' + esc(p.notite) + '</div>';
-    if((p.montajNotes || '').trim()) h += '<div class="card-orders-line">📦 Necesar montaj notat</div>';
-    h += '<div class="card-actions">';
-    h += '<button class="btn btn-sm" data-edit="' + p.id + '">Editează</button>';
-    h += '<button class="btn btn-sm btn-danger-outline" data-del="' + p.id + '">Șterge</button>';
-    h += '</div>';
-    h += '</div>'; // .reg-more-body
+    // notițe — ascunse până la ⋯ (doar dacă există)
+    if((p.notite || '').trim()){
+      h += '<div class="reg-more-body" id="reg-more-' + p.id + '"' + (regMoreOpen[p.id] ? '' : ' hidden') + '>';
+      h += '<div class="card-notes">' + esc(p.notite) + '</div>';
+      h += '</div>';
+    }
+
+    // necesar montaj — „cota de subsol" a rândului, editabilă direct
+    h += '<div class="reg-mn"><label>Necesar montaj</label>'
+       + '<textarea class="reg-mn-inp" data-mn="' + p.id + '" rows="1" placeholder="cote, șuruburi, scule, dibluri pentru ziua montajului…">' + esc(p.montajNotes || '') + '</textarea></div>';
 
     h += '</div>'; // .reg-detail-head
     return h;
@@ -1389,7 +1415,7 @@
         var v = inp ? inp.value.trim() : '';
         if(!v){ if(inp) inp.classList.add('bad'); return; }
         if(!Array.isArray(state.repairs)) state.repairs = [];
-        state.repairs.push({ id: uid(), projectId: pid, cod: p ? p.cod : '', client: p ? p.client : '', descriere: v, data: isoToday(), status: 'deschisa' });
+        state.repairs.push({ id: uid(), projectId: pid, cod: p ? p.cod : '', client: p ? p.client : '', descriere: v, data: isoToday(), status: 'deschisa', pieceIds: [] });
         saveState(); render();
       });
     });
@@ -1401,6 +1427,40 @@
         if(btn) btn.click();
       });
       inp.addEventListener('click', function(e){ e.stopPropagation(); });
+    });
+    document.querySelectorAll('[data-mn]').forEach(function(ta){
+      var grow = function(){ ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px'; };
+      grow();
+      ta.addEventListener('click', function(e){ e.stopPropagation(); });
+      ta.addEventListener('input', function(){
+        grow();
+        var p = state.projects.find(function(x){ return x.id === ta.dataset.mn; });
+        if(!p) return;
+        p.montajNotes = ta.value;
+        saveState(); // fără re-render — ca să nu sară cursorul
+      });
+    });
+    document.querySelectorAll('[data-rep-piece-toggle]').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = b.dataset.repPieceToggle;
+        repPieceOpen[id] = !repPieceOpen[id];
+        render();
+      });
+    });
+    document.querySelectorAll('[data-rep-piece]').forEach(function(cb){
+      cb.addEventListener('change', function(e){
+        e.stopPropagation();
+        var parts = cb.dataset.repPiece.split('::');
+        var r = (state.repairs || []).find(function(x){ return x.id === parts[0]; });
+        if(!r) return;
+        if(!Array.isArray(r.pieceIds)) r.pieceIds = [];
+        var i = r.pieceIds.indexOf(parts[1]);
+        if(cb.checked && i === -1) r.pieceIds.push(parts[1]);
+        else if(!cb.checked && i !== -1) r.pieceIds.splice(i, 1);
+        saveState(); render();
+      });
+      cb.addEventListener('click', function(e){ e.stopPropagation(); });
     });
   }
 
