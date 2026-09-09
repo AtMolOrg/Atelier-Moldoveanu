@@ -1223,17 +1223,19 @@
         }
       });
     });
-    // în timpul unui drag în pipeline: mărește zonele unde poți „da drumul" (coloanele goale sunt altfel un fir de 32px)
-    function pipeDndOn(){ document.body.classList.add('pipe-dnd'); }
-    function pipeDndOff(){ document.body.classList.remove('pipe-dnd'); }
+    // în timpul unui drag în pipeline: mărește zonele unde poți „da drumul" (coloanele goale sunt altfel un fir de 32px).
+    // DEFERAT după dragstart — dacă reflow-ăm pipeline-ul sincron în dragstart, browserul anulează drag-ul.
+    var pipeDndTimer = null;
+    function pipeDndOn(){ pipeDndTimer = setTimeout(function(){ document.body.classList.add('pipe-dnd'); }, 0); }
+    function pipeDndOff(){ clearTimeout(pipeDndTimer); document.body.classList.remove('pipe-dnd'); }
     // drag & drop — the project itself, dragged by the head of its current stage column
     document.querySelectorAll('[data-proj-drag]').forEach(function(el){
       el.addEventListener('dragstart', function(e){
         var payload = 'PRJ::' + el.dataset.projDrag;
+        e.dataTransfer.setData('text/plain', payload);
         draggingData = payload;
         el.closest('.proj-stage-box').classList.add('dragging');
         pipeDndOn();
-        e.dataTransfer.setData('text/plain', payload);
       });
       el.addEventListener('dragend', function(){
         el.closest('.proj-stage-box') && el.closest('.proj-stage-box').classList.remove('dragging');
@@ -1245,10 +1247,10 @@
     document.querySelectorAll('.piece-card[draggable="true"]').forEach(function(card){
       card.addEventListener('dragstart', function(e){
         var payload = 'PC::' + card.dataset.piece;
+        e.dataTransfer.setData('text/plain', payload);
         draggingData = payload;
         card.classList.add('dragging');
         pipeDndOn();
-        e.dataTransfer.setData('text/plain', payload);
       });
       card.addEventListener('dragend', function(){ card.classList.remove('dragging'); pipeDndOff(); draggingData=null; });
     });
