@@ -293,6 +293,7 @@
   .pcol-tasks{ display:flex; flex-direction:column; gap:4px; }
   .ptask{ display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:5px 7px; font-size:12px; }
   .ptask.ptask-dragging{ opacity:.4; }
+  .ptask.ptask-carry{ border-left:2px solid var(--ph-mtj); }
   .ptask-grip{ color:var(--ink-faint); cursor:grab; font-size:11px; flex:none; }
   .ptask-text{ flex:1; min-width:0; outline:0; word-break:break-word; }
   .ptask-text:focus{ box-shadow:0 0 0 1px var(--border-strong); border-radius:3px; }
@@ -337,6 +338,18 @@
   .org-sheet .os-empty{ color:#8a8d93; font-style:italic; }
   .org-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:12px; }
   .org-final{ font-size:11px; color:var(--ok-ink); }
+  .plan-modeseg{ display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:2px; }
+  .plan-modeseg button{ background:none; border:0; color:var(--ink-faint); font:inherit; font-size:11.5px; padding:4px 12px; border-radius:999px; cursor:pointer; }
+  .plan-modeseg button.on{ background:var(--accent); color:var(--accent-ink); font-weight:600; }
+  .plan-morning{ max-width:640px; }
+  .pm-head{ font-size:13px; color:var(--ink-dim); margin-bottom:12px; }
+  .pm-prog{ color:var(--ink-faint); margin-left:8px; }
+  .pm-who{ font-weight:600; font-size:12.5px; color:var(--ink); margin:14px 0 4px; }
+  .pm-task{ display:flex; align-items:flex-start; gap:9px; padding:6px 8px; border:1px solid var(--border); border-radius:7px; margin-bottom:5px; background:var(--panel-2); font-size:12.5px; cursor:pointer; }
+  .pm-task input{ margin-top:2px; flex:none; }
+  .pm-task.pm-done span{ text-decoration:line-through; color:var(--ink-faint); }
+  .pm-task.pm-rest{ cursor:default; opacity:.7; }
+  .pm-carry{ color:var(--ph-mtj); font-weight:700; }
   @media print{
     .topbar, #main > *:not(#board){ display:none !important; }
     body, #main, #board, .plan-board, .plan-wrap{ background:#fff !important; padding:0 !important; margin:0 !important; }

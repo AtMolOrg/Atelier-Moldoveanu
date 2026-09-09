@@ -790,15 +790,30 @@
   }
 
   /* ================= PLANIFICARE (organizare zilnică) ================= */
-  var currentPlanDate = null; // 'YYYY-MM-DD' — inițializat lazy la ziua de mâine
+  var currentPlanDate = null; // 'YYYY-MM-DD' — inițializat lazy
   var planSettingsOpen = false;
   var rosterOpen = false;
+  var planViewMode = null; // null = automat după oră; 'seara' | 'dimineata' = forțat de utilizator
   var PERSON_ROLES = ['atelier', 'proiectant', 'coord', 'birou', 'sef'];
   var MON_SHORT = ['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','noi','dec'];
 
   function planTomorrowIso(){ return isoOf(addDays(todayDate(), 1)); }
-  function ensurePlanDate(){ if(!currentPlanDate) currentPlanDate = planTomorrowIso(); return currentPlanDate; }
+  function ensurePlanDate(){
+    if(!currentPlanDate){
+      // dimineața: dacă azi are un plan, pornește de la el; altfel, plănuiește mâine
+      var todayHasPlan = (state.plans || []).some(function(pl){ return pl.date === isoToday(); });
+      currentPlanDate = (new Date().getHours() < 15 && todayHasPlan) ? isoToday() : planTomorrowIso();
+    }
+    return currentPlanDate;
+  }
   function shiftPlanDate(n){ currentPlanDate = isoOf(addDays(parseDate(ensurePlanDate()), n)); }
+  // modul de afișare: forțat de utilizator, altfel automat (dimineața te uiți la ce ai de bifat azi)
+  function planMode(){
+    if(planViewMode) return planViewMode;
+    var d = parseDate(ensurePlanDate());
+    if(d && d.getTime() <= todayDate().getTime() && new Date().getHours() < 15) return 'dimineata';
+    return 'seara';
+  }
 
   function peopleSorted(includeInactive){
     return (state.people || []).filter(function(p){ return includeInactive || p.active; })
@@ -1000,7 +1015,12 @@
     h += '<button type="button" class="btn btn-sm" data-plan-day="prev" title="Ziua anterioară">‹</button>';
     h += '<span class="pd-label">plan pentru <b>' + esc(planDateLabel(currentPlanDate)) + '</b></span>';
     h += '<button type="button" class="btn btn-sm" data-plan-day="next" title="Ziua următoare">›</button>';
-    h += '<button type="button" class="btn btn-sm" data-plan-day="today">mâine</button>';
+    h += '<button type="button" class="btn btn-sm" data-plan-day="today">azi/mâine</button>';
+    var mode = planMode();
+    h += '<span class="plan-modeseg">'
+      + '<button type="button" class="' + (mode === 'seara' ? 'on' : '') + '" data-plan-mode="seara">seară</button>'
+      + '<button type="button" class="' + (mode === 'dimineata' ? 'on' : '') + '" data-plan-mode="dimineata">dimineață</button>'
+      + '</span>';
     h += '<span class="rs-grow"></span>';
     h += '<button type="button" class="btn btn-sm' + (planSettingsOpen ? ' btn-primary' : '') + '" data-plan-settings title="Reminder-e fixe">⚙</button>';
     h += '<button type="button" class="btn btn-sm' + (rosterOpen ? ' btn-primary' : '') + '" data-plan-roster>Angajați</button>';
@@ -1008,6 +1028,14 @@
 
     if(planSettingsOpen) h += renderReminderSettings();
     if(rosterOpen) h += renderRoster();
+
+    if(mode === 'dimineata'){
+      h += renderMorningView(plan);
+      h += '</div>';
+      board.innerHTML = h;
+      attachPlanEvents();
+      return;
+    }
 
     h += '<div class="plan-cols">';
     h += '<div class="plan-col plan-col-left"><div class="plan-col-h">Sarcini</div>' + renderDerivedColumn(plan) + '</div>';
@@ -1076,8 +1104,9 @@
       }
       h += '<div class="pcol-tasks">';
       tasks.forEach(function(t){
-        h += '<div class="ptask" draggable="true" data-ptask-drag="' + t.id + '">'
+        h += '<div class="ptask' + (t.source === 'carryover' ? ' ptask-carry' : '') + '" draggable="true" data-ptask-drag="' + t.id + '">'
           + '<span class="ptask-grip">⠿</span>'
+          + (t.source === 'carryover' ? '<span class="pm-carry" title="rămas din ' + esc(t.carriedFrom || '') + '">↻</span>' : '')
           + '<span class="ptask-text" contenteditable="true" data-ptask-text="' + t.id + '">' + esc(t.text) + '</span>'
           + '<button type="button" class="ptask-del" data-ptask-del="' + t.id + '" title="Șterge">×</button>'
           + '</div>';
@@ -1090,6 +1119,34 @@
   }
 
   function orgTaskText(plan, t){ return (plan.edits && plan.edits[t.id]) || t.text; }
+
+  // modul de dimineață: aceeași listă, doar de bifat
+  function renderMorningView(plan){
+    var all = plan.tasks || [];
+    var done = all.filter(function(t){ return t.done; }).length;
+    var h = '<div class="plan-morning">';
+    h += '<div class="pm-head">Dimineața · ' + esc(planDateLabel(plan.date)) + ' <span class="pm-prog">' + done + ' / ' + all.length + ' făcute</span></div>';
+    var any = false;
+    peopleSorted().forEach(function(p){
+      var ts = planTasksFor(plan, p.id);
+      if(!ts.length) return;
+      any = true;
+      h += '<div class="pm-who">' + esc(p.name) + '</div>';
+      ts.forEach(function(t){
+        h += '<label class="pm-task' + (t.done ? ' pm-done' : '') + '">'
+          + '<input type="checkbox" data-ptask-done="' + t.id + '"' + (t.done ? ' checked' : '') + '>'
+          + '<span>' + (t.source === 'carryover' ? '<span class="pm-carry">↻</span> ' : '') + esc(orgTaskText(plan, t)) + '</span>'
+          + '</label>';
+      });
+    });
+    if(!any) h += '<div class="plan-empty">nimic repartizat pe ziua asta</div>';
+    if((plan.resturi || []).length){
+      h += '<div class="pm-who">Resturi</div>';
+      plan.resturi.forEach(function(r){ h += '<div class="pm-task pm-rest"><span>' + esc(r.text) + '</span></div>'; });
+    }
+    h += '</div>';
+    return h;
+  }
 
   function renderOrgSheet(plan){
     var rem = (state.reminders || []).filter(function(r){ return (r || '').trim(); });
@@ -1104,7 +1161,7 @@
       any = true;
       h += '<div class="os-who">' + esc(p.name) + '</div><ul class="os-list">';
       ts.forEach(function(t){
-        h += '<li' + (t.done ? ' class="os-done"' : '') + ' contenteditable="true" data-os-line="' + t.id + '">' + esc(orgTaskText(plan, t)) + '</li>';
+        h += '<li' + (t.done ? ' class="os-done"' : '') + ' contenteditable="true" data-os-line="' + t.id + '">' + (t.source === 'carryover' ? '↻ ' : '') + esc(orgTaskText(plan, t)) + '</li>';
       });
       h += '</ul>';
     });
@@ -1154,12 +1211,26 @@
     var plan = planFor(dateIso);
     plan.finalizedAt = new Date().toISOString();
     commitPlan(plan);
-    if(typeof logEvent === 'function') logEvent('plan-finalizat', dateIso, { date: dateIso, tasks: (plan.tasks || []).length });
+    // ↻ carryover: ce n-a fost bifat se mută în planul zilei următoare
+    var nextIso = isoOf(addDays(parseDate(dateIso), 1));
+    var next = planFor(nextIso);
+    var carried = 0;
+    (plan.tasks || []).forEach(function(t){
+      if(t.done) return;
+      var mx = 0;
+      (next.tasks || []).forEach(function(x){ if(x.personId === t.personId && (x.order || 0) > mx) mx = x.order || 0; });
+      if(!Array.isArray(next.tasks)) next.tasks = [];
+      next.tasks.push({ id: uid(), text: t.text, personId: t.personId, projectId: t.projectId || null,
+        order: mx + 1, done: false, doneAt: null, source: 'carryover', carriedFrom: dateIso });
+      carried++;
+    });
+    if(carried) commitPlan(next);
+    if(typeof logEvent === 'function') logEvent('plan-finalizat', dateIso, { date: dateIso, tasks: (plan.tasks || []).length, carried: carried });
     if(typeof pruneLog === 'function') pruneLog();
     saveState();
-    currentPlanDate = isoOf(addDays(parseDate(dateIso), 1));
+    currentPlanDate = nextIso;
     render();
-    showToast('Ziua finalizată. Trecut la ' + planDateLabel(currentPlanDate) + '.');
+    showToast('Ziua finalizată' + (carried ? ' · ' + carried + ' ↻ mutate mâine' : '') + '. Trecut la ' + planDateLabel(currentPlanDate) + '.');
   }
 
   function orgSheetText(plan){
@@ -1191,6 +1262,19 @@
     if(rosterBtn) rosterBtn.addEventListener('click', function(){ rosterOpen = !rosterOpen; render(); });
     var setBtn = document.querySelector('[data-plan-settings]');
     if(setBtn) setBtn.addEventListener('click', function(){ planSettingsOpen = !planSettingsOpen; render(); });
+    document.querySelectorAll('[data-plan-mode]').forEach(function(b){
+      b.addEventListener('click', function(){ planViewMode = b.dataset.planMode; render(); });
+    });
+    document.querySelectorAll('[data-ptask-done]').forEach(function(cb){
+      cb.addEventListener('change', function(){
+        var t = (plan.tasks || []).find(function(x){ return x.id === cb.dataset.ptaskDone; });
+        if(!t) return;
+        t.done = cb.checked;
+        t.doneAt = cb.checked ? new Date().toISOString() : null;
+        if(typeof logEvent === 'function') logEvent('plan-task-bifat', t.text, { date: plan.date, taskId: t.id, personId: t.personId, done: t.done });
+        commitPlan(plan); saveState(); render();
+      });
+    });
 
     document.querySelectorAll('[data-reminder]').forEach(function(inp){
       inp.addEventListener('input', function(){
