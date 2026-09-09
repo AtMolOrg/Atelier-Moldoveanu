@@ -135,7 +135,8 @@
       repairs: [],
       workers: [],
       assignments: [],
-      checklists: []
+      checklists: [],
+      orders: []   // comenzile trimise la furnizori (CMD-…)
     };
   }
 
@@ -274,11 +275,26 @@
     if(!Array.isArray(parsed.workers)) parsed.workers = [];
     // funcția de echipă/oameni a fost scoasă — păstrăm doar furnizorii, aruncăm restul
     parsed.workers = (parsed.workers || []).filter(function(w){ return w.kind === 'furnizor'; });
+    // fiecare furnizor are o zi fixă de livrare (0=duminică … 6=sâmbătă) sau o notă liberă
+    parsed.workers.forEach(function(w){
+      if(!('deliveryDay' in w)) w.deliveryDay = null;
+      if(!('deliveryNote' in w)) w.deliveryNote = null;
+    });
+    // comenzile trimise (CMD-…) — evidența e la nivel de stare, liniile arată spre ele prin cmdId
+    if(!Array.isArray(parsed.orders)) parsed.orders = [];
     parsed.assignments = []; // legăturile persoană↔proiect nu mai există; ținem cheia ca să nu crape cod vechi
     delete parsed.colorHistory; // paleta de culori pentru oameni — feature scoasă
     if(!Array.isArray(parsed.checklists)) parsed.checklists = [];
     parsed.projects.forEach(function(p){
       if(!Array.isArray(p.orders)) p.orders = [];
+      // câmpurile noi ale unei linii de necesar — completate o singură dată, cu valori fixe
+      p.orders.forEach(function(o){
+        if(typeof o.um === 'undefined') o.um = 'buc';
+        if(typeof o.altSupplierId === 'undefined') o.altSupplierId = '';
+        if(typeof o.cmdId === 'undefined') o.cmdId = null;
+        if(typeof o.orderedAt === 'undefined') o.orderedAt = null;
+        if(typeof o.receivedAt === 'undefined') o.receivedAt = null;
+      });
       delete p.gataEstimat; delete p.faze; delete p.phaseKind; delete p.phaseSince; // graficul Gantt a fost scos
       if(typeof p.montajNotes !== 'string'){
         // the short-lived structured "necesar montaj" list is now just a free-text note
@@ -304,6 +320,28 @@
         }
       });
     });
+    // Linii vechi marcate „comandat" dinainte să existe evidența CMD: le legăm de o comandă
+    // sintetică per furnizor, cu id determinist (fără Date.now / new Date — migrarea trebuie
+    // să dea exact același rezultat de fiecare dată). Liniile fără furnizor rămân fără comandă:
+    // se văd ca „comandat", dar nu apar în recepție.
+    var cmdSeen = {};
+    parsed.orders.forEach(function(o){ cmdSeen[o.id] = true; });
+    parsed.projects.forEach(function(p){
+      (p.orders || []).forEach(function(o){
+        if(o.status !== 'comandat' || o.cmdId || !o.supplierId) return;
+        var lid = 'legacy-' + (o.supplierId || 'none');
+        if(!cmdSeen[lid]){
+          parsed.orders.push({ id: lid, nr: 'CMD-veche', supplierId: o.supplierId, date: '' });
+          cmdSeen[lid] = true;
+        }
+        o.cmdId = lid;
+      });
+    });
+    // o comandă fără nicio linie care s-o arate e o fantomă în istoric — o aruncăm
+    var cmdUsed = {};
+    parsed.projects.forEach(function(p){ (p.orders || []).forEach(function(o){ if(o.cmdId) cmdUsed[o.cmdId] = true; }); });
+    parsed.orders = parsed.orders.filter(function(o){ return cmdUsed[o.id]; });
+
     parsed.checklists.forEach(function(c){ if(!Array.isArray(c.items)) c.items = []; });
     delete parsed.registrySort; // comutatorul de sortare a fost scos — mereu după termen
     (parsed.projects||[]).forEach(function(p){ delete p.x; delete p.y; });
@@ -599,9 +637,14 @@
   /* ================= HARTĂ ATELIER ================= */
 
   /* ---------------- project orders (materiale de comandat) ---------------- */
-  function supplierOptionsHtml(selectedId){
-    var opts = '<option value="">— furnizor —</option>';
-    state.workers.filter(function(w){ return w.kind === 'furnizor'; }).forEach(function(w){
+  function furnizori(){ return state.workers.filter(function(w){ return w.kind === 'furnizor'; }); }
+  function supplierById(id){ return furnizori().find(function(w){ return w.id === id; }) || null; }
+  function supplierName(id){ var s = supplierById(id); return s ? (s.name || '—') : '— fără furnizor —'; }
+  // placeholder = textul opțiunii goale; null îl scoate cu totul (util pentru filtre)
+  function supplierOptionsHtml(selectedId, placeholder){
+    var lbl = (typeof placeholder === 'undefined') ? '— furnizor —' : placeholder;
+    var opts = (lbl === null) ? '' : '<option value=""' + (selectedId ? '' : ' selected') + '>' + esc(lbl) + '</option>';
+    furnizori().forEach(function(w){
       opts += '<option value="' + w.id + '"' + (w.id === selectedId ? ' selected' : '') + '>' + esc(w.name) + '</option>';
     });
     return opts;
@@ -612,6 +655,122 @@
     if(!p || !Array.isArray(p.orders)) return null;
     var o = p.orders.find(function(x){ return x.id === parts[1]; });
     return o ? { project: p, order: o } : null;
+  }
+
+  /* ---------------- comenzi: lista plată + evidența CMD ----------------
+     Datele NU se mută: fiecare linie de necesar stă mai departe în p.orders[].
+     allNeeds() doar aplatizează pentru randare; `_o` e referința vie prin care se scrie
+     înapoi, `_p` e proiectul care o deține. */
+  var UM_LIST = ['buc','m','kg','saci','role','tuburi','coli','L','set'];
+  var ORDER_STATUS_CLS = { 'de-comandat':'need', 'comandat':'sent', 'primit':'recv' };
+  var ZI_NAME = ['duminică','luni','marți','miercuri','joi','vineri','sâmbătă'];
+
+  function allNeeds(){
+    var out = [];
+    state.projects.forEach(function(p){
+      (p.orders || []).forEach(function(o){
+        var row = {};
+        Object.keys(o).forEach(function(k){ row[k] = o[k]; });
+        row.text = o.text || '';
+        row.qty = o.qty == null ? '' : o.qty;
+        row.um = o.um || 'buc';
+        row.supplierId = o.supplierId || '';
+        row.altSupplierId = o.altSupplierId || '';
+        row.status = o.status || 'de-comandat';
+        row.cmdId = o.cmdId || null;
+        row.key = p.id + '::' + o.id;
+        row.projectId = p.id;
+        row.projectCod = p.cod || '—';
+        row._p = p;
+        row._o = o;
+        return out.push(row);
+      });
+    });
+    return out;
+  }
+  function cmdById(id){ return (state.orders || []).find(function(o){ return o.id === id; }) || null; }
+  function cmdLines(cmdId, needs){ return (needs || allNeeds()).filter(function(n){ return n.cmdId === cmdId; }); }
+
+  // CMD-DDMM-NN — NN e 1 + câte comenzi există deja în ziua aia
+  function mkCmdNr(dateIso){
+    var d = parseDate(dateIso) || todayDate();
+    var stamp = pad2(d.getDate()) + pad2(d.getMonth() + 1);
+    var k = (state.orders || []).filter(function(o){ return String(o.nr || '').indexOf('CMD-' + stamp) === 0; }).length + 1;
+    return 'CMD-' + stamp + '-' + pad2(k);
+  }
+  // prima zi de livrare de la azi înainte, pentru furnizorii cu zi fixă
+  function nextDeliveryDate(supId){
+    var s = supplierById(supId);
+    if(!s || s.deliveryDay === null || typeof s.deliveryDay === 'undefined') return null;
+    var d = todayDate(), guard = 0;
+    while(d.getDay() !== s.deliveryDay && guard++ < 10) d = addDays(d, 1);
+    return isoOf(d);
+  }
+  function deliveryLabel(supId){
+    var s = supplierById(supId);
+    if(!s) return 'atribuie un furnizor';
+    var iso = nextDeliveryDate(supId);
+    if(!iso) return (s.deliveryNote || '').trim() || 'livrare la comandă';
+    var d = parseDate(iso);
+    var k = daysBetween(todayDate(), d);
+    return 'vine ' + ZI_NAME[d.getDay()] + ' ' + fmtShortDate(iso) + (k === 0 ? ' (azi)' : (k === 1 ? ' (mâine)' : ''));
+  }
+  function orderState(o, needs){
+    var ls = cmdLines(o.id, needs);
+    if(!ls.length) return { received:0, total:0, label:'goală', cls:'sent' };
+    var r = ls.filter(function(n){ return n.status === 'primit'; }).length;
+    return { received:r, total:ls.length,
+      label: r === 0 ? 'trimisă' : (r < ls.length ? 'parțial' : 'completă'),
+      cls: r === ls.length ? 'recv' : 'sent' };
+  }
+  // o comandă la care nu mai arată nicio linie e o fantomă în istoric — o scoatem
+  function pruneOrders(){
+    if(!Array.isArray(state.orders)){ state.orders = []; return; }
+    var used = {};
+    state.projects.forEach(function(p){ (p.orders || []).forEach(function(o){ if(o.cmdId) used[o.cmdId] = true; }); });
+    state.orders = state.orders.filter(function(o){ return used[o.id]; });
+  }
+  // bate o comandă nouă și ștampilează liniile date (obiecte brute din p.orders[])
+  function mintCmd(supplierId, rawLines){
+    var lines = rawLines.filter(function(o){ return o && o.status === 'de-comandat'; });
+    if(!lines.length) return null;
+    if(!Array.isArray(state.orders)) state.orders = [];
+    var today = isoToday();
+    var cmd = { id: uid(), nr: mkCmdNr(today), supplierId: supplierId || '', date: today };
+    state.orders.push(cmd);
+    lines.forEach(function(o){
+      if(!o.supplierId) o.supplierId = supplierId || '';
+      o.status = 'comandat'; o.cmdId = cmd.id; o.orderedAt = today; o.receivedAt = null;
+    });
+    return cmd;
+  }
+  // singurul loc unde se schimbă starea unei linii — și din Comenzi, și din registru
+  function setOrderStatus(o, st){
+    if(st === 'de-comandat'){ o.status = 'de-comandat'; o.cmdId = null; o.orderedAt = null; o.receivedAt = null; }
+    else if(st === 'comandat'){
+      if(!o.cmdId) mintCmd(o.supplierId || '', [o]);
+      else { o.status = 'comandat'; o.receivedAt = null; }
+    } else {
+      o.status = 'primit'; o.receivedAt = isoToday();
+      if(!o.orderedAt) o.orderedAt = isoToday();
+    }
+    pruneOrders();
+  }
+  function cycleOrderStatus(o){
+    var i = ORDER_STATUSES.indexOf(o.status);
+    setOrderStatus(o, ORDER_STATUSES[(i + 1) % ORDER_STATUSES.length]);
+  }
+  function umOptionsHtml(cur){
+    return UM_LIST.map(function(u){ return '<option value="' + u + '"' + (u === cur ? ' selected' : '') + '>' + u + '</option>'; }).join('');
+  }
+  function projectOptionsHtml(cur){
+    return state.projects.map(function(p){
+      return '<option value="' + p.id + '"' + (p.id === cur ? ' selected' : '') + '>' + esc(p.cod || '—') + '</option>';
+    }).join('');
+  }
+  function newOrderLine(){
+    return { id: uid(), text: '', qty: '', um: 'buc', supplierId: '', altSupplierId: '',
+             status: 'de-comandat', cmdId: null, orderedAt: null, receivedAt: null };
   }
   // Just the order rows + "adaugă comandă" button — used by the registru row header.
   function renderOrdersRows(p){
@@ -626,6 +785,7 @@
         b += '<button type="button" class="order-status order-status-' + o.status + '" data-order-status="' + key + '" title="Schimbă starea">' + ORDER_STATUS_LABEL[o.status] + '</button>';
         b += '<input class="order-text" data-order-edit="' + key + '" data-field="text" value="' + esc(o.text || '') + '" placeholder="Ce se comandă">';
         b += '<input class="order-qty" data-order-edit="' + key + '" data-field="qty" value="' + esc(o.qty || '') + '" placeholder="Cant.">';
+        b += '<select class="order-qty" data-order-edit="' + key + '" data-field="um" title="Unitate de măsură">' + umOptionsHtml(o.um || 'buc') + '</select>';
         b += '<select class="order-supplier" data-order-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(o.supplierId || '') + '</select>';
         b += '<button type="button" class="order-del" data-order-del="' + key + '" title="Șterge rândul">×</button>';
         b += '</div>';
@@ -1092,7 +1252,7 @@
         var p = projectById(btn.dataset.orderAdd);
         if(!p) return;
         if(!Array.isArray(p.orders)) p.orders = [];
-        p.orders.push({ id: uid(), text: '', qty: '', supplierId: '', status: 'de-comandat' });
+        p.orders.push(newOrderLine());
         saveState(); render();
       });
     });
@@ -1101,8 +1261,7 @@
         e.stopPropagation();
         var found = findOrderByKey(btn.dataset.orderStatus);
         if(!found) return;
-        var i = ORDER_STATUSES.indexOf(found.order.status);
-        found.order.status = ORDER_STATUSES[(i + 1) % ORDER_STATUSES.length];
+        cycleOrderStatus(found.order);
         saveState(); render();
       });
     });
@@ -1113,6 +1272,7 @@
         if(!found) return;
         if(found.order.text && !confirm('Ștergi rândul „' + found.order.text + '”?')) return;
         found.project.orders = found.project.orders.filter(function(x){ return x.id !== found.order.id; });
+        pruneOrders();
         saveState(); render();
       });
     });
@@ -1253,7 +1413,6 @@
   }
 
   /* ================= COMENZI (toate materialele de aprovizionat) ================= */
-  var comenziShowPrimit = false;
   var comenziFurnizoriOpen = false;
 
   function renderFurnizoriPanel(){
@@ -1266,13 +1425,18 @@
     h += '<span class="furn-chev">▸</span>';
     h += '</button>';
     h += '<div class="furn-panel-body"' + (open ? '' : ' hidden') + '>';
-    h += '<div class="furn-row furn-row-head"><span>Nume</span><span>Contact</span><span>Note</span><span></span></div>';
+    h += '<div class="furn-row furn-row-head"><span>Nume</span><span>Contact</span><span>Zi livrare</span><span>Notă livrare</span><span>Note</span><span></span></div>';
     sup.forEach(function(w){
-      var inUse = state.projects.some(function(p){ return (p.orders || []).some(function(o){ return o.supplierId === w.id; }); });
+      var inUse = state.projects.some(function(p){ return (p.orders || []).some(function(o){ return o.supplierId === w.id || o.altSupplierId === w.id; }); });
       h += '<div class="furn-row">';
       h += '<input class="furn-inp" data-furn-edit="' + w.id + '" data-field="name" value="' + esc(w.name || '') + '" placeholder="Nume furnizor">';
       h += '<input class="furn-inp" data-furn-edit="' + w.id + '" data-field="contact" value="' + esc(w.contact || '') + '" placeholder="telefon / email">';
-      h += '<input class="furn-inp" data-furn-edit="' + w.id + '" data-field="taskNote" value="' + esc(w.taskNote || '') + '" placeholder="note">';
+      h += '<select class="furn-inp" data-furn-edit="' + w.id + '" data-field="deliveryDay" title="Ziua în care livrează">' +
+        '<option value=""' + (w.deliveryDay === null || typeof w.deliveryDay === 'undefined' ? ' selected' : '') + '>fără zi fixă</option>' +
+        ZI_NAME.map(function(z, i){ return '<option value="' + i + '"' + (w.deliveryDay === i ? ' selected' : '') + '>' + z + '</option>'; }).join('') +
+        '</select>';
+      h += '<input class="furn-inp" data-furn-edit="' + w.id + '" data-field="deliveryNote" value="' + esc(w.deliveryNote || '') + '" placeholder="ex. ridicare oricând">';
+      h += '<input class="furn-inp" data-furn-edit="' + w.id + '" data-field="taskNote" value="' + esc(w.taskNote || '') + '" placeholder="ce furnizează">';
       h += '<button type="button" class="furn-del" data-furn-del="' + w.id + '"' +
         (inUse ? ' disabled title="Are comenzi legate — nu se poate șterge"' : ' title="Șterge"') + '>×</button>';
       h += '</div>';
@@ -1289,15 +1453,22 @@
       inp.addEventListener('change', function(){
         var w = state.workers.find(function(x){ return x.id === inp.dataset.furnEdit; });
         if(!w) return;
+        var f = inp.dataset.field;
+        if(f === 'deliveryDay'){
+          w.deliveryDay = inp.value === '' ? null : parseInt(inp.value, 10);
+          saveState(); render();
+          return;
+        }
         var v = inp.value.trim();
-        if(inp.dataset.field === 'name' && !v){ inp.value = w.name; return; }
-        w[inp.dataset.field] = v;
+        if(f === 'name' && !v){ inp.value = w.name; return; }
+        if(f === 'deliveryNote'){ w.deliveryNote = v || null; saveState(); render(); return; }
+        w[f] = v;
         saveState(); render(); // re-randăm ca numele să apară în meniul de furnizor + anteturile de grup din tabelul de comenzi
       });
     });
     document.querySelectorAll('[data-furn-add]').forEach(function(b){
       b.addEventListener('click', function(){
-        state.workers.push({ id: uid(), name: 'Furnizor nou', kind: 'furnizor', taskNote: '', contact: '' });
+        state.workers.push({ id: uid(), name: 'Furnizor nou', kind: 'furnizor', taskNote: '', contact: '', deliveryDay: null, deliveryNote: null });
         comenziFurnizoriOpen = true;
         saveState(); render();
       });
@@ -1314,101 +1485,596 @@
     });
   }
 
+  /* ---------------- Comenzi: stare de interfață (tranzitorie, nu se salvează) ---------------- */
+  var cmzSort = 'sup', cmzDir = 1, cmzQ = '', cmzFs = '', cmzFp = '', cmzFst = '',
+      cmzUrg = false, cmzGroup = true, cmzFcmd = '', cmzSel = {}, cmzHist = false,
+      cmzAddOpen = false, cmzFlash = null, cmzFocus = null, cmzEventsOn = false;
+
+  function cmzLateDays(p){
+    if(!p || !p.termen || p.finalizat) return 0;
+    var d = daysBetween(todayDate(), parseDate(p.termen));
+    return d < 0 ? -d : 0;
+  }
+  function cmzSoonDays(p){
+    if(!p || !p.termen) return null;
+    return daysBetween(todayDate(), parseDate(p.termen));
+  }
+  // urgent = proiectul e întârziat sau are termen în ≤7 zile, iar linia încă n-a plecat
+  function cmzIsUrgent(n){
+    if(n.status !== 'de-comandat') return false;
+    var p = n._p;
+    if(!p || p.finalizat || !p.termen) return false;
+    return daysBetween(todayDate(), parseDate(p.termen)) <= 7;
+  }
+  function cmzStatePill(n){
+    return '<button type="button" class="cmz-pill ' + ORDER_STATUS_CLS[n.status] + '" data-cmz="cycle" data-cmzk="' +
+      n.key + '" title="Schimbă starea">' + ORDER_STATUS_LABEL[n.status] + '</button>';
+  }
+  function cmzQtyHtml(n){
+    return '<span class="cmz-qty">' + esc(n.qty === '' ? '—' : n.qty) + '<small>' + esc(n.um) + '</small></span>';
+  }
+  function cmzProjChip(n){
+    var p = n._p; if(!p) return '';
+    var L = cmzLateDays(p), s = cmzSoonDays(p);
+    var cls = L ? ' late' : (n.status === 'de-comandat' && s !== null && s <= 4 ? ' soon' : '');
+    return '<span class="cmz-chip' + cls + '">' + esc(p.cod || '—') + (L ? ' · întârziat ' + L + 'z' : '') + '</span>';
+  }
+
+  /* ---- banda registru: cine stă după material ---- */
+  function cmzSignalHtml(needs){
+    var by = {}, list = [];
+    needs.forEach(function(n){
+      if(n.status !== 'de-comandat') return;
+      var p = n._p;
+      if(!p || p.finalizat || !p.termen) return;
+      if(!by[p.id]){ by[p.id] = { p: p, k: 0 }; list.push(by[p.id]); }
+      by[p.id].k++;
+    });
+    list.sort(function(a, b){ return a.p.termen < b.p.termen ? -1 : (a.p.termen > b.p.termen ? 1 : 0); });
+    if(!list.length){
+      return '<div class="cmz-signal clear"><span class="cmz-sg-t">Registru</span>' +
+        '<span class="cmz-note">Niciun proiect nu mai stă după material — tot ce e pe listă e comandat sau primit.</span></div>';
+    }
+    var h = '<div class="cmz-signal"><span class="cmz-sg-t">Blochează în registru</span>';
+    list.slice(0, 5).forEach(function(it){
+      var L = cmzLateDays(it.p), s = cmzSoonDays(it.p);
+      h += '<button type="button" class="cmz-sg-i" data-cmz="f-prj" data-cmzv="' + it.p.id + '" title="Filtrează tabelul pe proiect">' +
+        '<b>' + esc(it.p.cod || '—') + '</b><span class="d">' + (L ? 'întârziat ' + L + 'z' : 'termen în ' + s + 'z') + '</span>' +
+        '<span class="cmz-note">· ' + it.k + ' necomandat' + (it.k > 1 ? 'e' : '') + '</span></button>';
+    });
+    if(list.length > 5) h += '<span class="cmz-note">+' + (list.length - 5) + ' alte proiecte</span>';
+    return h + '</div>';
+  }
+
+  function cmzFlashHtml(){
+    if(!cmzFlash) return '';
+    return '<div class="cmz-flash"><b>' + esc(cmzFlash.title) + '</b><span>' + esc(cmzFlash.body) + '</span>' +
+      '<span class="sp"></span>' +
+      (cmzFlash.cmdId ? '<button type="button" class="btn btn-xs" data-cmz="f-cmd" data-cmzv="' + cmzFlash.cmdId + '">vezi comanda</button>' : '') +
+      '<button type="button" class="cmz-icob" data-cmz="flash-x" title="Închide">×</button></div>';
+  }
+
+  /* ---- bara de unelte ---- */
+  function cmzToolbarHtml(needs){
+    var cnt = { '': needs.length };
+    ORDER_STATUSES.forEach(function(st){ cnt[st] = needs.filter(function(n){ return n.status === st; }).length; });
+    var h = '<div class="cmz-bar">';
+    h += '<div class="cmz-seg">' + [['','Toate'],['de-comandat','De comandat'],['comandat','Comandat'],['primit','Primit']]
+      .map(function(o){
+        return '<button type="button" data-cmz="f-st" data-cmzv="' + o[0] + '"' + (cmzFst === o[0] ? ' class="on"' : '') +
+          '>' + o[1] + '<i>' + cnt[o[0]] + '</i></button>';
+      }).join('') + '</div>';
+    h += '<input class="cmz-in" data-cmz="f-q" id="cmz-q" value="' + esc(cmzQ) + '" placeholder="caută material, furnizor, proiect…">';
+    h += '<select class="cmz-in" data-cmz="f-s" title="Furnizor"><option value="">toți furnizorii</option>' + supplierOptionsHtml(cmzFs, null) + '</select>';
+    h += '<select class="cmz-in" data-cmz="f-p" title="Proiect"><option value="">toate proiectele</option>' + projectOptionsHtml(cmzFp) + '</select>';
+    h += '<button type="button" class="btn btn-xs' + (cmzUrg ? ' btn-primary' : '') + '" data-cmz="f-urg" ' +
+      'title="Proiect întârziat sau cu termen în ≤7 zile, material încă necomandat">⚑ doar urgente</button>';
+    h += '<button type="button" class="btn btn-xs' + (cmzGroup ? ' btn-primary' : '') + '" data-cmz="f-group" ' +
+      (cmzFst === 'comandat' ? 'disabled title="Recepția e deja grupată pe comandă"' : 'title="Strânge rândurile sub antet de furnizor"') +
+      '>⊞ grupează pe furnizor</button>';
+    if(cmzFcmd){
+      var oo = cmdById(cmzFcmd);
+      h += '<button type="button" class="cmz-chip late" data-cmz="f-cmd-x">' + esc(oo ? oo.nr : 'comandă') + ' ×</button>';
+    }
+    h += '<span class="sp"></span>';
+    h += '<button type="button" class="btn btn-xs btn-ghost" data-cmz="f-clear">curăță filtrele</button>';
+    h += '<button type="button" class="btn btn-xs' + (cmzAddOpen ? ' btn-primary' : '') + '" data-cmz="add-toggle">+ Necesar nou</button>';
+    h += '</div>';
+    if(cmzAddOpen){
+      var defP = cmzFp || (state.projects[0] ? state.projects[0].id : '');
+      h += '<div class="cmz-addf" data-cmz-form="new"><span class="lbl">Necesar nou</span>' +
+        '<input class="cmz-in" data-cmzadd="text" id="cmz-add-text" placeholder="Ce se cumpără — ex. Șuruburi M6×20">' +
+        '<input class="cmz-in cmz-num" data-cmzadd="qty" value="1" placeholder="Cant.">' +
+        '<select class="cmz-in" data-cmzadd="um" title="Unitate de măsură">' + umOptionsHtml('buc') + '</select>' +
+        '<select class="cmz-in" data-cmzadd="projectId" title="Proiect">' + projectOptionsHtml(defP) + '</select>' +
+        '<select class="cmz-in" data-cmzadd="supplierId" title="Furnizor">' + supplierOptionsHtml(cmzFs, 'fără furnizor') + '</select>' +
+        '<select class="cmz-in" data-cmzadd="altSupplierId" title="Furnizor alternativ">' + supplierOptionsHtml('', 'sau… (alternativ)') + '</select>' +
+        '<button type="button" class="btn btn-xs btn-primary" data-cmz="add">Adaugă</button>' +
+        '<button type="button" class="btn btn-xs btn-ghost" data-cmz="add-toggle">renunț</button></div>';
+    }
+    return h;
+  }
+
+  /* ---- filtrare + sortare ---- */
+  function cmzBaseRows(needs){
+    var rows = needs.slice();
+    if(cmzFcmd) rows = rows.filter(function(n){ return n.cmdId === cmzFcmd; });
+    if(cmzFs) rows = rows.filter(function(n){ return n.supplierId === cmzFs || n.altSupplierId === cmzFs; });
+    if(cmzFp) rows = rows.filter(function(n){ return n.projectId === cmzFp; });
+    if(cmzUrg) rows = rows.filter(cmzIsUrgent);
+    if(cmzQ){
+      var q = cmzQ.toLowerCase();
+      rows = rows.filter(function(n){
+        var cmd = n.cmdId ? (cmdById(n.cmdId) || { nr:'' }).nr : '';
+        return (n.text + ' ' + supplierName(n.supplierId) + ' ' + n.projectCod + ' ' + cmd).toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    return rows;
+  }
+  var CMZ_SORTK = {
+    st:   function(n){ return ORDER_STATUSES.indexOf(n.status); },
+    text: function(n){ return String(n.text).toLowerCase(); },
+    qty:  function(n){ var v = parseFloat(n.qty); return isNaN(v) ? -1 : v; },
+    sup:  function(n){ return supplierName(n.supplierId).toLowerCase(); },
+    prj:  function(n){ return String(n.projectCod || 'zz').toLowerCase(); },
+    urg:  function(n){ var p = n._p; return (!p || !p.termen) ? 99999 : daysBetween(todayDate(), parseDate(p.termen)); }
+  };
+  function cmzSortRows(rows){
+    var f = CMZ_SORTK[cmzSort] || CMZ_SORTK.sup;
+    return rows.sort(function(a, b){ var x = f(a), y = f(b); return (x < y ? -1 : (x > y ? 1 : 0)) * cmzDir; });
+  }
+  // grupurile cu livrare apropiată urcă; cei fără zi fixă cad sub ei; „fără furnizor" la coadă
+  function cmzSupRank(k){
+    if(k === '__') return ['3', ''];
+    var d = nextDeliveryDate(k);
+    return d ? ['0' + d, supplierName(k)] : ['1', supplierName(k)];
+  }
+
+  /* ---- tabelul ---- */
+  var CMZ_COLS = [['st','Stare'],['text','Material'],['qty','Cant.'],[null,'U.M.'],['sup','Furnizor'],
+                  [null,'Alt.'],['prj','Proiect'],['urg','Termen']];
+  function cmzTheadHtml(rows){
+    var pick = rows.filter(function(n){ return n.status === 'de-comandat'; });
+    var allOn = pick.length > 0 && pick.every(function(n){ return cmzSel[n.key]; });
+    var h = '<thead><tr><th style="width:26px"><input class="cmz-selall" type="checkbox" data-cmz="selall" title="Bifează tot ce e de comandat"' +
+      (allOn ? ' checked' : '') + '></th>';
+    CMZ_COLS.forEach(function(c){
+      if(!c[0]){ h += '<th>' + c[1] + '</th>'; return; }
+      var on = cmzSort === c[0];
+      h += '<th class="sortable" data-cmz="sort" data-cmzv="' + c[0] + '">' + c[1] +
+        (on ? ' <span class="ar">' + (cmzDir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>';
+    });
+    return h + '<th style="width:62px"></th></tr></thead>';
+  }
+  function cmzRowHtml(n){
+    var p = n._p, L = cmzLateDays(p), s = cmzSoonDays(p);
+    var cls = 'row';
+    if(L > 0) cls += (n.status === 'de-comandat' ? ' blk' : ' blk-soft');
+    if(cmzSel[n.key]) cls += ' on';
+    if(n.status === 'primit') cls += ' dimr';
+    var cmd = n.cmdId ? cmdById(n.cmdId) : null;
+    var h = '<tr class="' + cls + '" data-cmz-row="' + n.key + '">';
+    h += '<td>' + (n.status === 'de-comandat'
+      ? '<input type="checkbox" data-cmz="sel" data-cmzk="' + n.key + '"' + (cmzSel[n.key] ? ' checked' : '') + ' title="Pune în coș">'
+      : '') + '</td>';
+    h += '<td>' + cmzStatePill(n) + '</td>';
+    h += '<td class="mat"><input class="cmz-in flat" data-cmz="edit" data-cmzfield="text" data-cmzk="' + n.key + '" value="' + esc(n.text) + '" placeholder="Ce se comandă">' +
+      (cmd ? '<div class="cmz-matnote">' + esc(cmd.nr) + (n.orderedAt ? ' · ' + esc(fmtShortDate(n.orderedAt)) : '') +
+        (n.receivedAt ? ' · primit ' + esc(fmtShortDate(n.receivedAt)) : '') + '</div>' : '') + '</td>';
+    h += '<td class="q"><input class="cmz-in flat cmz-num" data-cmz="edit" data-cmzfield="qty" data-cmzk="' + n.key + '" value="' + esc(n.qty) + '" placeholder="—"></td>';
+    h += '<td><select class="cmz-in flat" data-cmz="edit" data-cmzfield="um" data-cmzk="' + n.key + '">' + umOptionsHtml(n.um) + '</select></td>';
+    h += '<td><select class="cmz-in flat" data-cmz="edit" data-cmzfield="supplierId" data-cmzk="' + n.key + '">' + supplierOptionsHtml(n.supplierId, '—') + '</select></td>';
+    h += '<td><select class="cmz-in flat" data-cmz="edit" data-cmzfield="altSupplierId" data-cmzk="' + n.key + '">' + supplierOptionsHtml(n.altSupplierId, '+ alternativ') + '</select></td>';
+    h += '<td><select class="cmz-in flat" data-cmz="edit" data-cmzfield="projectId" data-cmzk="' + n.key + '">' + projectOptionsHtml(n.projectId) + '</select></td>';
+    h += '<td>' + (p && p.termen
+      ? '<span class="cmz-chip' + (L ? ' late' : (s !== null && s <= 4 ? ' soon' : '')) + '">' + (L ? 'întârziat ' + L + 'z' : esc(fmtShortDate(p.termen))) + '</span>'
+      : '<span class="cmz-note">—</span>') + '</td>';
+    h += '<td class="acts">' +
+      (n.altSupplierId ? '<button type="button" class="cmz-icob" data-cmz="swapalt" data-cmzk="' + n.key + '" title="Schimbă furnizorul cu alternativul">↔</button>' : '') +
+      '<button type="button" class="cmz-icob" data-cmz="del" data-cmzk="' + n.key + '" title="Șterge rândul">×</button></td>';
+    return h + '</tr>';
+  }
+  function cmzGroupHeadHtml(k, lines){
+    var open = lines.filter(function(n){ return n.status === 'de-comandat'; });
+    var d = nextDeliveryDate(k);
+    var due = !!(d && daysBetween(todayDate(), parseDate(d)) <= 2);
+    var sup = k === '__' ? null : supplierById(k);
+    var h = '<tr class="grow"><td colspan="10"><div class="cmz-grp' + (due && open.length ? ' due' : '') + '">';
+    h += '<span class="nm">' + esc(supplierName(k === '__' ? '' : k)) + '</span>';
+    h += '<span class="cat">' + esc(k === '__' ? 'pune un furnizor pe rând ca să poți trimite' : ((sup && sup.taskNote) || '')) + '</span>';
+    h += '<span class="when' + (d ? '' : ' pick') + '">' + esc(deliveryLabel(k === '__' ? '' : k)) + '</span>';
+    h += '<span class="sp"></span>';
+    h += '<span class="cnt">' + lines.length + ' rând' + (lines.length === 1 ? '' : 'uri') + ' · ' + open.length + ' de comandat</span>';
+    if(k === '__') h += '<button type="button" class="btn btn-xs" disabled>Trimite comanda</button>';
+    else h += '<button type="button" class="btn btn-xs' + (open.length ? ' btn-primary' : '') + '" data-cmz="send-group" data-cmzv="' + k + '"' +
+      (open.length ? '' : ' disabled') + '>Trimite comanda</button>';
+    return h + '</div></td></tr>';
+  }
+  function cmzTableHtml(rows){
+    var body = '';
+    if(!rows.length){
+      body = '<tr><td colspan="10" style="text-align:center;color:var(--ink-faint);padding:20px;">' +
+        'Niciun rând pentru filtrele astea. <button type="button" class="btn btn-xs btn-ghost" data-cmz="f-clear">curăță filtrele</button></td></tr>';
+    } else if(cmzGroup){
+      var live = cmzSortRows(rows.filter(function(n){ return n.status !== 'primit'; }));
+      var got  = cmzSortRows(rows.filter(function(n){ return n.status === 'primit'; }));
+      var g = {}, keys = [];
+      live.forEach(function(n){ var k = n.supplierId || '__'; if(!g[k]){ g[k] = []; keys.push(k); } g[k].push(n); });
+      keys.sort(function(a, b){
+        var ra = cmzSupRank(a), rb = cmzSupRank(b);
+        return ra[0] < rb[0] ? -1 : (ra[0] > rb[0] ? 1 : ra[1].localeCompare(rb[1]));
+      });
+      keys.forEach(function(k){
+        body += cmzGroupHeadHtml(k, g[k]);
+        g[k].forEach(function(n){ body += cmzRowHtml(n); });
+      });
+      if(got.length){
+        body += '<tr class="grow"><td colspan="10"><div class="cmz-grp got">' +
+          '<span class="nm">Primite</span><span class="cat">au ajuns în atelier</span><span class="sp"></span>' +
+          '<span class="cnt">' + got.length + ' rând' + (got.length === 1 ? '' : 'uri') + '</span></div></td></tr>';
+        got.forEach(function(n){ body += cmzRowHtml(n); });
+      }
+    } else {
+      cmzSortRows(rows).forEach(function(n){ body += cmzRowHtml(n); });
+    }
+    return '<div class="cmz-tw"><table class="cmz-t">' + cmzTheadHtml(rows) + '<tbody>' + body + '</tbody></table></div>';
+  }
+
+  /* ---- recepție: liniile pe drum, grupate pe comanda din care fac parte ---- */
+  function cmzReceptionHtml(needs, vis){
+    var visKeys = {};
+    vis.forEach(function(n){ visKeys[n.key] = true; });
+    var open = (state.orders || []).filter(function(o){
+      var ls = cmdLines(o.id, needs);
+      if(!ls.length) return false;
+      if(!ls.some(function(n){ return n.status === 'comandat'; })) return false;
+      return ls.some(function(n){ return visKeys[n.key]; });
+    }).sort(function(a, b){ return (a.date || '') < (b.date || '') ? -1 : ((a.date || '') > (b.date || '') ? 1 : 0); });
+
+    var h = '<div class="cmz-sect">Pe drum — bifează ce a ajuns</div>';
+    if(!open.length) return h + '<div class="cmz-empty">Nimic în curs de livrare pentru filtrele astea.</div>';
+    h += '<div class="cmz-track">';
+    open.forEach(function(o){
+      var ls = cmdLines(o.id, needs), st = orderState(o, needs);
+      h += '<div class="cmz-trk' + (st.received === st.total ? ' full' : '') + '"><div class="cmz-trk-h"><span class="nr">' + esc(o.nr) + '</span>' +
+        '<span class="sup">' + esc(supplierName(o.supplierId)) + '</span>' +
+        '<span class="cmz-note">' + (o.date ? 'trimisă ' + ZI_NAME[parseDate(o.date).getDay()] + ' ' + esc(fmtShortDate(o.date)) : 'comandă veche') + '</span>' +
+        '<span class="sp"></span>' +
+        '<span class="cmz-prog"><span class="bar"><i style="width:' + Math.round(100 * st.received / st.total) + '%"></i></span>' +
+        st.received + '/' + st.total + ' primite</span>' +
+        '<span class="cmz-pill ' + st.cls + '">' + st.label + '</span></div>';
+      ls.forEach(function(n){
+        h += '<div class="cmz-rl' + (n.status === 'primit' ? ' done' : '') + '">' + cmzQtyHtml(n) +
+          '<span class="g">' + esc(n.text || '(fără denumire)') + '</span>' + cmzProjChip(n);
+        if(n.status === 'primit'){
+          h += '<span class="cmz-pill recv">primit ' + esc(n.receivedAt ? fmtShortDate(n.receivedAt) : '') + '</span>' +
+            '<button type="button" class="cmz-icob" data-cmz="unreceive" data-cmzk="' + n.key + '" title="Anulează recepția">↺</button>';
+        } else {
+          h += '<span class="sp" style="flex:0"></span><button type="button" class="btn btn-xs" data-cmz="receive" data-cmzk="' + n.key + '">✓ primit</button>';
+        }
+        h += '</div>';
+      });
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  /* ---- istoric: tot ce a plecat la furnizori ---- */
+  function cmzHistoryHtml(needs){
+    var list = (state.orders || []).slice().sort(function(a, b){
+      var da = a.date || '', db = b.date || '';
+      return da < db ? 1 : (da > db ? -1 : (a.nr < b.nr ? 1 : -1));
+    });
+    var h = '<div><button type="button" class="cmz-hist-h" data-cmz="hist"><span class="ar">' + (cmzHist ? '▾' : '▸') + '</span>' +
+      '<b>Comenzi trimise (' + list.length + ')</b>' +
+      '<span class="cmz-note">tot ce a plecat la furnizori — număr, dată, cât s-a primit</span>' +
+      '<span class="sp"></span>' +
+      '<span class="cmz-note">' + (cmzHist ? 'ascunde' : 'arată') + '</span></button>';
+    if(!cmzHist) return h + '</div>';
+    if(!list.length) return h + '<div class="cmz-hist"><div class="cmz-empty">Nicio comandă trimisă încă.</div></div></div>';
+    h += '<div class="cmz-hist">';
+    list.forEach(function(o){
+      var st = orderState(o, needs), ls = cmdLines(o.id, needs);
+      var titles = ls.map(function(n){ return n.text || '(fără denumire)'; }).join(', ');
+      if(titles.length > 62) titles = titles.slice(0, 60) + '…';
+      h += '<button type="button" class="cmz-hl' + (cmzFcmd === o.id ? ' on' : '') + '" data-cmz="f-cmd" data-cmzv="' + o.id + '">' +
+        '<b>' + esc(o.nr) + '</b><span>' + esc(supplierName(o.supplierId)) + '</span>' +
+        '<span class="cmz-num">' + esc(o.date ? fmtShortDate(o.date) : '—') + '</span>' +
+        '<span class="g cmz-note">' + esc(titles) + '</span>' +
+        '<span class="sp"></span>' +
+        '<span class="cmz-prog"><span class="bar"><i style="width:' + (st.total ? Math.round(100 * st.received / st.total) : 0) + '%"></i></span>' +
+        st.received + '/' + st.total + ' primite</span></button>';
+    });
+    return h + '</div></div>';
+  }
+
+  /* ---- coșul: bifezi rânduri, pleacă o comandă per furnizor ---- */
+  function cmzCartKeys(needs){
+    var byKey = {};
+    (needs || allNeeds()).forEach(function(n){ byKey[n.key] = n; });
+    return Object.keys(cmzSel).filter(function(k){
+      var n = byKey[k];
+      return cmzSel[k] && n && n.status === 'de-comandat';
+    });
+  }
+  function cmzCartHtml(needs){
+    needs = needs || allNeeds();
+    var byKey = {};
+    needs.forEach(function(n){ byKey[n.key] = n; });
+    var keys = cmzCartKeys(needs);
+    if(!keys.length) return '';
+    var g = {}, sups = [];
+    keys.forEach(function(k){
+      var n = byKey[k], s = n.supplierId || '__';
+      if(!g[s]){ g[s] = []; sups.push(s); }
+      g[s].push(n);
+    });
+    var sendable = sups.filter(function(s){ return s !== '__'; });
+    var h = '<div class="cmz-cart"><span class="ttl cmz-num">' + keys.length + (keys.length === 1 ? ' rând' : ' rânduri') + ' · ' +
+      sups.length + (sups.length === 1 ? ' furnizor' : ' furnizori') + '</span>';
+    h += '<span class="grp">' + sups.map(function(s){
+      var d = nextDeliveryDate(s);
+      return '<span class="cmz-chip sup">' + esc(supplierName(s === '__' ? '' : s)) + ' ×' + g[s].length + (d ? ' · ' + esc(fmtShortDate(d)) : '') + '</span>';
+    }).join('') + '</span>';
+    h += '<span class="sp"></span>';
+    h += '<button type="button" class="btn btn-xs btn-ghost" data-cmz="cart-clear">golește coșul</button>';
+    h += '<button type="button" class="btn btn-xs btn-primary" data-cmz="cart-send"' + (sendable.length ? '' : ' disabled') + '>Consolidează în ' +
+      sendable.length + (sendable.length === 1 ? ' comandă' : ' comenzi') + '</button></div>';
+    return h;
+  }
+  function cmzPatchCart(){
+    var board = document.getElementById('board');
+    var old = board.querySelector('.cmz-cart');
+    if(old) old.remove();
+    var html = cmzCartHtml();
+    if(html) board.insertAdjacentHTML('beforeend', html);
+  }
+
+  /* ================= randarea tab-ului ================= */
   function renderComenzi(){
     var board = document.getElementById('board');
-    board.className = ''; board.style.display = 'block'; board.style.height = '100%';
+    board.className = 'cmz';
+    board.style.display = 'flex';
+    board.style.flexDirection = 'column';
+    board.style.alignItems = 'stretch';
+    board.style.height = 'auto';
+    board.style.minHeight = '100%';
 
-    var rows = [];
-    state.projects.forEach(function(p){
-      if(p.finalizat) return;
-      (p.orders || []).forEach(function(o){
-        if(!comenziShowPrimit && o.status === 'primit') return;
-        rows.push({ p: p, o: o });
-      });
-    });
-    // group by supplier
-    var groups = {}, order = [];
-    rows.forEach(function(r){
-      var w = r.o.supplierId ? state.workers.find(function(x){ return x.id === r.o.supplierId; }) : null;
-      var key = w ? w.id : '__none__';
-      var name = w ? w.name : '— fără furnizor —';
-      if(!groups[key]){ groups[key] = { name: name, rows: [] }; order.push(key); }
-      groups[key].rows.push(r);
-    });
-    order.sort(function(a, b){
-      if(a === '__none__') return 1; if(b === '__none__') return -1;
-      return groups[a].name.localeCompare(groups[b].name);
-    });
+    var needs = allNeeds();
+    var openCount = needs.filter(function(n){ return n.status === 'de-comandat'; }).length;
+    var wayCount = needs.filter(function(n){ return n.status === 'comandat'; }).length;
+    var supSeen = {};
+    needs.forEach(function(n){ if(n.status === 'de-comandat') supSeen[n.supplierId || '__'] = 1; });
 
-    var total = rows.length;
-    var toBuy = rows.filter(function(r){ return r.o.status === 'de-comandat'; }).length;
+    var vis = cmzBaseRows(needs);
+    var rows = cmzFst ? vis.filter(function(n){ return n.status === cmzFst; }) : vis;
 
-    var html = renderFurnizoriPanel();
-    html += '<div class="toolbar-row"><strong>Comenzi materiale</strong> — ' + total + ' rânduri, ' + toBuy + ' de comandat' +
-      '<label style="margin-left:16px;"><input type="checkbox" id="cmz-primit" ' + (comenziShowPrimit ? 'checked' : '') + '> Arată și primite</label></div>';
+    var h = '';
+    h += cmzSignalHtml(needs);
+    h += '<div class="cmz-hd"><h2>Comenzi materiale</h2>' +
+      '<span class="sub">' + needs.length + ' necesare · ' + openCount + ' de comandat la ' +
+      Object.keys(supSeen).length + (Object.keys(supSeen).length === 1 ? ' furnizor' : ' furnizori') + ' · ' + wayCount + ' pe drum</span>' +
+      '<span class="sp"></span>' +
+      '<span class="cmz-note">Fiecare rând e un necesar. Grupul de furnizor pleacă într-o singură comandă.</span></div>';
+    h += cmzFlashHtml();
+    h += cmzToolbarHtml(needs);
+    h += (cmzFst === 'comandat') ? cmzReceptionHtml(needs, vis) : cmzTableHtml(rows);
+    h += cmzHistoryHtml(needs);
+    h += renderFurnizoriPanel();
+    h += cmzCartHtml(needs);
 
-    if(!total){
-      html += '<div class="empty-state" style="margin-top:20px;"><h2>Nicio comandă</h2><p>Adaugă materiale în panoul „Comenzi materiale" al fiecărui proiect (marginea stângă a dosarului).</p></div>';
-      board.innerHTML = html;
-      attachFurnizoriEvents();
-      var cb0 = document.getElementById('cmz-primit');
-      if(cb0) cb0.addEventListener('change', function(e){ comenziShowPrimit = e.target.checked; render(); });
-      return;
-    }
-
-    html += '<div class="table-wrap"><table class="proj-table comenzi-table">';
-    html += '<thead><tr><th>Stare</th><th>Ce se comandă</th><th>Cant.</th><th>Furnizor</th><th>Proiect</th><th></th></tr></thead>';
-    order.forEach(function(gk){
-      var g = groups[gk];
-      html += '<tbody><tr class="comenzi-group"><td colspan="6">' + esc(g.name) + ' <span class="comenzi-group-n">' + g.rows.length + '</span></td></tr>';
-      g.rows.forEach(function(r){
-        var key = r.p.id + '::' + r.o.id;
-        html += '<tr>';
-        html += '<td><button type="button" class="order-status order-status-' + r.o.status + '" data-order-status="' + key + '" title="Schimbă starea">' + ORDER_STATUS_LABEL[r.o.status] + '</button></td>';
-        html += '<td><input class="cmz-inp" data-order-edit="' + key + '" data-field="text" value="' + esc(r.o.text || '') + '" placeholder="Ce se comandă"></td>';
-        html += '<td style="width:80px;"><input class="cmz-inp" data-order-edit="' + key + '" data-field="qty" value="' + esc(r.o.qty || '') + '" placeholder="Cant."></td>';
-        html += '<td style="width:150px;"><select class="cmz-inp" data-order-edit="' + key + '" data-field="supplierId">' + supplierOptionsHtml(r.o.supplierId || '') + '</select></td>';
-        html += '<td class="cmz-proj" data-open-project="' + r.p.id + '"><span class="t-code">' + esc(r.p.cod) + '</span><span class="traseu-client">' + esc(r.p.client) + '</span></td>';
-        html += '<td style="width:34px;"><button type="button" class="order-del" data-order-del="' + key + '" title="Șterge rândul">×</button></td>';
-        html += '</tr>';
-      });
-      html += '</tbody>';
-    });
-    html += '</table></div>';
-    board.innerHTML = html;
+    board.innerHTML = h;
     attachFurnizoriEvents();
+    attachComenziEvents();
 
-    var cb = document.getElementById('cmz-primit');
-    if(cb) cb.addEventListener('change', function(e){ comenziShowPrimit = e.target.checked; render(); });
-    board.querySelectorAll('[data-order-status]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var f = findOrderByKey(btn.dataset.orderStatus);
-        if(!f) return;
-        var i = ORDER_STATUSES.indexOf(f.order.status);
-        f.order.status = ORDER_STATUSES[(i + 1) % ORDER_STATUSES.length];
-        saveState(); render();
-      });
+    if(cmzFocus){
+      var el = document.getElementById(cmzFocus);
+      if(el){
+        el.focus();
+        if(el.setSelectionRange && (el.type === 'text' || !el.type)){ var v = el.value; try { el.setSelectionRange(v.length, v.length); } catch(e){} }
+      }
+      cmzFocus = null;
+    }
+  }
+
+  /* ---- formularul „Necesar nou" ---- */
+  function cmzReadAddForm(){
+    var f = document.querySelector('[data-cmz-form="new"]');
+    if(!f) return null;
+    function g(k){ var e = f.querySelector('[data-cmzadd="' + k + '"]'); return e ? e.value : ''; }
+    var t = g('text').trim();
+    if(!t){ var i = f.querySelector('[data-cmzadd="text"]'); if(i) i.focus(); return null; }
+    var pid = g('projectId');
+    var p = projectById(pid);
+    if(!p) return null;
+    var line = newOrderLine();
+    line.text = t;
+    line.qty = g('qty').trim();
+    line.um = g('um') || 'buc';
+    line.supplierId = g('supplierId') || '';
+    line.altSupplierId = g('altSupplierId') || '';
+    return { project: p, line: line };
+  }
+
+  /* ---- handlere delegate: 3 ascultători pe #board, nu N pe element ---- */
+  function attachComenziEvents(){
+    if(cmzEventsOn) return;
+    cmzEventsOn = true;
+    var board = document.getElementById('board');
+
+    board.addEventListener('click', function(e){
+      if(tab !== 'comenzi') return;
+      var el = e.target.closest('[data-cmz]');
+      if(!el || el.disabled) return;
+      var act = el.dataset.cmz;
+      if(act === 'sel' || act === 'selall' || act === 'edit' || act === 'f-q' || act === 'f-s' || act === 'f-p') return; // pe change/input
+      var key = el.dataset.cmzk || '';
+      var found = key ? findOrderByKey(key) : null;
+      var keepFlash = false;
+      var dirty = true;   // acțiunile de filtrare nu ating datele
+
+      switch(act){
+        case 'add': {
+          var add = cmzReadAddForm();
+          if(!add) return;
+          if(!Array.isArray(add.project.orders)) add.project.orders = [];
+          add.project.orders.unshift(add.line);
+          cmzFlash = { title:'Adăugat', body: add.line.text + (add.line.qty ? ' · ' + add.line.qty + ' ' + add.line.um : '') + ' pe ' + (add.project.cod || '—') };
+          keepFlash = true;
+          cmzFocus = 'cmz-add-text';
+          break;
+        }
+        case 'add-toggle': cmzAddOpen = !cmzAddOpen; if(cmzAddOpen) cmzFocus = 'cmz-add-text'; dirty = false; break;
+        case 'del': {
+          if(!found) return;
+          if(found.order.text && !confirm('Ștergi rândul „' + found.order.text + '”?')) return;
+          found.project.orders = found.project.orders.filter(function(x){ return x.id !== found.order.id; });
+          delete cmzSel[key];
+          pruneOrders();
+          break;
+        }
+        case 'cycle': if(!found) return; cycleOrderStatus(found.order); delete cmzSel[key]; break;
+        case 'receive': {
+          if(!found) return;
+          setOrderStatus(found.order, 'primit');
+          var o = found.order.cmdId ? cmdById(found.order.cmdId) : null;
+          if(o){
+            var st = orderState(o);
+            if(st.total && st.received === st.total){
+              cmzFlash = { title: o.nr + ' încheiată', body: 'Toate cele ' + st.total + ' rânduri de la ' + supplierName(o.supplierId) + ' au ajuns în atelier.' };
+              keepFlash = true;
+            }
+          }
+          break;
+        }
+        case 'unreceive': if(!found) return; found.order.status = 'comandat'; found.order.receivedAt = null; break;
+        case 'swapalt': {
+          if(!found) return;
+          var t2 = found.order.supplierId || '';
+          found.order.supplierId = found.order.altSupplierId || '';
+          found.order.altSupplierId = t2;
+          break;
+        }
+        case 'send-group': {
+          var gk = el.dataset.cmzv;
+          var gvis = cmzBaseRows(allNeeds());
+          if(cmzFst) gvis = gvis.filter(function(x){ return x.status === cmzFst; });
+          var picked = gvis.filter(function(x){ return x.status === 'de-comandat' && (x.supplierId || '__') === gk; });
+          var cmd = mintCmd(gk, picked.map(function(x){ return x._o; }));
+          if(!cmd) return;
+          picked.forEach(function(x){ delete cmzSel[x.key]; });
+          cmzFlash = { title: cmd.nr, body: picked.length + ' rând' + (picked.length === 1 ? '' : 'uri') + ' către ' + supplierName(gk) + ' · ' + deliveryLabel(gk), cmdId: cmd.id };
+          keepFlash = true;
+          break;
+        }
+        case 'cart-send': {
+          var all = allNeeds(), byKey = {};
+          all.forEach(function(n){ byKey[n.key] = n; });
+          var chosen = cmzCartKeys(all), by = {}, sups = [];
+          chosen.forEach(function(k){
+            var n = byKey[k], s = n.supplierId || '__';
+            if(!by[s]){ by[s] = []; sups.push(s); }
+            by[s].push(n);
+          });
+          var made = [];
+          sups.forEach(function(s){
+            if(s === '__') return;
+            var cmd2 = mintCmd(s, by[s].map(function(n){ return n._o; }));
+            if(cmd2){
+              made.push(cmd2.nr + ' · ' + supplierName(s) + ' ×' + by[s].length);
+              by[s].forEach(function(n){ delete cmzSel[n.key]; });
+            }
+          });
+          if(!made.length) return;
+          cmzFlash = { title: made.length + (made.length === 1 ? ' comandă trimisă' : ' comenzi trimise'), body: made.join('  ·  ') };
+          keepFlash = true;
+          break;
+        }
+        case 'cart-clear': cmzSel = {}; dirty = false; break;
+        case 'sort': { var sk = el.dataset.cmzv; if(cmzSort === sk) cmzDir *= -1; else { cmzSort = sk; cmzDir = 1; } dirty = false; break; }
+        case 'f-st': cmzFst = el.dataset.cmzv; dirty = false; break;
+        case 'f-urg': cmzUrg = !cmzUrg; dirty = false; break;
+        case 'f-group': cmzGroup = !cmzGroup; dirty = false; break;
+        case 'f-prj': cmzFp = (cmzFp === el.dataset.cmzv ? '' : el.dataset.cmzv); cmzFst = ''; dirty = false; break;
+        case 'f-cmd': cmzFcmd = (cmzFcmd === el.dataset.cmzv ? '' : el.dataset.cmzv); cmzFst = ''; cmzGroup = false; cmzUrg = false; cmzHist = true; dirty = false; break;
+        case 'f-cmd-x': cmzFcmd = ''; dirty = false; break;
+        case 'f-clear': cmzQ = ''; cmzFs = ''; cmzFp = ''; cmzFst = ''; cmzUrg = false; cmzFcmd = ''; dirty = false; break;
+        case 'hist': cmzHist = !cmzHist; dirty = false; break;
+        case 'flash-x': dirty = false; break;
+        default: return;
+      }
+      if(!keepFlash) cmzFlash = null;
+      if(dirty) saveState();
+      render();
     });
-    board.querySelectorAll('[data-order-edit]').forEach(function(inp){
-      inp.addEventListener('change', function(){
-        var f = findOrderByKey(inp.dataset.orderEdit);
-        if(!f) return;
-        f.order[inp.dataset.field] = inp.tagName === 'SELECT' ? inp.value : inp.value.trim();
-        saveState();
-        if(inp.dataset.field === 'supplierId') render(); // moves between groups
-      });
+
+    board.addEventListener('change', function(e){
+      if(tab !== 'comenzi') return;
+      var el = e.target.closest('[data-cmz]');
+      if(!el) return;
+      var act = el.dataset.cmz;
+
+      // coșul: doar bifa + subsolul se schimbă — fără re-randare, altfel sar bifele
+      if(act === 'sel'){
+        var k = el.dataset.cmzk;
+        if(el.checked) cmzSel[k] = true; else delete cmzSel[k];
+        var tr = el.closest('tr');
+        if(tr) tr.classList.toggle('on', el.checked);
+        cmzPatchCart();
+        return;
+      }
+
+      switch(act){
+        case 'selall': {
+          cmzSel = {};
+          if(el.checked){
+            document.querySelectorAll('input[data-cmz="sel"]').forEach(function(c){ cmzSel[c.dataset.cmzk] = true; });
+          }
+          cmzFlash = null;
+          render();
+          return;
+        }
+        case 'f-s': cmzFs = el.value; cmzFlash = null; render(); return;
+        case 'f-p': cmzFp = el.value; cmzFlash = null; render(); return;
+        case 'edit': {
+          var found = findOrderByKey(el.dataset.cmzk);
+          if(!found) return;
+          var f = el.dataset.cmzfield, v = el.value;
+          if(f === 'text'){
+            v = v.trim();
+            if(!v){ el.value = found.order.text || ''; return; }
+            found.order.text = v;
+          } else if(f === 'qty'){
+            found.order.qty = v.trim();
+          } else if(f === 'projectId'){
+            var np = projectById(v);
+            if(!np || np.id === found.project.id) return;
+            if(!Array.isArray(np.orders)) np.orders = [];
+            found.project.orders = found.project.orders.filter(function(x){ return x.id !== found.order.id; });
+            np.orders.push(found.order);
+            delete cmzSel[el.dataset.cmzk];
+          } else {
+            found.order[f] = v;
+          }
+          if(f === 'supplierId' && found.order.supplierId && found.order.supplierId === found.order.altSupplierId) found.order.altSupplierId = '';
+          if(f === 'altSupplierId' && found.order.altSupplierId && found.order.altSupplierId === found.order.supplierId) found.order.altSupplierId = '';
+          cmzFlash = null;
+          saveState();
+          render();
+          return;
+        }
+        default: return;
+      }
     });
-    board.querySelectorAll('[data-order-del]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var f = findOrderByKey(btn.dataset.orderDel);
-        if(!f) return;
-        if(f.order.text && !confirm('Ștergi rândul „' + f.order.text + '”?')) return;
-        f.project.orders = f.project.orders.filter(function(x){ return x.id !== f.order.id; });
-        saveState(); render();
-      });
-    });
-    board.querySelectorAll('[data-open-project]').forEach(function(td){
-      td.addEventListener('click', function(){ openProjectModal(td.dataset.openProject); });
+
+    board.addEventListener('input', function(e){
+      if(tab !== 'comenzi') return;
+      var el = e.target.closest('[data-cmz="f-q"]');
+      if(!el) return;
+      cmzQ = el.value;
+      cmzFocus = 'cmz-q';
+      cmzFlash = null;
+      render();
     });
   }
 
