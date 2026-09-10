@@ -3929,14 +3929,9 @@
     e.preventDefault();
     if(k === 'y' || e.shiftKey) doRedo(); else doUndo();
   });
-  var PLAN_TAB_PASS = 'nickmari=3';
   document.querySelectorAll('#tabs button').forEach(function(b){
     b.addEventListener('click', function(){
       if(tab === b.dataset.tab) return;
-      if(b.dataset.tab === 'planificare'){
-        // acces protejat — se cere parola la fiecare intrare în tab
-        if(window.prompt('Parolă Planificare:') !== PLAN_TAB_PASS) return;
-      }
       tab = b.dataset.tab;
       document.querySelectorAll('#tabs button').forEach(function(x){ x.classList.toggle('active', x === b); });
       setAddButton();
