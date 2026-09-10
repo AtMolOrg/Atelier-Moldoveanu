@@ -1432,7 +1432,9 @@
   function refreshStrategy(cb){
     if(!LLM_URL){ if(cb) cb(false); return; }
     var proiecte = (state.projects || []).filter(function(p){ return !p.finalizat; }).map(function(p){
-      return { cod: p.cod, stare: projectSummary(p), detalii: projLabeled(p) };
+      // numele proiectului = numele clientului (așa îl știe Nick); codul rămâne doar pt. referință
+      var nume = (p.client && p.client !== '-') ? p.client : p.cod;
+      return { nume: nume, cod: p.cod, stare: projectSummary(p), detalii: projLabeled(p) };
     });
     var oameni = peopleSorted().map(function(x){ return { nume: x.name, skills: x.skills || [] }; });
     fetch(LLM_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },

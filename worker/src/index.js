@@ -76,13 +76,15 @@ export default {
         "- ce riscă să întârzie dacă nu se mișcă azi\n" +
         "Aici AI-ul POATE recomanda — e strategie, nu execuție: e ok «prioritizează X», «pune " +
         "sudorii pe Y întâi». Dar: (a) nu inventa informații care nu-s în date; (b) 6–10 puncte " +
-        "scurte, cu «-» în față; (c) fără introducere, fără concluzie, direct punctele.";
+        "scurte, cu «-» în față; (c) fără introducere, fără concluzie, direct punctele; " +
+        "(d) referă-te la proiecte după NUME (numele clientului), nu după cod/număr; " +
+        "(e) tot textul în română, inclusiv verbele de acțiune.";
       const P = (body.proiecte || [])
         .map((p) => {
           const d = Object.entries(p.detalii || {})
             .map(([k, v]) => k + ": " + (Array.isArray(v) ? (v.join(", ") || "niciunul") : v))
             .join("; ");
-          return "• " + (p.cod || "?") + " — " + (p.stare || "") + " [" + d + "]";
+          return "• " + (p.nume || p.cod || "?") + " — " + (p.stare || "") + " [" + d + "]";
         })
         .join("\n");
       const O = (body.oameni || [])
